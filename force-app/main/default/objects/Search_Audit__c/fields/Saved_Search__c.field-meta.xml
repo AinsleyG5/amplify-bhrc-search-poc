@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Saved_Search__c</fullName>
+    <description>Saved search this run came from, or the recent-search record it was logged to.</description>
+    <inlineHelpText>Saved search this run came from, or the recent-search record it was logged to.</inlineHelpText>
+    <label>Saved Search</label>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <referenceTo>Saved_Search__c</referenceTo>
+    <relationshipLabel>Search Audits</relationshipLabel>
+    <relationshipName>Search_Audits</relationshipName>
+    <required>false</required>
+    <type>Lookup</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

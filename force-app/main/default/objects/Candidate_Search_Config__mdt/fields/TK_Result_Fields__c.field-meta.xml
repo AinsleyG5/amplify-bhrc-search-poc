@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TK_Result_Fields__c</fullName>
+    <description>Comma-separated resultFields. Never *, to keep the response inside the Apex heap.</description>
+    <label>TK Result Fields</label>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+</CustomField>

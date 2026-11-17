@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Skills_Autocomplete_Path__c</fullName>
+    <description>Path appended to the Skills Named Credential. Open item 4.</description>
+    <label>Skills Autocomplete Path</label>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+</CustomField>

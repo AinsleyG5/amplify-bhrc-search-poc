@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TK_Last_Placement_Field__c</fullName>
+    <description>Date field mapped from TR1__Last_Placement_Date__c.</description>
+    <label>TK Last Placement Field</label>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <length>80</length>
+    <required>false</required>
+    <type>Text</type>
+</CustomField>

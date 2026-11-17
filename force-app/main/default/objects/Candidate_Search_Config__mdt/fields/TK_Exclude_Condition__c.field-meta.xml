@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TK_Exclude_Condition__c</fullName>
+    <description>Condition enum for excluded parts. Open item 2: confirm the spelling.</description>
+    <label>TK Exclude Condition</label>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <length>40</length>
+    <required>false</required>
+    <type>Text</type>
+</CustomField>

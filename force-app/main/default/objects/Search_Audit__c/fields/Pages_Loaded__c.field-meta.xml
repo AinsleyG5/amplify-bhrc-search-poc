@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Pages_Loaded__c</fullName>
+    <description>Number of result pages appended to this audit.</description>
+    <inlineHelpText>Number of result pages appended to this audit.</inlineHelpText>
+    <label>Pages Loaded</label>
+    <precision>9</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

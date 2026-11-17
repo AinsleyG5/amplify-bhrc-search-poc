@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>System_Prompt__c</fullName>
+    <description>System prompt sent to the model.</description>
+    <label>System Prompt</label>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <length>32768</length>
+    <type>LongTextArea</type>
+    <visibleLines>10</visibleLines>
+</CustomField>

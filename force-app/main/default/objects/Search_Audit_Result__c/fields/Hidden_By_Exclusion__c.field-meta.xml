@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Hidden_By_Exclusion__c</fullName>
+    <description>Hidden by the pipelineForJob exclusion.</description>
+    <inlineHelpText>Hidden by the pipelineForJob exclusion.</inlineHelpText>
+    <label>Hidden By Exclusion</label>
+    <defaultValue>false</defaultValue>
+    <type>Checkbox</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

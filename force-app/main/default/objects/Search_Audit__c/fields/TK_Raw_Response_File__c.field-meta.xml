@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TK_Raw_Response_File__c</fullName>
+    <description>ContentVersion Id of the full response, stored as a File when it is larger than 131072 characters.</description>
+    <inlineHelpText>ContentVersion Id of the full response, stored as a File when it is larger than 131072 characters.</inlineHelpText>
+    <label>TK Raw Response File</label>
+    <length>18</length>
+    <required>false</required>
+    <type>Text</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

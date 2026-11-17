@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Search_Audit__c</fullName>
+    <description>Search this result belongs to.</description>
+    <inlineHelpText>Search this result belongs to.</inlineHelpText>
+    <label>Search Audit</label>
+    <referenceTo>Search_Audit__c</referenceTo>
+    <relationshipLabel>Results</relationshipLabel>
+    <relationshipName>Results</relationshipName>
+    <relationshipOrder>0</relationshipOrder>
+    <reparentableMasterDetail>false</reparentableMasterDetail>
+    <writeRequiresMasterRead>false</writeRequiresMasterRead>
+    <type>MasterDetail</type>
+</CustomField>

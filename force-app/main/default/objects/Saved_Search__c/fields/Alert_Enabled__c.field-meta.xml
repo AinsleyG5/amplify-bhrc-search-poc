@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Alert_Enabled__c</fullName>
+    <description>Not used in v1. Ready for saved-search alerts.</description>
+    <inlineHelpText>Not used in v1. Ready for saved-search alerts.</inlineHelpText>
+    <label>Alert Enabled</label>
+    <defaultValue>false</defaultValue>
+    <type>Checkbox</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AI_Input_Tokens__c</fullName>
+    <description>Input tokens of the parse or refine prompt.</description>
+    <inlineHelpText>Input tokens of the parse or refine prompt.</inlineHelpText>
+    <label>AI Input Tokens</label>
+    <precision>9</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

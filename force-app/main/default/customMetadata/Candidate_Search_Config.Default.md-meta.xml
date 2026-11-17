@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Default</label>
+    <protected>false</protected>
+    <values>
+        <field>Add_Job_Location__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Anthropic_Named_Credential__c</field>
+        <value xsi:type="xsd:string">Anthropic_API</value>
+    </values>
+    <values>
+        <field>Application_Candidate_Field__c</field>
+        <value xsi:type="xsd:string">TR1__Applicant__c</value>
+    </values>
+    <values>
+        <field>Autocomplete_Languages__c</field>
+        <value xsi:type="xsd:string">en</value>
+    </values>
+    <values>
+        <field>Cap_Skill_Parts__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Default_Radius_Miles__c</field>
+        <value xsi:type="xsd:double">15</value>
+    </values>
+    <values>
+        <field>Explain_Batch_Size__c</field>
+        <value xsi:type="xsd:double">10</value>
+    </values>
+    <values>
+        <field>LLM_Provider__c</field>
+        <value xsi:type="xsd:string">Anthropic</value>
+    </values>
+    <values>
+        <field>Max_Skill_Parts__c</field>
+        <value xsi:type="xsd:double">8</value>
+    </values>
+    <values>
+        <field>Page_Size__c</field>
+        <value xsi:type="xsd:double">20</value>
+    </values>
+    <values>
+        <field>Recent_Searches_Kept__c</field>
+        <value xsi:type="xsd:double">10</value>
+    </values>
+    <values>
+        <field>Skills_Autocomplete_Path__c</field>
+        <value xsi:type="xsd:string">/v10/skills/v2/autocomplete</value>
+    </values>
+    <values>
+        <field>Skills_Named_Credential__c</field>
+        <value xsi:type="xsd:string">Tx_Skills_API</value>
+    </values>
+    <values>
+        <field>Soft_Job_Title__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>TK_Access_Roles__c</field>
+        <value xsi:type="xsd:string">all</value>
+    </values>
+    <values>
+        <field>TK_Availability_Field__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>TK_Candidate_Environment__c</field>
+        <value xsi:type="xsd:string">tksf_bh4sf_tso_cv</value>
+    </values>
+    <values>
+        <field>TK_Candidate_Search_Engine__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>TK_Certification_Code_Field__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>TK_Exclude_Condition__c</field>
+        <value xsi:type="xsd:string">EXCLUDED</value>
+    </values>
+    <values>
+        <field>TK_External_Credential__c</field>
+        <value xsi:type="xsd:string">TK_Search_Service_Account</value>
+    </values>
+    <values>
+        <field>TK_Job_Environment__c</field>
+        <value xsi:type="xsd:string">tksf_bh4sf_tso_vac</value>
+    </values>
+    <values>
+        <field>TK_Job_Search_Engine__c</field>
+        <value xsi:type="xsd:string">vacancies</value>
+    </values>
+    <values>
+        <field>TK_Language_Field__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>TK_Last_Placement_Field__c</field>
+        <value xsi:type="xsd:string">custom_date_1</value>
+    </values>
+    <values>
+        <field>TK_Location_Field__c</field>
+        <value xsi:type="xsd:string">city</value>
+    </values>
+    <values>
+        <field>TK_Named_Credential__c</field>
+        <value xsi:type="xsd:string">TK_Candidate_Search</value>
+    </values>
+    <values>
+        <field>TK_Result_Fields__c</field>
+        <value xsi:type="xsd:string">fullname,jobtitles,recent_jobtitles,city,candidate_status,custom_date_1,owner_id,owner_name,it_skills,profskills</value>
+    </values>
+    <values>
+        <field>TK_Skill_Code_Field__c</field>
+        <value xsi:type="xsd:string">it_skills</value>
+    </values>
+    <values>
+        <field>TK_Timeout_Seconds__c</field>
+        <value xsi:type="xsd:double">30</value>
+    </values>
+    <values>
+        <field>TK_Title_Field__c</field>
+        <value xsi:type="xsd:string">FULLTEXT</value>
+    </values>
+    <values>
+        <field>Tx_Account_Id__c</field>
+        <value xsi:type="xsd:string">13430659</value>
+    </values>
+</CustomMetadata>
