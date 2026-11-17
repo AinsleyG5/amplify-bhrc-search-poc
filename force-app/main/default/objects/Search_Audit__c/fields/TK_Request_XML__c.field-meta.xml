@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TK_Request_XML__c</fullName>
+    <description>Masked SOAP request (no password, no index name). One block per page.</description>
+    <inlineHelpText>Masked SOAP request (no password, no index name). One block per page.</inlineHelpText>
+    <label>TK Request XML</label>
+    <length>131072</length>
+    <type>LongTextArea</type>
+    <visibleLines>5</visibleLines>
+</CustomField>

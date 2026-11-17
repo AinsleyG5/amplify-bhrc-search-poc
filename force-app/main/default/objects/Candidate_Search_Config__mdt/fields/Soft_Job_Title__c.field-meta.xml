@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Soft_Job_Title__c</fullName>
+    <description>Downgrade a generated REQUIRED title to STRONGLY_FAVORED in job match.</description>
+    <label>Soft Job Title</label>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <defaultValue>false</defaultValue>
+    <type>Checkbox</type>
+</CustomField>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AI_Explained_At__c</fullName>
+    <description>When the explanation was written.</description>
+    <inlineHelpText>When the explanation was written.</inlineHelpText>
+    <label>AI Explained At</label>
+    <required>false</required>
+    <type>DateTime</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

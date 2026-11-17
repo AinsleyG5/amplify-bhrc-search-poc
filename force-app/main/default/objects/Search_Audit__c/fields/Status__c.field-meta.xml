@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Status__c</fullName>
+    <description>Outcome of the search.</description>
+    <inlineHelpText>Outcome of the search.</inlineHelpText>
+    <label>Status</label>
+    <required>false</required>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Pending</fullName>
+                <default>false</default>
+                <label>Pending</label>
+            </value>
+            <value>
+                <fullName>Success</fullName>
+                <default>false</default>
+                <label>Success</label>
+            </value>
+            <value>
+                <fullName>TK error</fullName>
+                <default>false</default>
+                <label>TK error</label>
+            </value>
+            <value>
+                <fullName>AI error</fullName>
+                <default>false</default>
+                <label>AI error</label>
+            </value>
+            <value>
+                <fullName>Audit error</fullName>
+                <default>false</default>
+                <label>Audit error</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+    <type>Picklist</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

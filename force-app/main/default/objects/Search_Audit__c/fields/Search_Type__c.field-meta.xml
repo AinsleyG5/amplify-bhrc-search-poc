@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Search_Type__c</fullName>
+    <description>How the search was started.</description>
+    <inlineHelpText>How the search was started.</inlineHelpText>
+    <label>Search Type</label>
+    <required>false</required>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Natural language</fullName>
+                <default>false</default>
+                <label>Natural language</label>
+            </value>
+            <value>
+                <fullName>Job match</fullName>
+                <default>false</default>
+                <label>Job match</label>
+            </value>
+            <value>
+                <fullName>Refine</fullName>
+                <default>false</default>
+                <label>Refine</label>
+            </value>
+            <value>
+                <fullName>Saved search</fullName>
+                <default>false</default>
+                <label>Saved search</label>
+            </value>
+            <value>
+                <fullName>Manual</fullName>
+                <default>false</default>
+                <label>Manual</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+    <type>Picklist</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

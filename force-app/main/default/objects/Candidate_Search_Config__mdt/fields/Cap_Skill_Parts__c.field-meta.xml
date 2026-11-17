@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cap_Skill_Parts__c</fullName>
+    <description>Job match: cap skill parts at Max Skill Parts.</description>
+    <label>Cap Skill Parts</label>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <defaultValue>false</defaultValue>
+    <type>Checkbox</type>
+</CustomField>

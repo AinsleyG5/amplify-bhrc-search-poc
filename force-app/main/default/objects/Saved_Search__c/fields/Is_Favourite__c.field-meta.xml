@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Is_Favourite__c</fullName>
+    <description>Shown in the favourites list.</description>
+    <inlineHelpText>Shown in the favourites list.</inlineHelpText>
+    <label>Favourite</label>
+    <defaultValue>false</defaultValue>
+    <type>Checkbox</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

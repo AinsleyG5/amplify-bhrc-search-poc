@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Parent_Audit__c</fullName>
+    <description>Previous search in the same session (refine chain).</description>
+    <inlineHelpText>Previous search in the same session (refine chain).</inlineHelpText>
+    <label>Parent Audit</label>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <referenceTo>Search_Audit__c</referenceTo>
+    <relationshipLabel>Child Audits</relationshipLabel>
+    <relationshipName>Child_Audits</relationshipName>
+    <required>false</required>
+    <type>Lookup</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

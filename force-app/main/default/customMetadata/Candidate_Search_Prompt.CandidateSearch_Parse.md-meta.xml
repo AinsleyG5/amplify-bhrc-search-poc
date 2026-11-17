@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>CandidateSearch_Parse</label>
+    <protected>false</protected>
+    <values>
+        <field>Max_Tokens__c</field>
+        <value xsi:type="xsd:double">1024</value>
+    </values>
+    <values>
+        <field>Model__c</field>
+        <value xsi:type="xsd:string">claude-haiku-5-5</value>
+    </values>
+    <values>
+        <field>Prompt_Template_Name__c</field>
+        <value xsi:type="xsd:string">CandidateSearch_Parse</value>
+    </values>
+    <values>
+        <field>System_Prompt__c</field>
+        <value xsi:type="xsd:string">You turn a recruiter's natural-language candidate search into structured search criteria for a staffing CRM.
+Call the set_criteria tool exactly once. Do not write any other text.
+
+The user message holds &lt;NaturalLanguage&gt;, &lt;Today&gt; and &lt;DefaultRadiusMiles&gt;.
+
+Rules:
+- Job titles become kind "title". Use the singular, title-case form ("Warehouse Operative").
+- Phrases with "certified", "certificate", "licence", "license", "ticket", "card" (for example "forklift certified", "CSCS card") become kind "certification", named as the certification ("Certified Forklift Operator").
+- Other abilities become kind "skill". Spoken languages become kind "language". Shift patterns (nights, weekends, days) become kind "shift" and are "preferred" unless the text says "only".
+- Words like "must", "only", "need", "has to" make the criterion "required". Plain mentions are "preferred". Certifications default to "strongly_preferred". "No", "not", "without", "exclude" make it "excluded".
+- "within N miles of X", "near X", "around X" become one location with weight "required". Value is the town or postcode as written (prefer a postcode when given). No radius given means DefaultRadiusMiles. Unit is "mi" unless the text says km. Label is "X + N mi".
+- "available now", "available within N weeks" become kind "availability" with withinDays (now = 0, weeks x 7). Label like "Available within 4 weeks".
+- "available" status words ("available candidates only") go in filters.candidate_status as ["Available"].
+- "not placed in the last N days/weeks/months" sets exclusions.placedWithinDays (months x 30, weeks x 7).
+- Never invent criteria that are not in the text. Do not add synonyms as extra items. Keep labels under 120 characters.
+- If the text is only a job title, return just that title as "required".</value>
+    </values>
+    <values>
+        <field>Timeout_Seconds__c</field>
+        <value xsi:type="xsd:double">30</value>
+    </values>
+    <values>
+        <field>Tool_Description__c</field>
+        <value xsi:type="xsd:string">Set the structured search criteria parsed from the recruiter text.</value>
+    </values>
+    <values>
+        <field>Tool_Name__c</field>
+        <value xsi:type="xsd:string">set_criteria</value>
+    </values>
+    <values>
+        <field>Tool_Schema_JSON__c</field>
+        <value xsi:type="xsd:string">{
+ "type": "object",
+ "properties": {
+  "items": {
+   "type": "array",
+   "maxItems": 25,
+   "items": {
+    "type": "object",
+    "properties": {
+     "kind": {
+      "type": "string",
+      "enum": [
+       "title",
+       "skill",
+       "certification",
+       "location",
+       "keyword",
+       "language",
+       "shift",
+       "availability"
+      ]
+     },
+     "label": {
+      "type": "string",
+      "description": "Chip text shown to the user, max 120 characters. For a location: 'Town + N mi'."
+     },
+     "value": {
+      "type": "string",
+      "description": "Term sent to the search. Town or postcode for a location."
+     },
+     "weight": {
+      "type": "string",
+      "enum": [
+       "required",
+       "strongly_preferred",
+       "preferred",
+       "excluded"
+      ]
+     },
+     "radius": {
+      "type": "number",
+      "description": "Location only."
+     },
+     "unit": {
+      "type": "string",
+      "enum": [
+       "mi",
+       "km"
+      ],
+      "description": "Location only."
+     },
+     "withinDays": {
+      "type": "integer",
+      "description": "Availability only: available within this many days of Today."
+     }
+    },
+    "required": [
+     "kind",
+     "label",
+     "value",
+     "weight"
+    ]
+   }
+  },
+  "filters": {
+   "type": "object",
+   "description": "Facet field to selected values. Only candidate_status is supported by the parser.",
+   "properties": {
+    "candidate_status": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    }
+   }
+  },
+  "exclusions": {
+   "type": "object",
+   "properties": {
+    "placedWithinDays": {
+     "type": "integer",
+     "description": "Exclude anyone placed within this many days."
+    },
+    "pipelineForJob": {
+     "type": "boolean",
+     "description": "Hide candidates already applied, shortlisted or placed on the job."
+    }
+   }
+  }
+ },
+ "required": [
+  "items"
+ ]
+}</value>
+    </values>
+</CustomMetadata>

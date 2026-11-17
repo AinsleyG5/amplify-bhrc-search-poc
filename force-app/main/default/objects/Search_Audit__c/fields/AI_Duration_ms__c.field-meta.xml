@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AI_Duration_ms__c</fullName>
+    <description>Duration of the parse or refine prompt call.</description>
+    <inlineHelpText>Duration of the parse or refine prompt call.</inlineHelpText>
+    <label>AI Duration (ms)</label>
+    <precision>9</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

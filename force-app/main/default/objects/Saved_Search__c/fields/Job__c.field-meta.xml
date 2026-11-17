@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Job__c</fullName>
+    <description>Set for job-match searches.</description>
+    <inlineHelpText>Set for job-match searches.</inlineHelpText>
+    <label>Job</label>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <referenceTo>TR1__Job__c</referenceTo>
+    <relationshipLabel>Saved Searches</relationshipLabel>
+    <relationshipName>Saved_Searches</relationshipName>
+    <required>false</required>
+    <type>Lookup</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>CandidateSearch_Explain</label>
+    <protected>false</protected>
+    <values>
+        <field>Max_Tokens__c</field>
+        <value xsi:type="xsd:double">4096</value>
+    </values>
+    <values>
+        <field>Model__c</field>
+        <value xsi:type="xsd:string">claude-sonnet-5-5</value>
+    </values>
+    <values>
+        <field>Prompt_Template_Name__c</field>
+        <value xsi:type="xsd:string">CandidateSearch_Explain</value>
+    </values>
+    <values>
+        <field>System_Prompt__c</field>
+        <value xsi:type="xsd:string">You explain why each candidate appeared in a recruiter's search results.
+Call the explain_candidates tool exactly once with one entry per candidate in the input, in the same order. Do not write any other text.
+
+The user message holds &lt;CriteriaJson&gt; (the search criteria, each with an id and label) and &lt;CandidatesJson&gt; (for each candidate: docId, Textkernel score, met and notMet criteria ids, highlights and a short profile).
+
+Rules:
+- Textkernel decides who matches. "met" and "notMet" come from Textkernel and are final. Never say a criterion in notMet is met, and never say a criterion in met is missing.
+- For each criterion id in met or notMet, give one criteria entry with met exactly as Textkernel says.
+- evidence is a short quote or field value copied from the candidate's highlights or profile. Never invent evidence. If there is none, write "not on record".
+- source names where the evidence came from, as given in the input (for example "Profile title", "Highlight", or the note's source and date). Leave it empty when evidence is "not on record".
+- summary: one sentence, at most 30 words, plain English, leading with the strongest reason. Mention a missing required or strongly preferred criterion if there is one.
+- Do not mention the numeric score. Do not speculate about the person beyond the input.</value>
+    </values>
+    <values>
+        <field>Timeout_Seconds__c</field>
+        <value xsi:type="xsd:double">60</value>
+    </values>
+    <values>
+        <field>Tool_Description__c</field>
+        <value xsi:type="xsd:string">Explain, per candidate, which criteria Textkernel matched and the evidence for each.</value>
+    </values>
+    <values>
+        <field>Tool_Name__c</field>
+        <value xsi:type="xsd:string">explain_candidates</value>
+    </values>
+    <values>
+        <field>Tool_Schema_JSON__c</field>
+        <value xsi:type="xsd:string">{
+ "type": "object",
+ "properties": {
+  "explanations": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "docId": {
+      "type": "string"
+     },
+     "summary": {
+      "type": "string",
+      "description": "One sentence, max 30 words."
+     },
+     "criteria": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "id": {
+         "type": "string"
+        },
+        "met": {
+         "type": "boolean"
+        },
+        "evidence": {
+         "type": "string",
+         "description": "Short quote or field from the input, or 'not on record'."
+        },
+        "source": {
+         "type": "string",
+         "description": "Where the evidence came from, as given in the input."
+        }
+       },
+       "required": [
+        "id",
+        "met",
+        "evidence"
+       ]
+      }
+     }
+    },
+    "required": [
+     "docId",
+     "summary",
+     "criteria"
+    ]
+   }
+  }
+ },
+ "required": [
+  "explanations"
+ ]
+}</value>
+    </values>
+</CustomMetadata>

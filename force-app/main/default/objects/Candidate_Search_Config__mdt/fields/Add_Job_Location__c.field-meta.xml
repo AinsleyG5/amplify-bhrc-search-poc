@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Add_Job_Location__c</fullName>
+    <description>Job match: add a required location from the job when the generated parts have none.</description>
+    <label>Add Job Location</label>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <defaultValue>false</defaultValue>
+    <type>Checkbox</type>
+</CustomField>

@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>CandidateSearch_Refine</label>
+    <protected>false</protected>
+    <values>
+        <field>Max_Tokens__c</field>
+        <value xsi:type="xsd:double">1024</value>
+    </values>
+    <values>
+        <field>Model__c</field>
+        <value xsi:type="xsd:string">claude-haiku-5-5</value>
+    </values>
+    <values>
+        <field>Prompt_Template_Name__c</field>
+        <value xsi:type="xsd:string">CandidateSearch_Refine</value>
+    </values>
+    <values>
+        <field>System_Prompt__c</field>
+        <value xsi:type="xsd:string">You edit an existing candidate search, one chat message at a time, for a recruiter.
+Call the update_criteria tool exactly once. Do not write any other text.
+
+The user message holds &lt;CriteriaJson&gt; (the current criteria; each chip has an id), &lt;Message&gt; (what the recruiter just said), &lt;HistoryJson&gt; (the last turns) and &lt;ResultSummaryJson&gt; (the current top results with Textkernel scores and which criteria each one met).
+
+Rules:
+- Return the smallest patch that does what the message asks. Reference existing chips by id. Never re-create a chip that already exists; update it instead.
+- Ops: add (with item), update (id + set), remove (id), setExclusion (key placedWithinDays with days, or pipelineForJob with true/false; value null clears it), setFilter (key = facet field, values = list; empty list clears).
+- Weights: "must", "only", "need" = required; "prefer", "nice to have", "bonus" = preferred; "really want", "strongly" = strongly_preferred; "no", "drop anyone with", "exclude" = excluded. "Don't require X" or "X is optional" downgrades the chip to preferred.
+- "Drop anyone we placed in the last month" = setExclusion placedWithinDays 30. "Hide people already on this job" = setExclusion pipelineForJob true.
+- Changing a radius updates radius and label ("Dagenham + 25 mi").
+- Chips of kind fingerprint or tk_raw can only be removed, not updated.
+- Questions about the results ("why is Aimee third?", "how many have a forklift licence?") return an empty patch and answer in reply using only ResultSummaryJson. Never guess beyond it.
+- If the request is ambiguous (for example "make it wider" when there are two locations), return an empty patch, needsClarification true, and one short question in reply.
+- reply: one or two plain sentences saying what changed and its effect, for example "Done. Nights now counts in their favour but does not exclude anyone." </value>
+    </values>
+    <values>
+        <field>Timeout_Seconds__c</field>
+        <value xsi:type="xsd:double">30</value>
+    </values>
+    <values>
+        <field>Tool_Description__c</field>
+        <value xsi:type="xsd:string">Patch the current search criteria and reply to the recruiter.</value>
+    </values>
+    <values>
+        <field>Tool_Name__c</field>
+        <value xsi:type="xsd:string">update_criteria</value>
+    </values>
+    <values>
+        <field>Tool_Schema_JSON__c</field>
+        <value xsi:type="xsd:string">{
+ "type": "object",
+ "properties": {
+  "patch": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "op": {
+      "type": "string",
+      "enum": [
+       "add",
+       "update",
+       "remove",
+       "setExclusion",
+       "setFilter"
+      ]
+     },
+     "id": {
+      "type": "string",
+      "description": "Chip id, for update and remove."
+     },
+     "item": {
+      "type": "object",
+      "properties": {
+       "kind": {
+        "type": "string",
+        "enum": [
+         "title",
+         "skill",
+         "certification",
+         "location",
+         "keyword",
+         "language",
+         "shift",
+         "availability"
+        ]
+       },
+       "label": {
+        "type": "string",
+        "description": "Chip text shown to the user, max 120 characters. For a location: 'Town + N mi'."
+       },
+       "value": {
+        "type": "string",
+        "description": "Term sent to the search. Town or postcode for a location."
+       },
+       "weight": {
+        "type": "string",
+        "enum": [
+         "required",
+         "strongly_preferred",
+         "preferred",
+         "excluded"
+        ]
+       },
+       "radius": {
+        "type": "number",
+        "description": "Location only."
+       },
+       "unit": {
+        "type": "string",
+        "enum": [
+         "mi",
+         "km"
+        ],
+        "description": "Location only."
+       },
+       "withinDays": {
+        "type": "integer",
+        "description": "Availability only: available within this many days of Today."
+       }
+      },
+      "required": [
+       "kind",
+       "label",
+       "value",
+       "weight"
+      ]
+     },
+     "set": {
+      "type": "object",
+      "description": "Fields to change on the chip for update: label, value, weight, radius, unit, withinDays.",
+      "properties": {
+       "label": {
+        "type": "string"
+       },
+       "value": {
+        "type": "string"
+       },
+       "weight": {
+        "type": "string",
+        "enum": [
+         "required",
+         "strongly_preferred",
+         "preferred",
+         "excluded"
+        ]
+       },
+       "radius": {
+        "type": "number"
+       },
+       "unit": {
+        "type": "string",
+        "enum": [
+         "mi",
+         "km"
+        ]
+       },
+       "withinDays": {
+        "type": "integer"
+       }
+      }
+     },
+     "key": {
+      "type": "string",
+      "description": "setExclusion: placedWithinDays or pipelineForJob. setFilter: the facet field."
+     },
+     "value": {
+      "description": "setExclusion value: integer days, boolean, or null to clear."
+     },
+     "values": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "setFilter values. Empty clears the filter."
+     }
+    },
+    "required": [
+     "op"
+    ]
+   }
+  },
+  "reply": {
+   "type": "string",
+   "description": "Short reply shown in the chat, max 2 sentences."
+  },
+  "needsClarification": {
+   "type": "boolean"
+  }
+ },
+ "required": [
+  "patch",
+  "reply",
+  "needsClarification"
+ ]
+}</value>
+    </values>
+</CustomMetadata>

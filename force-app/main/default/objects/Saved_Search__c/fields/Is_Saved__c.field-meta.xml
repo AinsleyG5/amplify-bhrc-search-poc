@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Is_Saved__c</fullName>
+    <description>False = recent search logged automatically. True = saved by the user.</description>
+    <inlineHelpText>False = recent search logged automatically. True = saved by the user.</inlineHelpText>
+    <label>Saved</label>
+    <defaultValue>false</defaultValue>
+    <type>Checkbox</type>
+    <trackTrending>false</trackTrending>
+</CustomField>

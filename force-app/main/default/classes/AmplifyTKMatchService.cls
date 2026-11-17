@@ -347,11 +347,15 @@ public with sharing class AmplifyTKMatchService {
      * so both are masked before the copy leaves Apex.
      */
     private static void recordRequest(String label, String body) {
-        String masked = body
+        sentRequests.add('<!-- ' + label.replace('--', '- -') + ' -->\n' + maskRequest(body));
+    }
+
+    /** Masks the index name and password in a SOAP request. Also used by TkSearchClient (Candidate Search). */
+    public static String maskRequest(String body) {
+        return body
             .replaceAll('<environment>[^<]*</environment>', '<environment>(hidden)</environment>')
             .replaceAll('<password>[^<]*</password>', '<password>(hidden)</password>')
             .replaceAll('<url>doc://[^/<]*/', '<url>doc://(index)/');
-        sentRequests.add('<!-- ' + label.replace('--', '- -') + ' -->\n' + masked);
     }
 
     /**
@@ -406,8 +410,7 @@ public with sharing class AmplifyTKMatchService {
     }
 
     /** Multi word terms are sent as phrases so they match as a sequence, not as loose words. */
-    @TestVisible
-    private static String quoteTerm(String term) {
+    public static String quoteTerm(String term) {
         String t = term.replace('"', '').trim();
         return t.contains(' ') ? '"' + t + '"' : t;
     }
@@ -496,7 +499,7 @@ public with sharing class AmplifyTKMatchService {
         return out;
     }
 
-    private static Decimal normaliseScore(Decimal raw) {
+    public static Decimal normaliseScore(Decimal raw) {
         if (raw == null) return null;
         // Search scores come back as a ratio. Treat anything up to 2 as a ratio, and never show more than 100.
         Decimal pct = raw <= 2 ? raw * 100 : raw;

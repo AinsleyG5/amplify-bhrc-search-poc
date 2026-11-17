@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Pipeline_Flags__c</fullName>
+    <description>Applied, Shortlisted, Placed as shown.</description>
+    <inlineHelpText>Applied, Shortlisted, Placed as shown.</inlineHelpText>
+    <label>Pipeline Flags</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <trackTrending>false</trackTrending>
+</CustomField>
