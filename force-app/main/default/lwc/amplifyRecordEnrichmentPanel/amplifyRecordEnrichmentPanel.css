@@ -1,0 +1,215 @@
+.sourcing-note-textarea textarea {
+  min-height: 250px;
+}
+
+.link-mi-container {
+  justify-content: flex-start;
+}
+
+.job-header lightning-icon {
+  position: relative;
+  top: 1px;
+}
+
+.related-tile {
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 0.25rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.related-tile:hover {
+  background-color: var(--lwc-colorBackgroundAlt, #f3f3f3);
+}
+.tile-label {
+  flex: 1;
+  font-weight: 500;
+}
+
+/* Overall padding container */
+.mi-container {
+  background-color: white; /* optional, but keeps it card-like if on a grey Flow screen */
+}
+
+/* Suggestions block scrolling & rows */
+.suggestions-container {
+  max-height: 18rem;
+}
+
+.suggestion-row + .suggestion-row {
+  border-top: 1px solid #e5e5e5;
+}
+
+/* Info bar styling */
+.enrichment-info {
+  background-color: #f3f2f2; /* light SLDS-ish gray */
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  color: #514f4d; /* slightly darker text than default weak */
+}
+
+/* Value alignment & emphasis */
+.value-row {
+  column-gap: 0.25rem;
+}
+
+.current-value {
+  color: #444;
+}
+
+.proposed-value {
+  font-weight: 600;
+}
+
+/* Optional: right-align old values if you want a sharp “column edge” */
+.value-row .current-value {
+  text-align: left; /* change to right if you prefer */
+}
+
+/* Confidence pills */
+.pill {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.pill-high {
+  background-color: #e3fcef;
+  color: #04844b;
+}
+
+.pill-medium {
+  background-color: #fff7e0;
+  color: #8a6d1d;
+}
+
+.pill-low {
+  background-color: #fbeaea;
+  color: #ba0517;
+}
+
+.updates-box {
+  height: auto;
+}
+
+.stage-suggestion-card {
+  border-left: 4px solid #1589ee; /* Salesforce blue-ish */
+}
+
+.stage-badge {
+  display: inline-block;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.stage-badge_current {
+  background-color: #f3f2f2;
+  color: #706e6b;
+}
+
+.stage-badge_proposed {
+  background-color: #1589ee;
+  color: #ffffff;
+}
+
+.stage-pill {
+  display: inline-block;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background-color: #fdf2e0; /* soft highlight */
+  color: #b97200;
+  border: 1px solid #f3b35c;
+}
+
+/* Optional: tweak the existing stage "confidence" pill color */
+.pill-stage {
+  background-color: #eceaff;
+  color: #3e3dc7;
+}
+
+.lead-creation-body {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: #0070d2;
+}
+
+.pill-lead {
+  background-color: #0070d2;
+  color: #ffffff;
+}
+
+/* Pre-enrichment panel */
+.pre-enrichment-panel {
+    background-color: #fafbfc;
+    border-radius: 0.5rem;
+    border: 1px dashed #d8dde6;
+    padding: 1.5rem;
+}
+
+.sparkle-wrapper {
+    display: inline-block;
+    padding: 0.75rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e3f0ff 0%, #f0e3ff 100%);
+}
+
+.sparkle-icon {
+    --sds-c-icon-color-foreground-default: #5867e8;
+}
+
+.source-label {
+    color: #706e6b;
+    background-color: #f3f2f2;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    display: inline-block;
+}
+
+.previously-enriched {
+    background-color: #f0f9f4;
+    border: 1px solid #d4edda;
+}
+
+.previously-enriched .sparkle-icon {
+    --sds-c-icon-color-foreground-default: #04844b;
+}
+
+.upload-section {
+    border-top: 1px solid #e5e5e5;
+    margin-top: 1rem;
+    padding-top: 1rem;
+}
+
+.upload-section lightning-file-upload {
+    display: block;
+}
+
+.alternative-input-section {
+    border-top: 1px solid #e5e5e5;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    text-align: left;
+}
+
+.paste-textarea textarea {
+    min-height: 120px;
+}
+
+.market-intel-box {
+    background-color: #f4f8fc;
+    border-left: 3px solid #1589ee;
+}
+
+.summary-textarea textarea {
+    min-height: 80px;
+    background-color: white;
+}

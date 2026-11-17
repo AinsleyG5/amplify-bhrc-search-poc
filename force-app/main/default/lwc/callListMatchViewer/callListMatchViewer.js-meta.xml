@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>62.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Bullhorn - Talent Pool Match Viewer</masterLabel>
+    <description>Matches candidates to a Talent Pool with tunable weightings for silver medalists, engagement, redeployment and VMS readiness.</description>
+    <targets>
+        <target>lightning__RecordPage</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__RecordPage">
+            <objects>
+                <object>TR1__Call_List__c</object>
+            </objects>
+            <property
+                name="searchTitle"
+                type="String"
+                label="Search title (optional)"
+                description="Job title sent to TextKernel. Leave blank to derive it from the Talent Pool name, for example 'Delivery Driver Talent Pool' becomes 'Delivery Driver'."
+                placeholder="Delivery Driver" />
+            <property
+                name="searchCity"
+                type="String"
+                label="Search city (optional)"
+                description="City to centre the search on. Leave blank to search without a location."
+                placeholder="London" />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

@@ -1,0 +1,381 @@
+<template>
+    <lightning-card title={poolDisplayName} icon-name="standard:groups">
+
+        <div slot="actions" class="header-actions">
+            <span class={modeClass}>{modeLabel}</span>
+            <span class="result-count">{resultCountLabel}</span>
+            <lightning-button
+                variant="brand"
+                label={buttonLabel}
+                icon-name="utility:search"
+                onclick={runMatch}
+                disabled={isMatching}>
+            </lightning-button>
+        </div>
+
+        <div class="body">
+
+            <!-- ── Pool pipeline (optional) ───────────────────────────
+                 Shown only when the controller exposes hasPipeline.
+                 Expected shape: pipeline = [{ key, label, value, hint, tileClass }]
+                 tileClass: 'pipe-tile', 'pipe-tile pipe-tile-active' or 'pipe-tile pipe-tile-done'
+                 pipelineCaption: e.g. "Match runs for 30 days, day 12 of 30" -->
+            <template if:true={hasPipeline}>
+                <div class="pipeline">
+                    <div class="pipeline-head">
+                        <span class="pipeline-title">Pool progress</span>
+                        <span class="pipeline-caption">{pipelineCaption}</span>
+                    </div>
+                    <div class="pipeline-tiles">
+                        <template for:each={pipeline} for:item="step">
+                            <div key={step.key} class={step.tileClass}>
+                                <span class="pipe-value">{step.value}</span>
+                                <span class="pipe-label">{step.label}</span>
+                                <span class="pipe-hint">{step.hint}</span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
+            <!-- ── Matching strategy ─────────────────────────── -->
+            <div class="strategy">
+                <div class="strategy-head">
+                    <div class="strategy-title">
+                        <span class="strategy-heading">Matching strategy</span>
+                        <span class="strategy-sub">What counts towards a good match for this pool</span>
+                    </div>
+                    <lightning-button
+                        variant="base"
+                        label={tuneToggleLabel}
+                        icon-name={tuneIcon}
+                        icon-position="right"
+                        onclick={toggleTune}>
+                    </lightning-button>
+                </div>
+
+                <!-- Share bar: always visible, so the current weighting is clear at a glance -->
+                <div class="share-bar" role="img" aria-label={weightSummary}>
+                    <template for:each={weightRows} for:item="row">
+                        <span key={row.key} class={row.segClass} style={row.segStyle} title={row.label}></span>
+                    </template>
+                </div>
+                <div class="share-legend">
+                    <template for:each={weightRows} for:item="row">
+                        <span key={row.key} class="legend-item">
+                            <span class={row.dotClass}></span>{row.label} {row.shareLabel}
+                        </span>
+                    </template>
+                </div>
+
+                <template if:true={tuneOpen}>
+                    <div class="tune-panel">
+                        <div class="preset-row">
+                            <span class="preset-caption">Quick settings</span>
+                            <template for:each={presetButtons} for:item="p">
+                                <lightning-button
+                                    key={p.id}
+                                    label={p.label}
+                                    variant={p.variant}
+                                    data-id={p.id}
+                                    onclick={handlePreset}>
+                                </lightning-button>
+                            </template>
+                        </div>
+
+                        <template for:each={weightRows} for:item="row">
+                            <div key={row.key} class="weight-row">
+                                <div class="weight-text">
+                                    <span class="weight-label">{row.label}</span>
+                                    <span class="weight-help">{row.help}</span>
+                                </div>
+                                <lightning-slider
+                                    class="weight-slider"
+                                    label={row.label}
+                                    variant="label-hidden"
+                                    min="0"
+                                    max="100"
+                                    step="5"
+                                    value={row.value}
+                                    data-key={row.key}
+                                    onchange={handleWeightChange}>
+                                </lightning-slider>
+                                <span class="weight-share">{row.shareLabel}</span>
+                            </div>
+                        </template>
+                        <p class="tune-foot">Changing a weighting resets the search.</p>
+                    </div>
+                </template>
+            </div>
+
+            <!-- ── Refine ────────────────────────────────────── -->
+            <div class="refine-bar">
+                <input type="text"
+                       class="refine-input"
+                       placeholder='Refine the search, e.g. "extend the radius by 30 miles" or "add forklift"'
+                       value={refineText}
+                       oninput={handleRefineChange}
+                       onkeyup={handleRefineKeyup} />
+                <lightning-button
+                    label="Refine"
+                    icon-name="utility:magicwand"
+                    onclick={handleRefine}
+                    disabled={refineDisabled}>
+                </lightning-button>
+            </div>
+            <template if:true={hasTkQuery}>
+                <div class="tk-query" title="Literal query sent to TextKernel Search">{tkQuery}</div>
+            </template>
+
+            <!-- ── Request viewer: the SOAP body sent to TextKernel (credentials masked) ── -->
+            <template if:true={hasRequestXml}>
+                <div class="req-viewer">
+                    <button type="button" class="req-toggle" aria-expanded={requestExpanded} onclick={toggleRequest}>
+                        <lightning-icon icon-name={requestToggleIcon} size="xx-small" alternative-text="Toggle"></lightning-icon>
+                        <span class="req-toggle-label">{requestToggleLabel}</span>
+                        <span class="req-meta">{requestMeta}</span>
+                    </button>
+                    <template if:true={requestOpen}>
+                        <div class="req-panel">
+                            <div class="req-bar">
+                                <span class="req-note">Exactly what was sent. Password and index name are hidden.</span>
+                                <lightning-button variant="base" label={copyLabel} icon-name="utility:copy_to_clipboard" onclick={copyRequest}></lightning-button>
+                            </div>
+                            <div class="req-code" role="region" aria-label="Request sent to TextKernel">
+                                <template for:each={requestLines} for:item="ln">
+                                    <div key={ln.id} class={ln.cls}>{ln.text}</div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <template if:true={hasNotice}>
+                <div class="notice" role="status">{notice}</div>
+            </template>
+
+            <!-- ── Retrieval trace: how this list was produced ──── -->
+            <template if:true={showTrace}>
+                <div class="trace">
+                    <div class="trace-head">
+                        <span class="trace-title">How this list was built</span>
+                        <span class="trace-caption">{traceCaption}</span>
+                    </div>
+                    <div class="trace-tiles">
+                        <template for:each={traceSteps} for:item="step">
+                            <div key={step.key} class={step.tileClass}>
+                                <span class="trace-num">{step.n}</span>
+                                <div class="trace-text">
+                                    <span class="trace-name">{step.title}</span>
+                                    <span class="trace-value">{step.value}</span>
+                                    <span class="trace-hint">{step.hint}</span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
+            <!-- ── Loading ───────────────────────────────────── -->
+            <template if:true={isMatching}>
+                <div class="loading" role="status" aria-live="polite">
+                    <lightning-spinner alternative-text="Running match" size="small"></lightning-spinner>
+                    <p class="loading-text">{loadingMessage}...</p>
+                    <div class="cand-grid">
+                        <div class="skeleton"></div>
+                        <div class="skeleton"></div>
+                        <div class="skeleton skeleton-short"></div>
+                        <div class="skeleton skeleton-short"></div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- ── Results ───────────────────────────────────── -->
+            <template if:false={isMatching}>
+
+                <template if:false={hasRun}>
+                    <div class="empty-state">
+                        <lightning-icon icon-name="utility:search" size="medium" alternative-text="Search"></lightning-icon>
+                        <p class="empty-title">No matches yet</p>
+                        <p class="empty-sub">Run the match to surface candidates against this talent pool, ranked by the strategy above.</p>
+                        <lightning-button variant="brand" label={buttonLabel} onclick={runMatch}></lightning-button>
+                    </div>
+                </template>
+
+                <template if:true={hasRun}>
+
+                    <div class="results-head">
+                        <div class="chip-row">
+                            <template for:each={filterChips} for:item="chip">
+                                <button key={chip.key}
+                                        type="button"
+                                        class={chip.chipClass}
+                                        data-key={chip.key}
+                                        onclick={handleFilter}>{chip.label}</button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <template if:false={hasResults}>
+                        <p class="empty">No candidates in this view.</p>
+                    </template>
+
+                    <div class="cand-grid">
+                        <template for:each={pagedCandidates} for:item="cand">
+                            <div key={cand.id} class="cand">
+
+                                <div class="cand-main" data-id={cand.id} onclick={toggleExpand}>
+                                    <div class="avatar">{cand.initials}</div>
+
+                                    <div class="cand-body">
+                                        <span class="cand-name">{cand.name}</span>
+                                        <p class="cand-sub">{cand.title} &nbsp;&bull;&nbsp; {cand.location}</p>
+
+                                        <div class="tag-row">
+                                            <span class={cand.statusClass}>{cand.status}</span>
+                                            <template for:each={cand.badges} for:item="b">
+                                                <span key={b.id} class={b.badgeClass}>{b.label}</span>
+                                            </template>
+                                        </div>
+
+                                        <div class="cand-summary-slot">
+                                            <template if:true={cand.hasSummary}>
+                                                <template if:false={cand.expanded}>
+                                                    <p class="cand-summary cand-summary-clamp">{cand.summary}</p>
+                                                </template>
+                                                <template if:true={cand.expanded}>
+                                                    <p class="cand-summary cand-summary-full">{cand.summary}</p>
+                                                </template>
+                                            </template>
+                                        </div>
+
+                                        <div class="sig-row">
+                                            <template for:each={cand.signals} for:item="sig">
+                                                <div key={sig.key} class={sig.cellClass}>
+                                                    <div class="sig-top">
+                                                        <span class="sig-label">{sig.label}</span>
+                                                        <span class="sig-value">{sig.valueLabel}</span>
+                                                    </div>
+                                                    <div class="sig-track"><div class="sig-fill" style={sig.barStyle}></div></div>
+                                                </div>
+                                            </template>
+                                        </div>
+
+                                        <template if:false={cand.expanded}>
+                                            <div class="reason-row reason-row-clamp">
+                                                <template for:each={cand.reasonPills} for:item="r">
+                                                    <span key={r.id} class="reason">{r.text}</span>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template if:true={cand.expanded}>
+                                            <template if:true={cand.hasReasons}>
+                                                <div class="reason-row">
+                                                    <template for:each={cand.reasonPills} for:item="r">
+                                                        <span key={r.id} class="reason">{r.text}</span>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </template>
+                                    </div>
+
+                                    <div class="cand-side">
+                                        <div class={cand.scoreClass}>
+                                            <span class="score-value">{cand.scoreLabel}</span>
+                                            <span class="score-caption">match</span>
+                                        </div>
+                                        <div class="side-icons">
+                                            <button type="button" class={cand.starClass} data-id={cand.id} onclick={toggleFavorite} title="Favourite">{cand.starIcon}</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Actions are always visible, no need to expand first -->
+                                <div class="cand-foot">
+                                    <div class="foot-actions">
+                                        <lightning-button
+                                            label="Open candidate"
+                                            data-id={cand.id}
+                                            data-action="openCandidate"
+                                            onclick={handleAction}>
+                                        </lightning-button>
+                                        <lightning-button
+                                            variant="brand"
+                                            label={cand.addLabel}
+                                            disabled={cand.addDisabled}
+                                            data-id={cand.id}
+                                            data-action="addToCallList"
+                                            onclick={handleAction}>
+                                        </lightning-button>
+                                    </div>
+                                    <div class="foot-more">
+                                        <span class="ev-count">{cand.evidenceLabel}</span>
+                                        <lightning-button
+                                            variant="base"
+                                            label="Why this match"
+                                            icon-name={cand.chevronIcon}
+                                            icon-position="right"
+                                            data-id={cand.id}
+                                            onclick={toggleExpand}>
+                                        </lightning-button>
+                                    </div>
+                                </div>
+
+                                <template if:true={cand.expanded}>
+                                    <div class="cand-detail">
+
+                                        <p class="ev-note">{cand.evidenceNote}</p>
+                                        <div class="ev-groups">
+                                            <template for:each={cand.evidenceGroups} for:item="grp">
+                                                <div key={grp.key} class="ev-group">
+                                                    <div class="ev-group-head">
+                                                        <span class="ev-group-label">{grp.label}</span>
+                                                        <template if:true={grp.hasItems}>
+                                                            <span class="ev-group-count">{grp.countLabel}</span>
+                                                        </template>
+                                                    </div>
+                                                    <p class="ev-group-summary">{grp.summary}</p>
+                                                    <template for:each={grp.items} for:item="ev">
+                                                        <div key={ev.id} class="ev-item">
+                                                            <div class="ev-tags">
+                                                                <span class={ev.sourceClass}>{ev.sourceLabel}</span>
+                                                                <template if:true={ev.hasMeta}>
+                                                                    <span class="ev-meta">{ev.meta}</span>
+                                                                </template>
+                                                            </div>
+                                                            <p class="ev-text">{ev.text}</p>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </div>
+
+                                        <template if:true={cand.hasSkills}>
+                                            <div class="skills">
+                                                <template for:each={cand.visibleSkills} for:item="s">
+                                                    <span key={s.id} class="skill">{s.label}</span>
+                                                </template>
+                                                <template if:true={cand.skillsOverflow}>
+                                                    <button type="button" class="link-more" data-id={cand.id} onclick={toggleSkills}>{cand.skillsToggleLabel}</button>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <template if:true={showPagination}>
+                        <div class="pagination-bar">
+                            <lightning-button label="Previous" onclick={goPreviousPage} disabled={previousDisabled}></lightning-button>
+                            <span class="page-indicator">{pageIndicator}</span>
+                            <lightning-button label="Next" onclick={goNextPage} disabled={nextDisabled}></lightning-button>
+                        </div>
+                    </template>
+                </template>
+            </template>
+        </div>
+    </lightning-card>
+</template>

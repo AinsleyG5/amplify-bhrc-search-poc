@@ -1,0 +1,787 @@
+<template>
+    <lightning-card icon-name="utility:einstein">
+        <span slot="title">Amplify Enrichment</span>
+        
+        <div class="slds-p-around_medium mi-container">
+            
+            <!-- Initial source loading -->
+            <template if:true={sourceLoading}>
+                <div class="slds-align_absolute-center slds-p-vertical_large">
+                    <lightning-spinner size="small" alternative-text="Loading"></lightning-spinner>
+                </div>
+            </template>
+            
+            <!-- Source load error -->
+            <template if:true={sourceError}>
+                <div class="slds-box slds-theme_error slds-theme_alert-texture">
+                    <p>{sourceError}</p>
+                </div>
+            </template>
+            
+            <!-- Pre-enrichment: never enriched before -->
+            <template if:true={showPreEnrichmentState}>
+                <div class="pre-enrichment-panel slds-text-align_center slds-p-vertical_large">
+                    <div class="sparkle-wrapper slds-m-bottom_small">
+                        <lightning-icon icon-name="utility:einstein" size="large" class="sparkle-icon"></lightning-icon>
+                    </div>
+                    <div class="slds-text-heading_small slds-m-bottom_x-small">
+                        Ready to enrich this record
+                    </div>
+                    <div class="slds-text-body_regular slds-m-bottom_x-small slds-text-color_weak">
+                        {preEnrichmentMessage}
+                    </div>
+                    <div class="slds-text-body_small slds-m-bottom_medium source-label">
+                        <lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                        Source: {sourceLabelDisplay}
+                    </div>
+                    <lightning-button
+                        variant="brand"
+                        label="Enrich"
+                        icon-name="utility:sparkles"
+                        icon-position="left"
+                        onclick={handleEnrichClickRequest}
+                        disabled={enrichDisabled}>
+                    </lightning-button>
+                    
+                    <!-- Paste vs Upload alternative -->
+                    <template if:true={showAlternativeInput}>
+                        <div class="slds-m-top_medium alternative-input-section">
+                            <div class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                Or enrich from another source
+                            </div>
+                            
+                            <!-- Toggle -->
+                            <div class="slds-grid slds-grid_align-center slds-m-bottom_small">
+                                <lightning-button-group>
+                                    <lightning-button
+                                        label="Upload document"
+                                        icon-name="utility:upload"
+                                        variant={uploadButtonVariant}
+                                        onclick={handleSelectUpload}>
+                                    </lightning-button>
+                                    <lightning-button
+                                        label="Paste note"
+                                        icon-name="utility:paste"
+                                        variant={pasteButtonVariant}
+                                        onclick={handleSelectPaste}>
+                                    </lightning-button>
+                                </lightning-button-group>
+                            </div>
+                            
+                            <!-- Upload surface -->
+                            <template if:true={isUploadMode}>
+                                <div class="slds-align_absolute-center">
+                                    <lightning-file-upload
+                                        label=""
+                                        name="enrichmentDocumentUpload"
+                                        accept={acceptedFileTypes}
+                                        record-id={recordId}
+                                        onuploadfinished={handleDocumentUpload}
+                                        disabled={documentUploadDisabled}>
+                                    </lightning-file-upload>
+                                    <div class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                        Drop a PDF, DOCX or CV document
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <!-- Paste surface -->
+                            <template if:true={isPasteMode}>
+                                <lightning-textarea
+                                    name="pastedNote"
+                                    label=""
+                                    variant="label-hidden"
+                                    value={pastedNoteText}
+                                    onchange={handlePastedNoteChange}
+                                    placeholder="Paste a call note, interview transcript, email body, or any free-form text to enrich from..."
+                                    class="paste-textarea">
+                                </lightning-textarea>
+                                <div class="slds-m-top_small slds-text-align_center">
+                                    <lightning-button
+                                        variant="brand"
+                                        label="Enrich from note"
+                                        icon-name="utility:sparkles"
+                                        icon-position="left"
+                                        onclick={handleEnrichFromPastedNote}
+                                        disabled={pasteEnrichDisabled}>
+                                    </lightning-button>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Pre-enrichment: previously enriched state -->
+            <template if:true={showPreviouslyEnrichedState}>
+                <div class="pre-enrichment-panel slds-text-align_center slds-p-vertical_large previously-enriched">
+                    <div class="sparkle-wrapper slds-m-bottom_small">
+                        <lightning-icon icon-name="utility:success" size="large" class="sparkle-icon"></lightning-icon>
+                    </div>
+                    <div class="slds-text-heading_small slds-m-bottom_x-small">
+                        Record already enriched
+                    </div>
+                    <div class="slds-text-body_regular slds-m-bottom_xx-small slds-text-color_weak">
+                        Last enriched {lastEnrichedDisplay}. {lastEnrichmentSummary}
+                    </div>
+                    <div class="slds-text-body_small slds-m-bottom_medium source-label">
+                        <lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                        Source: {sourceLabelDisplay}
+                    </div>
+                    <div class="slds-button-group" role="group">
+                        <lightning-button
+                            variant="neutral"
+                            label="View last run"
+                            onclick={handleViewLastEnrichment}>
+                        </lightning-button>
+                        <lightning-button
+                            variant="neutral"
+                            label="Re-run enrichment"
+                            icon-name="utility:refresh"
+                            icon-position="left"
+                            class="slds-m-left_x-small"
+                            onclick={handleEnrichClickRequest}
+                            disabled={enrichDisabled}>
+                        </lightning-button>
+                    </div>
+                    
+                    <!-- Paste vs Upload also available -->
+                    <template if:true={showAlternativeInput}>
+                        <div class="slds-m-top_medium alternative-input-section">
+                            <div class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                Or enrich from another source
+                            </div>
+                            
+                            <div class="slds-grid slds-grid_align-center slds-m-bottom_small">
+                                <lightning-button-group>
+                                    <lightning-button
+                                        label="Upload document"
+                                        icon-name="utility:upload"
+                                        variant={uploadButtonVariant}
+                                        onclick={handleSelectUpload}>
+                                    </lightning-button>
+                                    <lightning-button
+                                        label="Paste note"
+                                        icon-name="utility:paste"
+                                        variant={pasteButtonVariant}
+                                        onclick={handleSelectPaste}>
+                                    </lightning-button>
+                                </lightning-button-group>
+                            </div>
+                            
+                            <template if:true={isUploadMode}>
+                                <lightning-file-upload
+                                    label=""
+                                    name="enrichmentDocumentUploadRerun"
+                                    accept={acceptedFileTypes}
+                                    record-id={recordId}
+                                    onuploadfinished={handleDocumentUpload}
+                                    disabled={documentUploadDisabled}>
+                                </lightning-file-upload>
+                            </template>
+                            
+                            <template if:true={isPasteMode}>
+                                <lightning-textarea
+                                    name="pastedNoteRerun"
+                                    label=""
+                                    variant="label-hidden"
+                                    value={pastedNoteText}
+                                    onchange={handlePastedNoteChange}
+                                    placeholder="Paste a note to enrich from..."
+                                    class="paste-textarea">
+                                </lightning-textarea>
+                                <div class="slds-m-top_small slds-text-align_center">
+                                    <lightning-button
+                                        variant="brand"
+                                        label="Enrich from note"
+                                        icon-name="utility:sparkles"
+                                        icon-position="left"
+                                        onclick={handleEnrichFromPastedNote}
+                                        disabled={pasteEnrichDisabled}>
+                                    </lightning-button>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Re-run confirmation modal -->
+            <template if:true={showReRunConfirmation}>
+                <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open">
+                    <div class="slds-modal__container">
+                        <header class="slds-modal__header">
+                            <h2 class="slds-text-heading_medium">Re-run enrichment?</h2>
+                        </header>
+                        <div class="slds-modal__content slds-p-around_medium">
+                            <p>
+                                This record was enriched {lastEnrichedDisplay}. Running enrichment again will analyse the record and may incur additional processing cost.
+                            </p>
+                            <p class="slds-m-top_small">Do you want to continue?</p>
+                        </div>
+                        <footer class="slds-modal__footer">
+                            <lightning-button variant="neutral" label="Cancel" onclick={handleReRunCancel}></lightning-button>
+                            <lightning-button variant="brand" label="Re-run" class="slds-m-left_x-small" onclick={handleReRunConfirm}></lightning-button>
+                        </footer>
+                    </div>
+                </section>
+                <div class="slds-backdrop slds-backdrop_open"></div>
+            </template>
+            
+            <!-- No content available -->
+            <template if:true={showNoContentState}>
+                <div class="slds-align_absolute-center slds-p-vertical_large slds-text-align_center">
+                    <div>
+                        <lightning-icon 
+                            icon-name="utility:info_alt" 
+                            size="medium"
+                            class="slds-m-bottom_small slds-text-color_weak">
+                        </lightning-icon>
+                        <div class="slds-text-heading_small slds-m-bottom_x-small">
+                            Nothing to enrich yet
+                        </div>
+                        <div class="slds-text-body_regular slds-text-color_weak slds-m-bottom_medium">
+                            {noContentMessage}
+                        </div>
+                        
+                        <template if:true={showAlternativeInput}>
+                            <div class="slds-m-top_medium alternative-input-section">
+                                <div class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                                    You can still enrich from an uploaded document or pasted note
+                                </div>
+                                
+                                <div class="slds-grid slds-grid_align-center slds-m-bottom_small">
+                                    <lightning-button-group>
+                                        <lightning-button
+                                            label="Upload document"
+                                            icon-name="utility:upload"
+                                            variant={uploadButtonVariant}
+                                            onclick={handleSelectUpload}>
+                                        </lightning-button>
+                                        <lightning-button
+                                            label="Paste note"
+                                            icon-name="utility:paste"
+                                            variant={pasteButtonVariant}
+                                            onclick={handleSelectPaste}>
+                                        </lightning-button>
+                                    </lightning-button-group>
+                                </div>
+                                
+                                <template if:true={isUploadMode}>
+                                    <lightning-file-upload
+                                        label=""
+                                        name="enrichmentDocumentUploadEmpty"
+                                        accept={acceptedFileTypes}
+                                        record-id={recordId}
+                                        onuploadfinished={handleDocumentUpload}
+                                        disabled={documentUploadDisabled}>
+                                    </lightning-file-upload>
+                                </template>
+                                
+                                <template if:true={isPasteMode}>
+                                    <lightning-textarea
+                                        name="pastedNoteEmpty"
+                                        label=""
+                                        variant="label-hidden"
+                                        value={pastedNoteText}
+                                        onchange={handlePastedNoteChange}
+                                        placeholder="Paste a note to enrich from..."
+                                        class="paste-textarea">
+                                    </lightning-textarea>
+                                    <div class="slds-m-top_small slds-text-align_center">
+                                        <lightning-button
+                                            variant="brand"
+                                            label="Enrich from note"
+                                            icon-name="utility:sparkles"
+                                            icon-position="left"
+                                            onclick={handleEnrichFromPastedNote}
+                                            disabled={pasteEnrichDisabled}>
+                                        </lightning-button>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+            
+            <!-- Enrichment in progress -->
+            <template if:true={enrichmentLoading}>
+                <div class="slds-align_absolute-center slds-p-vertical_large">
+                    <div class="slds-is-relative slds-p-around_medium">
+                        <lightning-spinner size="medium" alternative-text="Analysing"></lightning-spinner>
+                    </div>
+                    <div class="slds-m-left_medium slds-text-color_weak">
+                        <template if:true={documentParsing}>
+                            Parsing document and analysing with Amplify...
+                        </template>
+                        <template if:false={documentParsing}>
+                            Analysing with Amplify...
+                        </template>
+                    </div>
+                </div>
+            </template>
+            
+            <!-- Post-enrichment: suggestions panel -->
+            <template if:true={hasSuggestedUpdates}>
+                
+                <!-- Source summary header -->
+                <div class="slds-m-bottom_small slds-text-body_small slds-text-color_weak">
+                    Enriched from: {sourceLabelDisplay}
+                    <template if:true={wasTruncated}>
+                        <span class="slds-text-color_error slds-m-left_x-small">(content was truncated)</span>
+                    </template>
+                </div>
+                
+                <div class="slds-box slds-box_small updates-box">
+                    
+                    <!-- Header row -->
+                    <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_x-small">
+                        <div class="slds-col slds-grow">
+                            <button
+                                class="slds-button slds-button_reset slds-type-focus"
+                                onclick={toggleUpdatesCollapsed}
+                                aria-expanded={updatesExpanded}>
+                                <span class="slds-text-heading_small">{recordUpdatesTitle}</span>
+                                <lightning-icon
+                                    icon-name={expandCollapseIcon}
+                                    alternative-text="Toggle details"
+                                    size="x-small"
+                                    class="slds-m-left_x-small">
+                                </lightning-icon>
+                            </button>
+                        </div>
+                        
+                        <div class="slds-col slds-text-align_right">
+                            <lightning-input
+                                type="checkbox"
+                                label="Update All"
+                                checked={allSelected}
+                                onchange={handleToggleUpdateAll}>
+                            </lightning-input>
+                        </div>
+                    </div>
+                    
+                    <!-- Info line -->
+                    <div class="slds-grid slds-grid_vertical-align-center slds-text-body_small enrichment-info slds-m-bottom_small">
+                        <lightning-icon icon-name="utility:info" alternative-text="Information" size="x-small"></lightning-icon>
+                        <span class="slds-m-left_x-small">
+                            We found {suggestedCount} possible update(s) based on this record.
+                        </span>
+                    </div>
+                    
+                    <!-- Detected person card -->
+                    <template if:true={showInferredPersonCard}>
+                        <div class="slds-box slds-box_small slds-m-bottom_small">
+                            <div class="slds-grid slds-grid_vertical-align-center slds-grid_align-spread">
+                                <div class="slds-col">
+                                    <div class="slds-text-title_bold">Detected person</div>
+                                    <div class="slds-text-body_small">
+                                        We detected: <strong>{inferredPersonName}</strong>
+                                        <template if:true={inferredPersonSubtitle}>
+                                            <span class="slds-text-color_weak slds-m-left_x-small">
+                                                ({inferredPersonSubtitle})
+                                            </span>
+                                        </template>
+                                    </div>
+                                    <template if:true={inferredPersonCompany}>
+                                        <div class="slds-m-top_xx-small">
+                                            <span class="pill pill-high">
+                                                <span class="slds-pill__label">
+                                                    Current company: {inferredPersonCompany}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    </template>
+                                </div>
+                                
+                                <div class="slds-col slds-text-align_right">
+                                    <lightning-button-icon
+                                        icon-name="utility:like"
+                                        alternative-text="Correct person"
+                                        variant={thumbUpVariant}
+                                        onclick={handleThumbUp}>
+                                    </lightning-button-icon>
+                                    <lightning-button-icon
+                                        icon-name="utility:dislike"
+                                        alternative-text="Not the right person"
+                                        variant={thumbDownVariant}
+                                        onclick={handleThumbDown}
+                                        class="slds-m-left_x-small">
+                                    </lightning-button-icon>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    
+                    <!-- Person mismatch warning -->
+                    <template if:true={showPersonMismatchWarning}>
+                        <div class="slds-notify slds-notify_alert slds-theme_warning slds-theme_alert-texture slds-m-bottom_small" role="alert">
+                            <span class="slds-assistive-text">warning</span>
+                            <h2 class="slds-text-body_small">
+                                The transcript appears to mention <strong>{inferredPersonName}</strong>, but you are on the record for <strong>{currentRecordName}</strong>. Updates will be applied to the current record.
+                            </h2>
+                        </div>
+                    </template>
+                    
+                    <!-- Detected job card -->
+                    <template if:true={showInferredJobCard}>
+                        <div class="slds-box slds-box_small slds-m-bottom_small">
+                            <div class="slds-grid slds-grid_vertical-align-center slds-grid_align-spread">
+                                <div class="slds-col">
+                                    <div class="slds-text-title_bold">Detected job</div>
+                                    <div class="slds-text-body_small">
+                                        We detected: <strong>{inferredJobName}</strong>
+                                        <template if:true={inferredJobCompany}>
+                                            <span class="slds-text-color_weak slds-m-left_x-small">
+                                                ({inferredJobCompany})
+                                            </span>
+                                        </template>
+                                    </div>
+                                    <template if:true={inferredJobCompany}>
+                                        <div class="slds-m-top_xx-small">
+                                            <span class="pill pill-high">
+                                                <span class="slds-pill__label">
+                                                    Hiring company: {inferredJobCompany}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    
+                    <!-- Market Intelligence Summary -->
+                    <template if:true={hasMarketIntelligenceSummary}>
+                        <div class="slds-box slds-box_small slds-m-bottom_small market-intel-box">
+                            <div class="slds-grid slds-grid_vertical-align-center slds-grid_align-spread slds-m-bottom_x-small">
+                                <div class="slds-col">
+                                    <div class="slds-text-title_bold">
+                                        <lightning-icon 
+                                            icon-name="utility:note" 
+                                            size="x-small" 
+                                            class="slds-m-right_xx-small">
+                                        </lightning-icon>
+                                        Market Intelligence Summary
+                                    </div>
+                                </div>
+                                <div class="slds-col slds-text-align_right">
+                                    <lightning-input
+                                        type="checkbox"
+                                        label="Save as Power Note"
+                                        checked={saveAsPowerNote}
+                                        onchange={handleTogglePowerNoteSave}>
+                                    </lightning-input>
+                                </div>
+                            </div>
+                            
+                            <template if:true={saveAsPowerNote}>
+                                <lightning-textarea
+                                    name="marketIntelligenceSummary"
+                                    label="Summary"
+                                    variant="label-hidden"
+                                    value={marketIntelligenceSummary}
+                                    onchange={handleSummaryChange}
+                                    class="summary-textarea">
+                                </lightning-textarea>
+                                <template if:true={hasKeyPoints}>
+                                    <div class="slds-m-top_small">
+                                        <div class="slds-text-title_caps slds-text-color_weak slds-m-bottom_xx-small">
+                                            Key points
+                                        </div>
+                                        <ul class="slds-list_dotted slds-text-body_small">
+                                            <template for:each={marketIntelligenceKeyPoints} for:item="point">
+                                                <li key={point} class="slds-m-bottom_xx-small">{point}</li>
+                                            </template>
+                                        </ul>
+                                    </div>
+                                </template>
+                                <div class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                    Edit the summary as needed. It will be saved as a Power Note when updates are applied.
+                                </div>
+                            </template>
+                            
+                            <template if:false={saveAsPowerNote}>
+                                <div class="slds-text-body_small slds-text-color_weak">
+                                    Summary will not be saved. Check the box above to keep the narrative as a Power Note.
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    
+                    <!-- Detected in Transcript -->
+                    <template if:true={hasRecordHints}>
+                        <div class="slds-box slds-box_small slds-m-bottom_small">
+                            <div class="slds-text-title_bold slds-m-bottom_x-small">Detected in Transcript</div>
+                            <template for:each={recordHints} for:item="h">
+                                <div key={h.id} class="slds-grid slds-grid_vertical-align-center slds-m-vertical_xx-small">
+                                    <div class="slds-col slds-size_2-of-12 slds-text-color_weak">{h.entityType}</div>
+                                    <div class="slds-col slds-size_8-of-12 slds-truncate">{h.value}</div>
+                                    <div class="slds-col slds-size_2-of-12 slds-text-align_right">
+                                        <span class={h.confidenceClass}>{h.confidenceLabel}</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    
+                    <!-- Suggestion rows -->
+                    <template if:true={updatesExpanded}>
+                        <div class="slds-scrollable_y suggestions-container">
+                            <template for:each={suggestedUpdates} for:item="item">
+                                <div key={item.id} class="slds-grid slds-grid_vertical-align-center slds-p-vertical_x-small suggestion-row">
+                                    
+                                    <div class="slds-col slds-size_1-of-12 slds-p-right_small">
+                                        <lightning-input
+                                            type="checkbox"
+                                            variant="label-hidden"
+                                            data-id={item.id}
+                                            checked={item.selected}
+                                            onchange={handleToggleRow}>
+                                        </lightning-input>
+                                    </div>
+                                    
+                                    <div class="slds-col slds-size_9-of-12">
+                                        <div class="slds-text-title_bold slds-m-bottom_xx-small">
+                                            {item.label}
+                                        </div>
+                                        
+                                        <template if:true={item.isLeadCreation}>
+                                            <div class="lead-creation-body slds-m-top_xx-small">
+                                                <lightning-button-icon
+                                                    icon-name="utility:add"
+                                                    size="x-small"
+                                                    alternative-text="Create Job Lead"
+                                                    data-id={item.id}
+                                                    onclick={handleCreateJobLead}
+                                                    class="slds-m-right_xx-small">
+                                                </lightning-button-icon>
+                                                <span>{item.proposedValue}</span>
+                                            </div>
+                                        </template>
+                                        
+                                        <template if:false={item.isLeadCreation}>
+                                            <div class="slds-grid slds-text-body_small value-row">
+                                                <div class="slds-col slds-size_3-of-12 slds-truncate current-value">
+                                                    {item.currentValue}
+                                                </div>
+                                                <div class="slds-col slds-size_2-of-12 value-arrow slds-align_absolute-center">
+                                                    <lightning-icon icon-name="utility:forward" alternative-text="to" size="small"></lightning-icon>
+                                                </div>
+                                                <div class="slds-col slds-size_4-of-12 slds-truncate proposed-value">
+                                                    <strong>{item.proposedValue}</strong>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    
+                                    <div class="slds-col slds-size_2-of-12 slds-text-align_right">
+                                        <span class={item.confidenceClass}>{item.confidenceLabel}</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- Related records navigation tiles -->
+                    <div class="slds-box slds-box_small slds-m-top_medium slds-m-bottom_small">
+                        <div class="slds-text-title_bold slds-m-bottom_x-small">Related Records</div>
+                        <div class="slds-grid slds-wrap slds-gutters_x-small">
+
+                            <!-- Row 1: Contact + Account -->
+                            <div class="slds-col slds-size_1-of-2 slds-m-vertical_x-small">
+                                <div class="slds-box slds-box_xx-small slds-align_absolute-center related-tile">
+                                    <lightning-icon
+                                        icon-name="standard:contact"
+                                        alternative-text="Contact"
+                                        size="small"
+                                        class="slds-m-right_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                    <span class="tile-label">
+                                        <template if:true={currentRecordName}>{currentRecordName}</template>
+                                        <template if:false={currentRecordName}>Contact</template>
+                                    </span>
+                                    <lightning-icon
+                                        icon-name="utility:search"
+                                        alternative-text="Search"
+                                        size="x-small"
+                                        class="slds-m-left_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                </div>
+                            </div>
+
+                            <div class="slds-col slds-size_1-of-2 slds-m-vertical_x-small">
+                                <div class="slds-box slds-box_xx-small slds-align_absolute-center related-tile">
+                                    <lightning-icon
+                                        icon-name="standard:account"
+                                        alternative-text="Account"
+                                        size="small"
+                                        class="slds-m-right_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                    <span class="tile-label">
+                                        <template if:true={inferredJobCompany}>{inferredJobCompany}</template>
+                                        <template if:false={inferredJobCompany}>Account</template>
+                                    </span>
+                                    <lightning-icon
+                                        icon-name="utility:search"
+                                        alternative-text="Search"
+                                        size="x-small"
+                                        class="slds-m-left_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                </div>
+                            </div>
+
+                            <!-- Row 2: Add Reference + Add Job -->
+                            <div class="slds-col slds-size_1-of-2 slds-m-vertical_x-small">
+                                <div class="slds-box slds-box_xx-small slds-align_absolute-center related-tile">
+                                    <lightning-icon
+                                        icon-name="standard:event"
+                                        alternative-text="Add Reference"
+                                        size="small"
+                                        class="slds-m-right_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                    <span class="tile-label">Add Reference</span>
+                                    <lightning-icon
+                                        icon-name="utility:search"
+                                        alternative-text="Search"
+                                        size="x-small"
+                                        class="slds-m-left_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                </div>
+                            </div>
+
+                            <div class="slds-col slds-size_1-of-2 slds-m-vertical_x-small">
+                                <div class="slds-box slds-box_xx-small slds-align_absolute-center related-tile">
+                                    <lightning-icon
+                                        icon-name="standard:account"
+                                        alternative-text="Add Job"
+                                        size="small"
+                                        class="slds-m-right_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                    <span class="tile-label">
+                                        <template if:true={inferredJobName}>{inferredJobName}</template>
+                                        <template if:false={inferredJobName}>Job</template>
+                                    </span>
+                                    <lightning-icon
+                                        icon-name="utility:search"
+                                        alternative-text="Search"
+                                        size="x-small"
+                                        class="slds-m-left_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                </div>
+                            </div>
+
+                            <!-- Row 3: Add Application + Add Job Role -->
+                            <div class="slds-col slds-size_1-of-2 slds-m-vertical_x-small">
+                                <div class="slds-box slds-box_xx-small slds-align_absolute-center related-tile">
+                                    <lightning-icon
+                                        icon-name="standard:orders"
+                                        alternative-text="Add Application"
+                                        size="small"
+                                        class="slds-m-right_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                    <span class="tile-label">Add Application</span>
+                                    <lightning-icon
+                                        icon-name="utility:search"
+                                        alternative-text="Search"
+                                        size="x-small"
+                                        class="slds-m-left_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                </div>
+                            </div>
+
+                            <div class="slds-col slds-size_1-of-2 slds-m-vertical_x-small">
+                                <div class="slds-box slds-box_xx-small slds-align_absolute-center related-tile">
+                                    <lightning-icon
+                                        icon-name="standard:opportunity"
+                                        alternative-text="Add Job Role"
+                                        size="small"
+                                        class="slds-m-right_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                    <span class="tile-label">Add Job Role</span>
+                                    <lightning-icon
+                                        icon-name="utility:search"
+                                        alternative-text="Search"
+                                        size="x-small"
+                                        class="slds-m-left_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                </div>
+                            </div>
+
+                            <!-- Row 4: Add Send Out Schedule + Add Job Lead -->
+                            <div class="slds-col slds-size_1-of-2 slds-m-vertical_x-small">
+                                <div class="slds-box slds-box_xx-small slds-align_absolute-center related-tile">
+                                    <lightning-icon
+                                        icon-name="standard:timesheet"
+                                        alternative-text="Add Send Out Schedule"
+                                        size="small"
+                                        class="slds-m-right_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                    <span class="tile-label">Add Send Out Schedule</span>
+                                    <lightning-icon
+                                        icon-name="utility:search"
+                                        alternative-text="Search"
+                                        size="x-small"
+                                        class="slds-m-left_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                </div>
+                            </div>
+
+                            <div class="slds-col slds-size_1-of-2 slds-m-vertical_x-small">
+                                <div class="slds-box slds-box_xx-small slds-align_absolute-center related-tile">
+                                    <lightning-icon
+                                        icon-name="standard:lead"
+                                        alternative-text="Add Job Lead"
+                                        size="small"
+                                        class="slds-m-right_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                    <span class="tile-label">Add Job Lead</span>
+                                    <lightning-icon
+                                        icon-name="utility:search"
+                                        alternative-text="Search"
+                                        size="x-small"
+                                        class="slds-m-left_xx-small slds-icon_container">
+                                    </lightning-icon>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Footer buttons -->
+                    <div class="slds-m-top_small slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+                        <div>
+                            <template if:true={applyingUpdates}>
+                                <lightning-spinner size="x-small" alternative-text="Applying updates"></lightning-spinner>
+                            </template>
+                        </div>
+                        
+                        <div class="slds-button-group" role="group">
+                            <lightning-button
+                                label="Re-run"
+                                variant="neutral"
+                                onclick={handleReset}
+                                disabled={applyingUpdates}>
+                            </lightning-button>
+                            <lightning-button
+                                label="Update Selected"
+                                variant="brand-outline"
+                                class="slds-m-left_x-small"
+                                onclick={handleApplySelected}
+                                disabled={disableUpdateSelected}>
+                            </lightning-button>
+                            <lightning-button
+                                label="Update All"
+                                variant="brand"
+                                class="slds-m-left_x-small"
+                                onclick={handleApplyAll}
+                                disabled={disableUpdateAll}>
+                            </lightning-button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            
+        </div>
+    </lightning-card>
+</template>
