@@ -10,7 +10,8 @@
  *
  * Credentials: the Named Credential (Candidate_Search_Config__mdt.TK_Named_Credential__c) points at the SOAP
  * endpoint and its External Credential holds the service account password, merged into the body with
- * {!HTMLENCODE($Credential.<External Credential>.Password)}. "Allow formulas in HTTP body" must be on. No password in code.
+ * {!$Credential.<External Credential>.Password} inside CDATA (HTMLENCODE is not allowed in callout body formulas),
+ * so any character in the password stays valid XML. "Allow formulas in HTTP body" must be on. No password in code.
  *
  * The response is parsed with Dom.Document and is tolerant about element names, because the exact SearchResult
  * element names are still to be confirmed against the pilot service account (spec section 15). Each name list
@@ -183,7 +184,7 @@ public with sharing class TkSearchClient {
     private static String credentialXml(String environment) {
         CandidateSearchConfig cfg = CandidateSearchConfig.get();
         return '<environment>' + String.valueOf(environment).escapeXml() + '</environment>'
-            + '<password>{!HTMLENCODE($Credential.' + cfg.tkExternalCredential + '.Password)}</password>'
+            + '<password><![CDATA[{!$Credential.' + cfg.tkExternalCredential + '.Password}]]></password>'
             + '<accessRoles>' + cfg.tkAccessRoles.escapeXml() + '</accessRoles>';
     }
 
@@ -206,7 +207,7 @@ public with sharing class TkSearchClient {
         HttpResponse res = callout(body);
         Result r = parseResponse(res.getBody());
         r.method = method;
-        r.requestXml = AmplifyTKMatchService.maskRequest(body);
+        r.requestXml = AmplifyTKMatchService.maskRequest(body.replaceAll('<password><!\\[CDATA\\[.*?\\]\\]></password>', '<password></password>'));
         r.durationMs = System.currentTimeMillis() - started;
         return r;
     }

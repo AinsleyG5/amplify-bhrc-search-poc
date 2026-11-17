@@ -24,7 +24,7 @@ private class TkSearchClientTest {
         System.assert(body.contains('<pageSize>20</pageSize>'), body);
         System.assert(body.contains('<resultFields>jobtitles</resultFields>'), body);
         System.assert(body.contains('<synonymExpansionMode>QUERY_AND_QUERYPARTS</synonymExpansionMode>'), body);
-        System.assert(body.contains('{!HTMLENCODE($Credential.TK_Search_Service_Account.Password)}'), body);
+        System.assert(body.contains('<password><![CDATA[{!$Credential.TK_Search_Service_Account.Password}]]></password>'), body);
         System.assert(body.contains('<condition>EXCLUDED</condition>'), body);
         System.assertEquals('callout:TK_Candidate_Search', CandidateSearchTestMocks.requests[0].getEndpoint());
 

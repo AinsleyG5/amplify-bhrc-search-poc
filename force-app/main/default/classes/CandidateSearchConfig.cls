@@ -143,7 +143,16 @@ public with sharing class CandidateSearchConfig {
         if (promptOverrides.containsKey(name)) {
             return promptOverrides.get(name);
         }
-        Candidate_Search_Prompt__mdt rec = Candidate_Search_Prompt__mdt.getInstance(name);
+        // SOQL, not getInstance(): getInstance() cuts long text area fields to 255 characters,
+        // which truncates the system prompt and the tool schema
+        List<Candidate_Search_Prompt__mdt> recs = [
+            SELECT DeveloperName, System_Prompt__c, Model__c, Max_Tokens__c, Timeout_Seconds__c,
+                   Tool_Name__c, Tool_Description__c, Tool_Schema_JSON__c, Prompt_Template_Name__c
+            FROM Candidate_Search_Prompt__mdt
+            WHERE DeveloperName = :name
+            LIMIT 1
+        ];
+        Candidate_Search_Prompt__mdt rec = recs.isEmpty() ? null : recs[0];
         if (rec == null) {
             throw new CandidateSearchException('Prompt ' + name + ' is missing from Candidate Search Prompt custom metadata.');
         }
