@@ -350,9 +350,11 @@ public with sharing class CandidateSearchController {
         if (contactIds.isEmpty()) return out;
         for (Task t : [
             SELECT WhoId, Subject, Description, ActivityDate, CreatedDate FROM Task
-            WHERE WhoId IN :contactIds AND Description != null
+            WHERE WhoId IN :contactIds
             ORDER BY CreatedDate DESC LIMIT 200
         ]) {
+            // Description is a long text field, so it cannot be filtered in SOQL: skip blank notes here
+            if (String.isBlank(t.Description)) continue;
             if (!out.containsKey(t.WhoId)) out.put(t.WhoId, new List<String>());
             List<String> l = out.get(t.WhoId);
             if (l.size() >= 3) continue;
