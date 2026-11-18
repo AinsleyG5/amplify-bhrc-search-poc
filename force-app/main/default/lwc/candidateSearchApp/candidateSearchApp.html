@@ -1,0 +1,134 @@
+<template>
+    <div class="app">
+        <div class="top">
+            <c-cs-search-bar
+                criteria={criteria}
+                initial-text={initialText}
+                loading={loading}
+                has-results={hasResults}
+                onsearch={handleSearch}
+                oncriteriachange={handleCriteriaChange}
+                onsave={handleSave}
+                onclear={handleClear}
+            ></c-cs-search-bar>
+        </div>
+
+        <template lwc:if={showHome}>
+            <c-cs-home-panels
+                data={homeData}
+                loading={homeLoading}
+                error={homeError}
+                onrunsearch={handleRunSaved}
+                onfavourite={handleFavourite}
+            ></c-cs-home-panels>
+        </template>
+        <template lwc:else>
+            <div class={workspaceCls}>
+                <div class="main">
+                    <div class="toolbar">
+                        <template lwc:if={showChatToggle}>
+                            <lightning-button label="Refine with AI" icon-name="utility:einstein" onclick={openChat}></lightning-button>
+                        </template>
+                        <template lwc:if={canUndo}>
+                            <lightning-button-icon
+                                icon-name="utility:undo"
+                                variant="border-filled"
+                                alternative-text="Undo the last change"
+                                title="Undo the last change"
+                                onclick={handleUndo}
+                                disabled={busy}
+                            ></lightning-button-icon>
+                        </template>
+                    </div>
+                    <div class="list-wrap">
+                        <c-cs-result-list
+                            rows={rows}
+                            criteria={criteria}
+                            explanations={explanations}
+                            selected-ids={selectedIds}
+                            active-doc-id={panelDocId}
+                            prev-ranks={prevRanks}
+                            removed-count={removedCount}
+                            total={total}
+                            has-more={hasMore}
+                            loading={loading}
+                            loading-more={loadingMore}
+                            hidden-count={hiddenCount}
+                            facets={facets}
+                            notices={notices}
+                            request-xml={requestXml}
+                            error={error}
+                            onloadmore={handleLoadMore}
+                            onrowopen={handleRowOpen}
+                            onrowselect={handleRowSelect}
+                            onselectpage={handleSelectPage}
+                            onexplain={handleExplainRow}
+                            onfacetchange={handleFacetChange}
+                            onshowhidden={handleShowHidden}
+                        ></c-cs-result-list>
+                    </div>
+
+                    <template lwc:if={panelRow}>
+                        <div class="panel-wrap">
+                            <c-cs-candidate-panel
+                                row={panelRow}
+                                criteria={criteria}
+                                explanation={panelExplanation}
+                                audit-id={auditId}
+                                can-shortlist={canShortlist}
+                                position={panelPosition}
+                                onclose={closePanel}
+                                onnavigate={handlePanelNavigate}
+                                onexplain={handleExplainRow}
+                                onshortlist={handlePanelShortlist}
+                                ondismiss={handlePanelDismiss}
+                            ></c-cs-candidate-panel>
+                        </div>
+                    </template>
+                </div>
+
+                <template lwc:if={chatOpen}>
+                    <div class="chat-wrap">
+                        <c-cs-refine-chat
+                            turns={chatTurns}
+                            busy={busy}
+                            can-undo={canUndo}
+                            onrefine={handleRefine}
+                            onundo={handleUndo}
+                            onclose={closeChat}
+                        ></c-cs-refine-chat>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <template lwc:if={hasSelection}>
+            <div class="tray-wrap">
+                <c-cs-selection-tray
+                    selected={selectedList}
+                    job-id={jobId}
+                    busy={bulkBusy}
+                    oncompare={handleCompare}
+                    onaddtojob={handleAddToJob}
+                    onaddtopool={handleAddToPool}
+                    ondeselect={handleTrayDeselect}
+                    onclear={clearSelection}
+                ></c-cs-selection-tray>
+            </div>
+        </template>
+
+        <template lwc:if={compareOpen}>
+            <div class="backdrop" onclick={closeCompare}>
+                <div class="modal" onclick={stopBackdrop}>
+                    <c-cs-compare
+                        data={compareData}
+                        loading={compareLoading}
+                        error={compareError}
+                        onclose={closeCompare}
+                        onremove={handleCompareRemove}
+                    ></c-cs-compare>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>

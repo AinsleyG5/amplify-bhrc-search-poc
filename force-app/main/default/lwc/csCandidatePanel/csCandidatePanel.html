@@ -1,0 +1,155 @@
+<template>
+    <section class="panel" role="dialog" aria-label={dialogLabel} onkeydown={handleKeydown}>
+        <header class="p-head">
+            <div class="p-title">
+                <h2 class="p-name">{name}</h2>
+                <div class="p-sub">{subtitle}</div>
+                <div class="p-tags">
+                    <template lwc:if={scoreText}><span class="p-score">{scoreText}</span></template>
+                    <template lwc:if={pipelineLabel}><span class="p-tag">{pipelineLabel}</span></template>
+                    <template lwc:if={position}><span class="p-pos">{position}</span></template>
+                </div>
+            </div>
+            <div class="p-nav">
+                <lightning-button-icon
+                    icon-name="utility:up"
+                    variant="bare"
+                    alternative-text="Previous candidate"
+                    title="Previous candidate (Up arrow)"
+                    onclick={handlePrev}
+                ></lightning-button-icon>
+                <lightning-button-icon
+                    icon-name="utility:down"
+                    variant="bare"
+                    alternative-text="Next candidate"
+                    title="Next candidate (Down arrow)"
+                    onclick={handleNext}
+                ></lightning-button-icon>
+                <lightning-button-icon
+                    class="close-btn"
+                    icon-name="utility:close"
+                    variant="bare"
+                    alternative-text="Close"
+                    title="Close (Escape)"
+                    onclick={handleClose}
+                ></lightning-button-icon>
+            </div>
+        </header>
+
+        <div class="p-actions">
+            <lightning-button label="Open record" icon-name="utility:new_window" onclick={openRecord} disabled={noRecord}></lightning-button>
+            <template lwc:if={canShortlist}>
+                <lightning-button label="Shortlist on job" icon-name="utility:add" onclick={handleShortlist} disabled={shortlistDisabled}></lightning-button>
+            </template>
+            <lightning-button label="Dismiss" icon-name="utility:hide" onclick={handleDismiss}></lightning-button>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Candidate details" onkeydown={handleTabKeydown}>
+            <template for:each={tabs} for:item="t">
+                <button
+                    key={t.value}
+                    id={t.id}
+                    class={t.cls}
+                    role="tab"
+                    aria-selected={t.selected}
+                    tabindex={t.tabIndex}
+                    data-tab={t.value}
+                    onclick={selectTab}
+                >
+                    {t.label}
+                </button>
+            </template>
+        </div>
+
+        <div class="p-body" role="tabpanel">
+            <template lwc:if={isWhy}>
+                <template lwc:if={explainPending}>
+                    <div class="shimmer" aria-label="Explanation loading"><span></span><span></span><span></span></div>
+                </template>
+                <template lwc:if={summary}>
+                    <p class="p-summary">{summary}</p>
+                </template>
+                <template lwc:if={explainMissing}>
+                    <div class="p-explain">
+                        <span>No AI explanation yet.</span>
+                        <lightning-button variant="base" label="Explain this candidate" onclick={handleExplain}></lightning-button>
+                    </div>
+                    <template lwc:if={explainErrorText}><div class="p-muted">{explainErrorText}</div></template>
+                </template>
+
+                <h3 class="p-section">Criteria (met and not met per Textkernel)</h3>
+                <ul class="why-list">
+                    <template for:each={whyCriteria} for:item="c">
+                        <li key={c.id} class={c.cls}>
+                            <lightning-icon icon-name={c.icon} size="xx-small" alternative-text={c.status}></lightning-icon>
+                            <div class="why-text">
+                                <div class="why-label">{c.label} <span class="why-status">{c.status}</span></div>
+                                <div class="why-meta">{c.meta}</div>
+                                <template lwc:if={c.hasEvidence}>
+                                    <div class="why-evidence">
+                                        “{c.evidence}”<template lwc:if={c.source}><span class="why-source"> {c.source}</span></template>
+                                    </div>
+                                </template>
+                            </div>
+                        </li>
+                    </template>
+                </ul>
+
+                <template lwc:if={hasHighlights}>
+                    <h3 class="p-section">Matched text</h3>
+                    <ul class="hl-list">
+                        <template for:each={highlights} for:item="h">
+                            <li key={h.id} class="hl">
+                                <span class="hl-field">{h.field}</span>
+                                <lightning-formatted-rich-text value={h.html}></lightning-formatted-rich-text>
+                            </li>
+                        </template>
+                    </ul>
+                </template>
+            </template>
+
+            <template lwc:if={isProfile}>
+                <template lwc:if={noRecord}><p class="p-muted">This result has no Salesforce candidate record.</p></template>
+                <template lwc:if={detailLoading}><lightning-spinner size="small" alternative-text="Loading profile"></lightning-spinner></template>
+                <template lwc:if={detailError}><div class="p-error" role="alert">{detailError}</div></template>
+                <dl class="facts">
+                    <template for:each={profileRows} for:item="f">
+                        <div key={f.key} class="fact">
+                            <dt>{f.label}</dt>
+                            <dd>{f.value}</dd>
+                        </div>
+                    </template>
+                </dl>
+            </template>
+
+            <template lwc:if={isSkills}>
+                <template lwc:if={detailLoading}><lightning-spinner size="small" alternative-text="Loading skills"></lightning-spinner></template>
+                <template lwc:if={detailError}><div class="p-error" role="alert">{detailError}</div></template>
+                <template lwc:if={hasSkills}>
+                    <div class="skills">
+                        <template for:each={skills} for:item="s">
+                            <span key={s.id} class="skill">{s.label}</span>
+                        </template>
+                    </div>
+                </template>
+                <template lwc:elseif={showDetailEmpty}><p class="p-muted">No skills on record.</p></template>
+            </template>
+
+            <template lwc:if={isActivity}>
+                <template lwc:if={detailLoading}><lightning-spinner size="small" alternative-text="Loading activity"></lightning-spinner></template>
+                <template lwc:if={detailError}><div class="p-error" role="alert">{detailError}</div></template>
+                <template lwc:if={hasNotes}>
+                    <ul class="notes">
+                        <template for:each={notes} for:item="n">
+                            <li key={n.id} class="note">
+                                <div class="note-head">{n.head}</div>
+                                <div class="note-text">{n.text}</div>
+                            </li>
+                        </template>
+                    </ul>
+                </template>
+                <template lwc:elseif={showDetailEmpty}><p class="p-muted">No recent notes.</p></template>
+            </template>
+        </div>
+    </section>
+</template>

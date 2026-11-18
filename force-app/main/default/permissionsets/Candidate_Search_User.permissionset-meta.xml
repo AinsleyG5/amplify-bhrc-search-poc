@@ -364,6 +364,10 @@
         <object>UserExternalCredential</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
+    <tabSettings>
+        <tab>Candidate_Search</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
     <description>Run Candidate Search: Apex classes, its objects (own records), prompts and config, and the TK, Tx Skills and Anthropic credentials.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Candidate Search User</label>

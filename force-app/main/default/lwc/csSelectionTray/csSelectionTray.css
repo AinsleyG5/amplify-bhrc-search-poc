@@ -1,0 +1,92 @@
+:host {
+    display: block;
+}
+
+.tray {
+    background: var(--bh-navigation, #202945);
+    color: #fff;
+    border-radius: var(--bh-radius, 10px);
+    padding: 10px 14px;
+    box-shadow: 0 -4px 18px rgba(32, 41, 69, 0.18);
+    font-size: 13px;
+}
+
+.t-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+}
+
+.t-count {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.t-people {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+
+.person {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    padding: 1px 4px 1px 9px;
+    font-size: 12px;
+    --slds-c-icon-color-foreground-default: #fff;
+}
+
+.person-name {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.person-x {
+    display: inline-flex;
+    background: none;
+    border: 0;
+    padding: 2px 4px;
+    cursor: pointer;
+}
+
+.person-x:focus-visible {
+    outline: 2px solid #fff;
+    border-radius: 6px;
+}
+
+.more {
+    font-size: 12px;
+    opacity: 0.75;
+    align-self: center;
+}
+
+.t-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.t-pick {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: var(--bh-white, #fff);
+    color: var(--bh-text, #282828);
+    border-radius: var(--bh-radius-sm, 6px);
+}
+
+.picker {
+    flex: 1;
+    min-width: 240px;
+}

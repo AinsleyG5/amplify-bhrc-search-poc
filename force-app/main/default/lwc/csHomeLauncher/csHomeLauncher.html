@@ -1,0 +1,17 @@
+<template>
+    <lightning-card title={heading} icon-name="standard:search">
+        <lightning-button slot="actions" variant="base" label="Open Candidate Search" onclick={openTab}></lightning-button>
+        <div class="launch">
+            <input
+                class="q"
+                type="search"
+                placeholder="For example: forklift-certified warehouse operatives near Dagenham"
+                aria-label="Describe the candidates you are looking for"
+                value={text}
+                oninput={handleInput}
+                onkeydown={handleKeydown}
+            />
+            <lightning-button variant="brand" label="Search" onclick={go} disabled={disabled}></lightning-button>
+        </div>
+    </lightning-card>
+</template>

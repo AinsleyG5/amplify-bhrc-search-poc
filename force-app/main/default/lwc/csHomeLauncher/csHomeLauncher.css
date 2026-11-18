@@ -1,0 +1,21 @@
+.launch {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px;
+}
+
+.q {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    font-size: 14px;
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+    padding: 6px 10px;
+}
+
+.q:focus {
+    outline: 0;
+    border-color: #009bdf;
+    box-shadow: 0 0 0 3px #ccefff;
+}

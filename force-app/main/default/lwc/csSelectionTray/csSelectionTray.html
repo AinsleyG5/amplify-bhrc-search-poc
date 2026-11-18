@@ -1,0 +1,59 @@
+<template>
+    <div class="tray" role="region" aria-label="Selected candidates">
+        <div class="t-row">
+            <div class="t-count">{countText}</div>
+            <div class="t-people">
+                <template for:each={people} for:item="p">
+                    <span key={p.docId} class="person">
+                        <span class="person-name">{p.name}</span>
+                        <button class="person-x" data-id={p.docId} onclick={handleDeselect} aria-label={p.removeLabel} title={p.removeLabel}>
+                            <lightning-icon icon-name="utility:close" size="xx-small" alternative-text=""></lightning-icon>
+                        </button>
+                    </span>
+                </template>
+                <template lwc:if={moreText}><span class="more">{moreText}</span></template>
+            </div>
+            <div class="t-actions">
+                <lightning-button
+                    label="Compare"
+                    icon-name="utility:side_list"
+                    onclick={handleCompare}
+                    disabled={compareDisabled}
+                    title={compareTitle}
+                ></lightning-button>
+                <lightning-button label="Add to job" icon-name="utility:case" onclick={showJob} disabled={busy}></lightning-button>
+                <lightning-button label="Add to talent pool" icon-name="utility:groups" onclick={showPool} disabled={busy}></lightning-button>
+                <lightning-button label="Clear" onclick={handleClear}></lightning-button>
+            </div>
+        </div>
+
+        <template lwc:if={isJobMode}>
+            <div class="t-pick">
+                <lightning-record-picker
+                    class="picker"
+                    label="Job"
+                    object-api-name="TR1__Job__c"
+                    placeholder="Search jobs"
+                    value={pickedJobId}
+                    display-info={jobDisplayInfo}
+                    onchange={handleJobPick}
+                ></lightning-record-picker>
+                <lightning-button variant="brand" label={addJobLabel} onclick={confirmJob} disabled={confirmJobDisabled}></lightning-button>
+            </div>
+        </template>
+        <template lwc:if={isPoolMode}>
+            <div class="t-pick">
+                <lightning-record-picker
+                    class="picker"
+                    label="Talent pool"
+                    object-api-name="TR1__Call_List__c"
+                    placeholder="Search talent pools"
+                    value={pickedPoolId}
+                    display-info={poolDisplayInfo}
+                    onchange={handlePoolPick}
+                ></lightning-record-picker>
+                <lightning-button variant="brand" label={addPoolLabel} onclick={confirmPool} disabled={confirmPoolDisabled}></lightning-button>
+            </div>
+        </template>
+    </div>
+</template>

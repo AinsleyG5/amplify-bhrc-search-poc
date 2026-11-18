@@ -13,6 +13,7 @@
  *
  * All of spec 6.1: parseQuery, startJobMatch, runSearch, refine, explainResults, autocompleteSkills,
  * getRecentAndSaved, saveSearch, setFavourite, logAction, getCompareData, bulkAddToJob, bulkAddToTalentPool.
+ * Added for the candidate panel: getCandidateDetail.
  */
 public with sharing class CandidateSearchController {
 
@@ -486,6 +487,25 @@ public with sharing class CandidateSearchController {
     public static String getCompareData(String contactIdsJson, Id auditId) {
         List<Id> ids = contactIdList(contactIdsJson, COMPARE_MAX);
         if (ids.size() < COMPARE_MIN) throw fail('Pick ' + COMPARE_MIN + ' to ' + COMPARE_MAX + ' candidates to compare.');
+        return System.JSON.serialize(candidateData(ids, auditId, 'compared'));
+    }
+
+    /**
+     * One candidate for the candidate panel (Profile, Skills, Activity tabs): the same shape as one getCompareData
+     * candidate, as { auditId, jobId, criteria, candidate, notices }. Logs "Opened" on the audit.
+     */
+    @AuraEnabled
+    public static String getCandidateDetail(Id contactId, Id auditId) {
+        if (contactId == null || contactId.getSObjectType() != Contact.SObjectType) throw fail('This result has no Salesforce candidate record.');
+        Map<String, Object> data = candidateData(new List<Id>{ contactId }, auditId, 'opened');
+        List<Object> candidates = (List<Object>) data.remove('candidates');
+        if (candidates.isEmpty()) throw fail('That candidate could not be found, or you do not have access to it.');
+        data.put('candidate', candidates[0]);
+        return System.JSON.serialize(data);
+    }
+
+    /** Shared by compare and the candidate panel. action is logged on the audit for each candidate found. */
+    private static Map<String, Object> candidateData(List<Id> ids, Id auditId, String action) {
         Set<Id> idSet = new Set<Id>(ids);
         List<String> notices = new List<String>();
 
@@ -574,19 +594,19 @@ public with sharing class CandidateSearchController {
 
         if (auditId != null && !comparedDocIds.isEmpty()) {
             try {
-                SearchAuditService.logActions(auditId, comparedDocIds, 'compared');
+                SearchAuditService.logActions(auditId, comparedDocIds, action);
             } catch (Exception e) {
-                System.debug(LoggingLevel.WARN, 'Compare not logged: ' + e.getMessage());
+                System.debug(LoggingLevel.WARN, 'Action "' + action + '" not logged: ' + e.getMessage());
             }
         }
 
-        return System.JSON.serialize(new Map<String, Object>{
+        return new Map<String, Object>{
             'auditId' => auditId,
             'jobId' => jobId,
             'criteria' => compareCriteria(criteria),
             'candidates' => candidates,
             'notices' => notices
-        });
+        };
     }
 
     /**

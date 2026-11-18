@@ -1,0 +1,53 @@
+<template>
+    <div class={rowCls} data-doc-id={item.docId}>
+        <div class="sel" onclick={stop}>
+            <input type="checkbox" checked={item.selected} disabled={checkboxDisabled} onchange={handleSelect} aria-label={selectLabel} title={checkboxTitle} />
+        </div>
+        <div class="rank" aria-hidden="true">{item.rank}</div>
+
+        <div class="who">
+            <button class="name-btn" onclick={handleOpen} aria-label={openLabel}>{item.name}</button>
+            <div class="sub">
+                <span>{item.title}</span>
+                <template lwc:if={item.city}><span class="dot" aria-hidden="true">·</span><span>{item.city}</span></template>
+            </div>
+            <div class="tags">
+                <template lwc:if={item.changeTag}><span class={item.changeTag.cls}>{item.changeTag.label}</span></template>
+                <template lwc:if={item.pipelineLabel}><span class="tag tag-pipeline">{item.pipelineLabel}</span></template>
+                <template lwc:if={item.placedRecently}><span class="tag tag-placed">Placed recently</span></template>
+            </div>
+        </div>
+
+        <div class="crit" aria-label="Criteria met">
+            <template for:each={item.criteria} for:item="c">
+                <span key={c.id} class={c.cls} title={c.title}>
+                    <lightning-icon icon-name={c.icon} size="xx-small" alternative-text={c.statusText}></lightning-icon>
+                    <span class="crit-label">{c.label}</span>
+                </span>
+            </template>
+        </div>
+
+        <div class="why">
+            <template lwc:if={explainPending}>
+                <div class="shimmer" aria-label="Explanation loading"><span></span><span></span></div>
+            </template>
+            <template lwc:if={explainDone}>
+                <p class="summary">{summary}</p>
+            </template>
+            <template lwc:if={explainError}>
+                <p class="why-error" title={errorText}>
+                    No explanation.
+                    <button class="link" onclick={handleExplain}>Try again</button>
+                </p>
+            </template>
+            <template lwc:if={explainAvailable}>
+                <button class="link" onclick={handleExplain}>Explain</button>
+            </template>
+        </div>
+
+        <div class="score" title="Textkernel score">
+            <span class="score-num">{scoreText}</span>
+            <span class="score-bar"><span class="score-fill" style={scoreStyle}></span></span>
+        </div>
+    </div>
+</template>

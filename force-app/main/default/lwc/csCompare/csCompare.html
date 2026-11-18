@@ -1,0 +1,76 @@
+<template>
+    <section class="compare" role="dialog" aria-label="Compare candidates" onkeydown={handleKeydown}>
+        <header class="cmp-head">
+            <h2 class="cmp-title">Compare candidates</h2>
+            <lightning-button-icon
+                class="close-btn"
+                icon-name="utility:close"
+                variant="bare"
+                alternative-text="Close"
+                title="Close (Escape)"
+                onclick={handleClose}
+            ></lightning-button-icon>
+        </header>
+
+        <div class="cmp-body">
+            <template lwc:if={loading}>
+                <lightning-spinner alternative-text="Loading the comparison" variant="brand"></lightning-spinner>
+            </template>
+            <template lwc:if={error}>
+                <div class="cmp-error" role="alert">{error}</div>
+            </template>
+            <template lwc:if={hasNotices}>
+                <template for:each={notices} for:item="n">
+                    <div key={n.id} class="cmp-notice">{n.text}</div>
+                </template>
+            </template>
+
+            <template lwc:if={hasData}>
+                <div class="grid" style={gridStyle} role="table" aria-label="Candidates side by side">
+                    <div class="g-corner" role="columnheader"></div>
+                    <template for:each={heads} for:item="h">
+                        <div key={h.key} class="g-head" role="columnheader">
+                            <div class="h-top">
+                                <button class="h-name" data-id={h.contactId} onclick={openRecord} aria-label={h.openLabel}>{h.name}</button>
+                                <template lwc:if={canRemove}>
+                                    <lightning-button-icon
+                                        icon-name="utility:close"
+                                        size="small"
+                                        variant="bare"
+                                        data-id={h.contactId}
+                                        alternative-text={h.removeLabel}
+                                        title={h.removeLabel}
+                                        onclick={handleRemove}
+                                    ></lightning-button-icon>
+                                </template>
+                            </div>
+                            <div class="h-sub">{h.sub}</div>
+                            <template lwc:if={h.score}><div class="h-score">{h.score}</div></template>
+                        </div>
+                    </template>
+
+                    <template for:each={rows} for:item="r">
+                        <div key={r.key} class="g-row" role="row">
+                            <div class="g-label" role="rowheader">
+                                <div>{r.label}</div>
+                                <template lwc:if={r.sub}><div class="g-sub">{r.sub}</div></template>
+                            </div>
+                            <template for:each={r.cells} for:item="c">
+                                <div key={c.key} class={c.cls} role="cell">
+                                    <template lwc:if={c.hasIcon}>
+                                        <span class="c-status">
+                                            <lightning-icon icon-name={c.icon} size="xx-small" alternative-text=""></lightning-icon>
+                                            <span>{c.text}</span>
+                                        </span>
+                                        <template lwc:if={c.evidence}><div class="c-evidence">“{c.evidence}”</div></template>
+                                    </template>
+                                    <template lwc:else>{c.text}</template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </section>
+</template>

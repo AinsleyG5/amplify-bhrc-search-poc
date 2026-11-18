@@ -1,0 +1,98 @@
+<template>
+    <div class="home">
+        <template lwc:if={loading}>
+            <div class="h-loading">
+                <lightning-spinner size="small" alternative-text="Loading your searches"></lightning-spinner>
+            </div>
+        </template>
+        <template lwc:if={error}>
+            <div class="h-error" role="alert">{error}</div>
+        </template>
+
+        <template lwc:if={isEmpty}>
+            <div class="h-empty">
+                <p class="h-empty-title">Search in plain English</p>
+                <p>
+                    Describe the candidates you need above. Your recent and saved searches appear here. To match a job, use the Match button on the job record.
+                </p>
+            </div>
+        </template>
+
+        <div class="cols">
+            <template lwc:if={hasFavourites}>
+                <section class="col">
+                    <h2 class="col-title">Favourites</h2>
+                    <ul class="items">
+                        <template for:each={favourites} for:item="s">
+                            <li key={s.key} class="item">
+                                <button class="item-main" data-id={s.id} data-saved={s.saved} onclick={handleRun} aria-label={s.runLabel}>
+                                    <span class="item-name"
+                                        >{s.name}<template lwc:if={s.isJob}><span class="job-tag">Job</span></template></span
+                                    >
+                                    <span class="item-detail">{s.detail}</span>
+                                </button>
+                                <lightning-button-icon
+                                    icon-name={s.starIcon}
+                                    variant="bare"
+                                    class="star star-on"
+                                    data-id={s.id}
+                                    data-favourite={s.favourite}
+                                    alternative-text={s.starLabel}
+                                    title={s.starLabel}
+                                    onclick={handleStar}
+                                ></lightning-button-icon>
+                            </li>
+                        </template>
+                    </ul>
+                </section>
+            </template>
+
+            <template lwc:if={hasSaved}>
+                <section class="col">
+                    <h2 class="col-title">Saved searches</h2>
+                    <ul class="items">
+                        <template for:each={saved} for:item="s">
+                            <li key={s.key} class="item">
+                                <button class="item-main" data-id={s.id} data-saved={s.saved} onclick={handleRun} aria-label={s.runLabel}>
+                                    <span class="item-name"
+                                        >{s.name}<template lwc:if={s.isJob}><span class="job-tag">Job</span></template></span
+                                    >
+                                    <span class="item-detail">{s.detail}</span>
+                                </button>
+                                <lightning-button-icon
+                                    icon-name={s.starIcon}
+                                    variant="bare"
+                                    class="star"
+                                    data-id={s.id}
+                                    data-favourite={s.favourite}
+                                    alternative-text={s.starLabel}
+                                    title={s.starLabel}
+                                    onclick={handleStar}
+                                ></lightning-button-icon>
+                            </li>
+                        </template>
+                    </ul>
+                </section>
+            </template>
+
+            <template lwc:if={hasRecent}>
+                <section class="col">
+                    <h2 class="col-title">Recent searches</h2>
+                    <ul class="items">
+                        <template for:each={recent} for:item="s">
+                            <li key={s.key} class="item">
+                                <button class="item-main" data-id={s.id} data-saved={s.saved} onclick={handleRun} aria-label={s.runLabel}>
+                                    <span class="item-name"
+                                        >{s.name}<template lwc:if={s.isJob}><span class="job-tag">Job</span></template></span
+                                    >
+                                    <span class="item-detail">{s.detail}</span>
+                                </button>
+                                <span class="runs">{s.runs}</span>
+                            </li>
+                        </template>
+                    </ul>
+                </section>
+            </template>
+        </div>
+    </div>
+</template>

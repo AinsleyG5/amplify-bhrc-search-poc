@@ -1,0 +1,178 @@
+:host {
+    display: block;
+    height: 100%;
+}
+
+.compare {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--bh-white, #fff);
+    border-radius: var(--bh-radius, 10px);
+    box-shadow: 0 12px 40px rgba(32, 41, 69, 0.25);
+    font-size: 13px;
+    color: var(--bh-text, #282828);
+    overflow: hidden;
+}
+
+.cmp-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--bh-border, #e2e2e2);
+}
+
+.cmp-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--bh-navigation, #202945);
+    margin: 0;
+}
+
+.cmp-body {
+    position: relative;
+    flex: 1;
+    overflow: auto;
+    padding: 12px 16px 20px;
+    min-height: 200px;
+}
+
+.cmp-error {
+    color: var(--bh-danger-text, #ae3642);
+    background: var(--bh-danger-pale, #f7d4d8);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+}
+
+.cmp-notice {
+    font-size: 12px;
+    color: var(--bh-warning-text, #8c5d00);
+    background: var(--bh-warning-pale, #fdebce);
+    border-radius: 6px;
+    padding: 6px 12px;
+    margin-bottom: 8px;
+}
+
+.grid {
+    display: grid;
+    min-width: max-content;
+}
+
+/* Each row is a "contents" box so its label and cells sit directly in the grid */
+.g-row {
+    display: contents;
+}
+
+.g-corner,
+.g-head {
+    position: sticky;
+    top: -12px;
+    z-index: 1;
+    background: var(--bh-white, #fff);
+    border-bottom: 2px solid var(--bh-border, #e2e2e2);
+    padding: 8px 10px;
+}
+
+.h-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.h-name {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--bh-sky-shade, #007cb2);
+    cursor: pointer;
+    text-align: left;
+}
+
+.h-name:hover {
+    text-decoration: underline;
+}
+
+.h-sub {
+    font-size: 12px;
+    color: var(--bh-neutral, #4f5361);
+}
+
+.h-score {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 0 8px;
+    background: var(--bh-candidate-pale, #daf1e4);
+    color: var(--bh-candidate-shade, #36955f);
+}
+
+.g-label {
+    position: sticky;
+    left: -16px;
+    background: var(--bh-bg, #f7f7f7);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--bh-border-soft, #ececec);
+    font-weight: 600;
+}
+
+.g-sub {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--bh-slate, #707070);
+}
+
+.cell {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--bh-border-soft, #ececec);
+    white-space: pre-line;
+}
+
+.cell-summary {
+    line-height: 1.45;
+}
+
+.cell-muted {
+    color: var(--bh-ash, #a0a0a0);
+}
+
+.cell-small {
+    font-size: 12px;
+}
+
+.c-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+}
+
+.cell-met {
+    background: #f4faef;
+    color: var(--bh-success-text, #2f7a45);
+    --slds-c-icon-color-foreground-default: var(--bh-success-text, #2f7a45);
+}
+
+.cell-notmet {
+    color: var(--bh-danger-text, #ae3642);
+    --slds-c-icon-color-foreground-default: var(--bh-danger-text, #ae3642);
+}
+
+.cell-na {
+    color: var(--bh-slate, #707070);
+    --slds-c-icon-color-foreground-default: var(--bh-ash, #a0a0a0);
+}
+
+.c-evidence {
+    font-size: 12px;
+    font-style: italic;
+    color: var(--bh-neutral, #4f5361);
+    margin-top: 2px;
+}

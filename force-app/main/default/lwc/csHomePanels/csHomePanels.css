@@ -1,0 +1,131 @@
+:host {
+    display: block;
+}
+
+.home {
+    position: relative;
+    min-height: 80px;
+}
+
+.h-error {
+    color: var(--bh-danger-text, #ae3642);
+    background: var(--bh-danger-pale, #f7d4d8);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+}
+
+.h-empty {
+    background: var(--bh-white, #fff);
+    border: 1px dashed var(--bh-border, #e2e2e2);
+    border-radius: var(--bh-radius, 10px);
+    padding: 28px 24px;
+    text-align: center;
+    color: var(--bh-neutral, #4f5361);
+}
+
+.h-empty-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--bh-navigation, #202945);
+    margin-bottom: 4px;
+}
+
+.cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.col {
+    background: var(--bh-white, #fff);
+    border: 1px solid var(--bh-border, #e2e2e2);
+    border-radius: var(--bh-radius, 10px);
+    padding: 12px 0 6px;
+    box-shadow: var(--bh-shadow);
+}
+
+.col-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--bh-slate, #707070);
+    margin: 0 14px 6px;
+}
+
+.items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px 0 0;
+    border-top: 1px solid var(--bh-border-soft, #ececec);
+}
+
+.item-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    background: none;
+    border: 0;
+    padding: 8px 14px;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.item-main:hover {
+    background: #fafcff;
+}
+
+.item-main:focus-visible {
+    outline: 2px solid var(--bh-sky, #009bdf);
+    outline-offset: -2px;
+}
+
+.item-name {
+    font-weight: 600;
+    color: var(--bh-sky-shade, #007cb2);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.item-detail {
+    font-size: 11px;
+    color: var(--bh-slate, #707070);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.job-tag {
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 0 6px;
+    margin-left: 6px;
+    background: var(--bh-bg, #f7f7f7);
+    color: var(--bh-neutral, #4f5361);
+}
+
+.star-on {
+    --slds-c-icon-color-foreground-default: var(--bh-orange, #ff6900);
+}
+
+.runs {
+    font-size: 11px;
+    color: var(--bh-ash, #a0a0a0);
+    white-space: nowrap;
+}

@@ -1,0 +1,77 @@
+<template>
+    <aside class="chat" aria-label="Refine the search">
+        <header class="c-head">
+            <div class="c-title">
+                <lightning-icon icon-name="utility:einstein" size="x-small" alternative-text=""></lightning-icon>
+                <span>Refine</span>
+            </div>
+            <div class="c-actions">
+                <lightning-button-icon
+                    icon-name="utility:undo"
+                    variant="bare"
+                    alternative-text="Undo the last change"
+                    title="Undo the last change"
+                    onclick={handleUndo}
+                    disabled={undoDisabled}
+                ></lightning-button-icon>
+                <lightning-button-icon
+                    icon-name="utility:close"
+                    variant="bare"
+                    alternative-text="Close the chat"
+                    title="Close the chat"
+                    onclick={handleClose}
+                ></lightning-button-icon>
+            </div>
+        </header>
+
+        <div class="log" aria-live="polite">
+            <template lwc:if={isEmpty}>
+                <div class="intro">
+                    <p>Tell me how to change the search, one step at a time. Each change re-runs the search, and you can undo it.</p>
+                    <div class="sugs">
+                        <template for:each={suggestions} for:item="s">
+                            <button key={s.id} class="sug" data-text={s.text} onclick={useSuggestion}>{s.text}</button>
+                        </template>
+                    </div>
+                </div>
+            </template>
+            <template for:each={items} for:item="t">
+                <div key={t.id} class={t.cls}>
+                    <div class="bubble">{t.text}</div>
+                    <template lwc:if={t.hasDiff}>
+                        <ul class="diffs">
+                            <template for:each={t.diff} for:item="d">
+                                <li key={d.id} class={d.cls}>{d.text}</li>
+                            </template>
+                        </ul>
+                    </template>
+                    <template lwc:if={t.undone}><div class="undone">Undone</div></template>
+                </div>
+            </template>
+            <template lwc:if={busy}>
+                <div class="turn turn-assistant">
+                    <div class="bubble typing" aria-label="Working"><span></span><span></span><span></span></div>
+                </div>
+            </template>
+        </div>
+
+        <div class="compose">
+            <textarea
+                class="msg"
+                rows="2"
+                placeholder="For example: only nights, or widen to 25 miles"
+                aria-label="Message to refine the search"
+                oninput={handleInput}
+                onkeydown={handleKeydown}
+            ></textarea>
+            <lightning-button-icon
+                icon-name="utility:send"
+                variant="brand"
+                alternative-text="Send"
+                title="Send"
+                onclick={send}
+                disabled={sendDisabled}
+            ></lightning-button-icon>
+        </div>
+    </aside>
+</template>
