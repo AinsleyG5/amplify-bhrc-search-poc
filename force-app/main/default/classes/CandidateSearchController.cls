@@ -69,14 +69,16 @@ public with sharing class CandidateSearchController {
         }
 
         CriteriaService.BuildResult built = CriteriaService.toQueryParts(criteria);
-        if (built.parts.isEmpty()) throw fail('None of the criteria can be sent to Textkernel yet. Add a title, skill or keyword.');
+        if (built.isEmpty()) throw fail('None of the criteria can be sent to Textkernel yet. Add a title, skill or keyword.');
 
-        TkSearchClient.SearchOptions opts = new TkSearchClient.SearchOptions();
+        TkSearchClient.SearchOptions opts = built.options();
         opts.offset = offset == null ? 0 : offset;
         SearchRun run = new SearchRun();
         run.criteria = criteria;
         run.trace = trace;
         run.criteriaIds = built.criteriaIds;
+        run.queryCriteriaIds = built.queryCriteriaIds;
+        run.excludedCriteriaIds = built.excludedCriteriaIds;
         run.notices.addAll(built.notices);
         run.auditId = auditId;
         if (trace.get('aiError') != null) run.notices.add(String.valueOf(trace.get('aiError')));
@@ -128,13 +130,17 @@ public with sharing class CandidateSearchController {
                 if (changed) {
                     run.notices.add('Adjusted the generated query (location, skill cap or softer title) and searched again.');
                     run.criteriaIds = built.criteriaIds;
+                    run.queryCriteriaIds = built.queryCriteriaIds;
+        run.excludedCriteriaIds = built.excludedCriteriaIds;
                     try {
-                        run.result = TkSearchClient.search(built.parts, new TkSearchClient.SearchOptions());
+                        run.result = TkSearchClient.search(built.parts, built.options());
                     } catch (TkSearchClient.TkException e) {
                         // The indexed result is still good: show it rather than fail the match
                         run.notices.add('The adjusted search failed (' + e.getMessage() + '), so these are the unadjusted results.');
                         run.result = indexed;
                         run.criteriaIds = idsInOrder(criteria);
+                        run.queryCriteriaIds = new List<String>();
+                        run.excludedCriteriaIds = new List<String>();
                     }
                     if (run.result !== indexed) {
                         run.result.requestXml = indexed.requestXml + '\n\n' + run.result.requestXml;
@@ -158,10 +164,12 @@ public with sharing class CandidateSearchController {
             }
             CriteriaService.BuildResult built = CriteriaService.toQueryParts(run.criteria);
             run.criteriaIds = built.criteriaIds;
+            run.queryCriteriaIds = built.queryCriteriaIds;
+        run.excludedCriteriaIds = built.excludedCriteriaIds;
             run.notices.addAll(built.notices);
             run.notices.add('Could not use the Textkernel job document (' + indexError + '). Built the search from the job record for ' + jobLabel + ' instead.');
             try {
-                run.result = TkSearchClient.search(built.parts, new TkSearchClient.SearchOptions());
+                run.result = TkSearchClient.search(built.parts, built.options());
             } catch (TkSearchClient.TkException e) {
                 return searchFailed(run, e.getMessage());
             }
@@ -350,9 +358,11 @@ public with sharing class CandidateSearchController {
         if (contactIds.isEmpty()) return out;
         for (Task t : [
             SELECT WhoId, Subject, Description, ActivityDate, CreatedDate FROM Task
-            WHERE WhoId IN :contactIds AND Description != null
+            WHERE WhoId IN :contactIds
             ORDER BY CreatedDate DESC LIMIT 200
         ]) {
+            // Description is a long text field, so it cannot be filtered in SOQL: skip blank notes here
+            if (String.isBlank(t.Description)) continue;
             if (!out.containsKey(t.WhoId)) out.put(t.WhoId, new List<String>());
             List<String> l = out.get(t.WhoId);
             if (l.size() >= 3) continue;
@@ -460,6 +470,10 @@ public with sharing class CandidateSearchController {
         public Map<String, Object> criteria;
         public Map<String, Object> trace = new Map<String, Object>();
         public List<String> criteriaIds = new List<String>();
+        /** Location chips sent in the query string: met by every result. */
+        public List<String> queryCriteriaIds = new List<String>();
+        /** Excluded chips (and the placed-recently exclusion) sent as -field:value in the query string. */
+        public List<String> excludedCriteriaIds = new List<String>();
         public List<String> notices = new List<String>();
         public TkSearchClient.Result result;
         public Id auditId;
@@ -470,15 +484,31 @@ public with sharing class CandidateSearchController {
     private static String finish(SearchRun s) {
         TkSearchClient.Result r = s.result;
         Boolean firstPage = s.auditId == null;
-        String criteriaJson = CriteriaService.serialize(s.criteria);
+        String criteriaJson = storedCriteriaJson(s.criteria);
         Id jobId = idOrNull(CriteriaService.str(s.criteria, 'jobId'));
 
+        // The index can hold documents from other Salesforce orgs (seen on tksf_bh4sf_tso_cv): hide them, and never
+        // write a lookup to a Contact that is not in this org (the audit row insert would fail)
+        String org15 = UserInfo.getOrganizationId().left(15);
+        Set<String> foreign = new Set<String>();
         Set<Id> contactIds = new Set<Id>();
-        for (TkSearchClient.Hit h : r.hits) if (h.contactId != null) contactIds.add(h.contactId);
-
-        Map<Id, PipelineStatusService.Flags> flags = PipelineStatusService.flagsFor(jobId, contactIds);
-        s.notices.addAll(PipelineStatusService.warnings);
+        for (TkSearchClient.Hit h : r.hits) {
+            if (String.isNotBlank(h.docId) && h.docId.contains('_') && !h.docId.startsWith(org15)) {
+                foreign.add(h.docId);
+                h.contactId = null;
+            }
+            if (h.contactId != null) contactIds.add(h.contactId);
+        }
         Map<Id, Contact> contacts = contactsFor(contactIds);
+        for (TkSearchClient.Hit h : r.hits) {
+            if (h.contactId != null && !contacts.containsKey(h.contactId)) h.contactId = null;
+        }
+        if (!foreign.isEmpty()) {
+            s.notices.add(foreign.size() + ' result' + (foreign.size() == 1 ? '' : 's') + ' from another Salesforce org ' + (foreign.size() == 1 ? 'was' : 'were') + ' hidden.');
+        }
+
+        Map<Id, PipelineStatusService.Flags> flags = PipelineStatusService.flagsFor(jobId, contacts.keySet());
+        s.notices.addAll(PipelineStatusService.warnings);
         Integer recentDays = placedWithinDays(s.criteria);
 
         Boolean hidePipeline = CriteriaService.exclusions(s.criteria).get('pipelineForJob') == true;
@@ -508,7 +538,10 @@ public with sharing class CandidateSearchController {
                 SearchAuditWriter w = new SearchAuditWriter();
                 w.auditId = s.auditId;
                 w.firstPage = firstPage;
-                w.rows = SearchAuditService.resultRows(s.auditId, r, s.criteriaIds, flags, hidden);
+                List<String> auditIds = new List<String>(s.criteriaIds);
+                for (String id : s.queryCriteriaIds) auditIds.add('q:' + id);
+                for (String id : s.excludedCriteriaIds) auditIds.add('x:' + id);
+                w.rows = SearchAuditService.resultRows(s.auditId, r, auditIds, flags, hidden);
                 w.appendRequestXml = firstPage ? null : r.requestXml;
                 w.rawResponse = firstPage ? r.responseXml : null;
                 if (firstPage) w.recent = recent(s, criteriaJson, jobId);
@@ -522,8 +555,11 @@ public with sharing class CandidateSearchController {
         Integer pos = 0;
         for (TkSearchClient.Hit h : r.hits) {
             pos++;
-            if (hidden.contains(h.docId)) continue;
-            rows.add(row(h, r.offset + pos, s.criteriaIds, contacts.get(h.contactId), flags.get(h.contactId), recentDays));
+            if (hidden.contains(h.docId) || foreign.contains(h.docId)) continue;
+            Map<String, Object> rowOut = row(h, r.offset + pos, s.criteriaIds, contacts.get(h.contactId), flags.get(h.contactId), recentDays);
+            rowOut.put('queryCriteriaIds', s.queryCriteriaIds);
+            rowOut.put('excludedCriteriaIds', s.excludedCriteriaIds);
+            rows.add(rowOut);
         }
 
         List<Object> facets = new List<Object>();
@@ -670,6 +706,23 @@ public with sharing class CandidateSearchController {
         trace.put('outputTokens', u.outputTokens);
         trace.put('durationMs', u.durationMs);
         trace.put('attempts', u.attempts);
+    }
+
+    /**
+     * Criteria JSON for Criteria_JSON__c and the recent search (Long Text 131072). If a long job-match query does not
+     * fit, the stored copy drops each part's verbatim XML (the chips, fields and values stay, so it still explains
+     * and re-runs). The LWC always gets the full criteria.
+     */
+    @TestVisible
+    private static String storedCriteriaJson(Map<String, Object> criteria) {
+        String full = CriteriaService.serialize(criteria);
+        if (full.length() <= SearchAuditService.LONG_TEXT_MAX) return full;
+        Map<String, Object> slim = (Map<String, Object>) System.JSON.deserializeUntyped(full);
+        for (Object o : CriteriaService.items(slim)) {
+            Object raw = ((Map<String, Object>) o).get('raw');
+            if (raw instanceof Map<String, Object>) ((Map<String, Object>) raw).remove('xml');
+        }
+        return CriteriaService.serialize(slim);
     }
 
     /** searchWithUrl result: one chip per generated part, in the order TK returned them. */

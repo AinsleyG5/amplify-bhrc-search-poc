@@ -11,7 +11,7 @@ private class CandidateSearchControllerTest {
         CandidateSearchTestMocks.usePrompts();
         List<Contact> cs = CandidateSearchTestMocks.contacts(3);
         CandidateSearchTestMocks.toolInputs.put('set_criteria', new List<String>{ CandidateSearchTestMocks.PARSE_OUTPUT });
-        CandidateSearchTestMocks.partScores = new List<String>{ '1.0', '1.0', '0.0', '1.0' };
+        CandidateSearchTestMocks.partScores = new List<String>{ '1.0', '0.0', '1.0' };
         CandidateSearchTestMocks.total = 9;
         CandidateSearchTestMocks.hasMore = true;
         CandidateSearchTestMocks.install();
@@ -36,8 +36,10 @@ private class CandidateSearchControllerTest {
         System.assertEquals(cs[0].Id, row.get('contactId'));
         System.assertEquals(1, row.get('rank'));
         System.assertEquals(98, row.get('scorePct'));
-        System.assertEquals(new List<Object>{ 1, 1, 0, 1 }, row.get('queryPartFlags'));
-        System.assertEquals(new List<Object>{ 'c1', 'c2', 'c3', 'filter:candidate_status' }, row.get('criteriaIds'));
+        System.assertEquals(new List<Object>{ 1, 0, 1 }, row.get('queryPartFlags'));
+        System.assertEquals(new List<Object>{ 'c1', 'c2', 'filter:candidate_status' }, row.get('criteriaIds'));
+        System.assertEquals(new List<Object>{ 'c3' }, row.get('queryCriteriaIds'));
+        System.assert(CandidateSearchTestMocks.requests[1].getBody().contains('<query>city:Dagenham+15</query>'), 'location goes in the query string');
         System.assertEquals('Test0 Candidate0', row.get('name'));
         System.assertEquals(1, ((List<Object>) res.get('facets')).size());
         System.assert(((Map<String, Object>) res.get('criteria')).get('trace') == null, 'trace is never returned or stored');
@@ -58,18 +60,20 @@ private class CandidateSearchControllerTest {
         System.assert(a.TK_Request_XML__c.contains('<password>(hidden)</password>'));
         System.assertNotEquals(null, a.Saved_Search__c, 'logged as a recent search');
         System.assertEquals(3, [SELECT COUNT() FROM Search_Audit_Result__c WHERE Search_Audit__c = :auditId]);
+        Search_Audit_Result__c first = [SELECT TK_Criteria_Map__c FROM Search_Audit_Result__c WHERE Search_Audit__c = :auditId ORDER BY Rank__c LIMIT 1];
+        System.assertEquals('c1,c2,filter:candidate_status,q:c3', first.TK_Criteria_Map__c);
     }
 
     /** Builds an audit with result rows the way the writer would, before any callout in the test. */
     private static Id seedAudit(List<Contact> cs) {
-        CandidateSearchTestMocks.partScores = new List<String>{ '1.0', '0.0', '1.0', '1.0', '1.0' };
+        CandidateSearchTestMocks.partScores = new List<String>{ '1.0', '0.0', '1.0', '1.0' };
         TkSearchClient.Result r = TkSearchClient.parseResponse(CandidateSearchTestMocks.searchResponse(false));
         r.method = 'search';
         SearchAuditService.AuditStart s = new SearchAuditService.AuditStart();
         s.criteriaJson = CandidateSearchTestMocks.criteriaJson();
         Search_Audit__c a = SearchAuditService.newAudit(s, r, 'Success', null);
         insert a;
-        List<String> ids = CriteriaService.toQueryParts(CriteriaService.parse(s.criteriaJson)).criteriaIds;
+        List<String> ids = CriteriaService.toQueryParts(CriteriaService.parse(s.criteriaJson)).auditCriteriaIds();
         insert SearchAuditService.resultRows(a.Id, r, ids, new Map<Id, PipelineStatusService.Flags>(), new Set<String>());
         insert new Task(WhoId = cs[0].Id, Subject = 'Call', Description = 'Has a forklift licence, happy to do nights.');
         return a.Id;
@@ -146,6 +150,8 @@ private class CandidateSearchControllerTest {
         System.assertEquals(auditId, (Id) res.get('auditId'));
         System.assertEquals(21, ((Map<String, Object>) ((List<Object>) res.get('rows'))[0]).get('rank'));
         System.assert(CandidateSearchTestMocks.requests[0].getBody().contains('<resultOffset>20</resultOffset>'));
+        System.assert(CandidateSearchTestMocks.requests[0].getBody().contains('<query>city:Dagenham+15 -custom_date_1:&gt;=today-30</query>'),
+            'location and the placed-recently exclusion go in the query string');
         Search_Audit_Result__c r = [SELECT Rank__c, Page_Offset__c FROM Search_Audit_Result__c WHERE Contact__c = :more[0].Id];
         System.assertEquals(21, r.Rank__c);
         System.assertEquals(20, r.Page_Offset__c);
@@ -215,6 +221,31 @@ private class CandidateSearchControllerTest {
         Id auditId = (Id) res.get('auditId');
         Search_Audit__c a = [SELECT Status__c, Error__c FROM Search_Audit__c WHERE Id = :auditId];
         System.assertEquals('TK error', a.Status__c);
+    }
+
+    @isTest
+    static void resultsFromAnotherOrgAreHiddenAndNeverLinked() {
+        List<Contact> cs = CandidateSearchTestMocks.contacts(1);
+        CandidateSearchTestMocks.docIds.add('00Dfo000004ft2e_003fo000005QaEkAAK');
+        CandidateSearchTestMocks.install();
+        Test.startTest();
+        Map<String, Object> res = obj(CandidateSearchController.runSearch(CandidateSearchTestMocks.criteriaJson(), 0, null));
+        Test.stopTest();
+        System.assertEquals(1, ((List<Object>) res.get('rows')).size());
+        System.assert(String.valueOf(res.get('notices')).contains('another Salesforce org'), String.valueOf(res.get('notices')));
+        Id auditId = (Id) res.get('auditId');
+        System.assertEquals('Success', [SELECT Status__c FROM Search_Audit__c WHERE Id = :auditId].Status__c, 'no failed lookups');
+        System.assertEquals(2, [SELECT COUNT() FROM Search_Audit_Result__c WHERE Search_Audit__c = :auditId], 'both still audited');
+    }
+
+    @isTest
+    static void storedCriteriaFitTheField() {
+        Map<String, Object> c = CriteriaService.parse(CandidateSearchTestMocks.criteriaJson());
+        Map<String, Object> item = (Map<String, Object>) CriteriaService.items(c)[0];
+        item.put('raw', new Map<String, Object>{ 'field' => 'jobtitles', 'xml' => 'x'.repeat(140000) });
+        String stored = CandidateSearchController.storedCriteriaJson(c);
+        System.assert(stored.length() <= SearchAuditService.LONG_TEXT_MAX);
+        System.assert(stored.contains('"field":"jobtitles"'), 'chips and fields kept');
     }
 
     @isTest

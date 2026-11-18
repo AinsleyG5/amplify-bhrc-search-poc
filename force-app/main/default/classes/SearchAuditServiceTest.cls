@@ -157,6 +157,9 @@ private class SearchAuditServiceTest {
         Map<String, List<String>> m = SearchAuditService.metAndNotMet('1,0,0,1,1', 'c1,c2,c2,filter:candidate_status,c3');
         System.assertEquals(new List<String>{ 'c1', 'c3' }, m.get('met'));
         System.assertEquals(new List<String>{ 'c2' }, m.get('notMet'));
+        m = SearchAuditService.metAndNotMet('0', 'c1,q:c3');
+        System.assertEquals(new List<String>{ 'c3' }, m.get('met'), 'query-string chips are met by every result');
+        System.assertEquals(new List<String>{ 'c1' }, m.get('notMet'));
         m = SearchAuditService.metAndNotMet('0,0.4', 'c1,c1');
         System.assertEquals(new List<String>{ 'c1' }, m.get('met'), 'a chip is met when any of its parts scored');
         System.assertEquals(0, SearchAuditService.metAndNotMet(null, null).get('met').size());

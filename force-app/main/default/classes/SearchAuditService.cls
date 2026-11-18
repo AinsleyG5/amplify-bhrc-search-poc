@@ -104,7 +104,7 @@ public with sharing class SearchAuditService {
     /**
      * Chip ids met / not met by one result, from the per-query-part scores and the criteria map stored with it.
      * A chip with two parts (skill text + KS code) counts as met when any of its parts scored.
-     * Filter and exclusion parts are not chips and are left out.
+     * Filter and exclusion parts are not chips and are left out. "q:<id>" entries (query string) are always met.
      */
     public static Map<String, List<String>> metAndNotMet(String scoresCsv, String criteriaMapCsv) {
         List<String> scores = String.isBlank(scoresCsv) ? new List<String>() : scoresCsv.split(',');
@@ -112,6 +112,11 @@ public with sharing class SearchAuditService {
         Map<String, Boolean> metById = new Map<String, Boolean>();
         for (Integer i = 0; i < ids.size(); i++) {
             String id = ids[i].trim();
+            // q:<id> = sent in the query string (location): every result met it
+            if (id.startsWith('q:')) {
+                metById.put(id.substring(2), true);
+                continue;
+            }
             if (id.contains(':')) continue;
             Boolean met = false;
             if (i < scores.size()) {

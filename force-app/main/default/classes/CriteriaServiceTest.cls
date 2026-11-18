@@ -88,13 +88,49 @@ private class CriteriaServiceTest {
 
     // ─── toQueryParts ────────────────────────────────────────────
 
+    private static void excludeAs(String condition) {
+        CandidateSearchConfig cfg = new CandidateSearchConfig();
+        cfg.tkExcludeCondition = condition;
+        CandidateSearchConfig.overrideForTest(cfg);
+    }
+
+    @isTest
+    static void exclusionsGoInTheQueryStringAsNegations() {
+        Map<String, Object> c = CriteriaService.newCriteria('user');
+        CriteriaService.items(c).add(chip('c1', 'shift', 'night shifts', 'excluded'));
+        CriteriaService.items(c).add(chip('c2', 'skill', 'PLC', 'required'));
+        CriteriaService.items(c).add(chip('c3', 'language', 'Polish', 'excluded'));
+        CriteriaService.exclusions(c).put('placedWithinDays', 30);
+        CandidateSearchConfig cfg = new CandidateSearchConfig();
+        cfg.tkLanguageField = 'language_skills';
+        CandidateSearchConfig.overrideForTest(cfg);
+
+        CriteriaService.BuildResult b = CriteriaService.toQueryParts(c);
+        System.assertEquals(new List<String>{ 'c2' }, b.criteriaIds, 'no part for excluded chips');
+        System.assertEquals('-"night shifts" -language_skills:Polish -custom_date_1:>=today-30', b.queryString());
+        System.assertEquals(new List<String>{ 'c1', 'c3', 'exclusion:placedWithinDays' }, b.excludedCriteriaIds);
+        System.assertEquals(new List<String>{ 'c2', 'x:c1', 'x:c3', 'x:exclusion:placedWithinDays' }, b.auditCriteriaIds());
+        System.assertEquals(0, b.notices.size());
+
+        // Excluded chips are neither met nor not met
+        Map<String, List<String>> m = SearchAuditService.metAndNotMet('1', String.join(b.auditCriteriaIds(), ','));
+        System.assertEquals(new List<String>{ 'c2' }, m.get('met'));
+        System.assertEquals(0, m.get('notMet').size());
+        System.assertEquals('excluded', CriteriaService.weightFor('EXCLUDED'));
+    }
+
     @isTest
     static void toQueryPartsMapsKindsWeightsFiltersAndExclusions() {
         CriteriaService.BuildResult b = CriteriaService.toQueryParts(sample());
 
-        // title, certification, location, filter, placed-recently exclusion
-        System.assertEquals(5, b.parts.size());
-        System.assertEquals(new List<String>{ 'c1', 'c2', 'c3', 'filter:candidate_status', 'exclusion:placedWithinDays' }, b.criteriaIds);
+        // title, certification, filter as parts; location and the placed-recently exclusion in the query string
+        System.assertEquals(3, b.parts.size());
+        System.assertEquals(new List<String>{ 'c1', 'c2', 'filter:candidate_status' }, b.criteriaIds);
+        System.assertEquals('city:Dagenham+15 -custom_date_1:>=today-30', b.queryString());
+        System.assertEquals(new List<String>{ 'c3' }, b.queryCriteriaIds);
+        System.assertEquals('q:c3', b.auditCriteriaIds()[3]);
+        System.assertEquals('city:Dagenham+15 -custom_date_1:>=today-30', b.options().query);
+        System.assert(!b.isEmpty());
 
         System.assertEquals('FULLTEXT', b.parts[0].field);
         System.assertEquals('REQUIRED', b.parts[0].condition);
@@ -103,15 +139,8 @@ private class CriteriaServiceTest {
         System.assertEquals('STRONGLY_FAVORED', b.parts[1].condition);
         System.assertEquals('"Certified Forklift Operator"', b.parts[1].values[0]);
 
-        System.assertEquals('city', b.parts[2].field);
-        System.assertEquals('Dagenham+15', b.parts[2].values[0]);
-
-        System.assertEquals('candidate_status', b.parts[3].field);
-        System.assertEquals('REQUIRED', b.parts[3].condition);
-
-        System.assertEquals('custom_date_1', b.parts[4].field);
-        System.assertEquals('EXCLUDED', b.parts[4].condition);
-        System.assert(b.parts[4].values[0].endsWith(String.valueOf(Date.today())), b.parts[4].values[0]);
+        System.assertEquals('candidate_status', b.parts[2].field);
+        System.assertEquals('REQUIRED', b.parts[2].condition);
     }
 
     @isTest
@@ -143,20 +172,19 @@ private class CriteriaServiceTest {
         CriteriaService.items(c).add(av);
 
         CriteriaService.BuildResult b = CriteriaService.toQueryParts(c);
-        System.assertEquals('RM9 6SA+6', b.parts[0].values[0]);
-        System.assertEquals('EXCLUDED', b.parts[1].condition);
-        System.assertEquals('Polish', b.parts[2].values[0]);
+        System.assertEquals('city:"RM9 6SA"+6 -nights', b.queryString());
+        System.assertEquals('Polish', b.parts[0].values[0]);
         // Availability field not configured by default: not sent, with a notice
-        System.assertEquals(3, b.parts.size());
+        System.assertEquals(1, b.parts.size());
         System.assertEquals(1, b.notices.size());
 
         CandidateSearchConfig cfg = new CandidateSearchConfig();
-        cfg.tkAvailabilityField = 'custom_date_2';
+        cfg.tkAvailabilityField = 'date_available';
         CandidateSearchConfig.overrideForTest(cfg);
         b = CriteriaService.toQueryParts(c);
-        System.assertEquals(4, b.parts.size());
-        System.assertEquals('custom_date_2', b.parts[3].field);
-        System.assert(b.parts[3].values[0].startsWith('1900-01-01..'), b.parts[3].values[0]);
+        System.assertEquals(2, b.parts.size());
+        System.assertEquals('date_available', b.parts[1].field);
+        System.assertEquals('<=today+28', b.parts[1].values[0]);
     }
 
     // ─── fromTkQueryParts ────────────────────────────────────────
@@ -202,6 +230,39 @@ private class CriteriaServiceTest {
     }
 
     @isTest
+    static void jobMatchPartsBecomeReadableChips() {
+        CandidateSearchTestMocks.docIds = new List<String>();
+        TkSearchClient.Result r = TkSearchClient.parseResponse(CandidateSearchTestMocks.searchResponse(true));
+        List<Object> chips = CriteriaService.fromTkQueryParts(r.queryParts);
+
+        Map<String, Object> title = (Map<String, Object>) chips[0];
+        System.assertEquals('Warehouse Operative', title.get('label'), 'brackets removed');
+        Map<String, Object> skill = (Map<String, Object>) chips[1];
+        System.assertEquals('Forklift Truck Operation', skill.get('label'), 'KS code named by its first synonym');
+        System.assertEquals('KS1234567890ABCDEFGH', skill.get('code'));
+        Map<String, Object> loc = (Map<String, Object>) chips[3];
+        System.assertEquals('GB Dagenham', loc.get('value'));
+        System.assertEquals(25, ((Decimal) loc.get('radius')).intValue(), 'radius read before the @coordinates');
+        System.assertEquals('51.5397 0.1436', loc.get('geo'));
+        Map<String, Object> keyword = (Map<String, Object>) chips[4];
+        System.assertEquals('keyword', keyword.get('kind'), 'FULLTEXT parts are keyword chips, not tk_raw');
+        System.assertEquals('continuous improvement', keyword.get('label'));
+
+        // Unchanged: all verbatim. Radius edited: the location stays a part and keeps its coordinates.
+        Map<String, Object> c = CriteriaService.newCriteria('job');
+        c.put('items', chips);
+        c = CriteriaService.parse(CriteriaService.serialize(c));
+        CriteriaService.BuildResult b = CriteriaService.toQueryParts(c);
+        System.assertEquals(5, b.parts.size());
+        CriteriaService.PatchResult p = CriteriaService.applyPatch(c, '[{"op":"update","id":"c4","set":{"radius":10}}]');
+        b = CriteriaService.toQueryParts(p.criteria);
+        System.assertEquals(null, b.parts[3].xml);
+        System.assertEquals('GB Dagenham+10@51.5397 0.1436', b.parts[3].values[0]);
+        System.assertEquals('STRONGLY_FAVORED', b.parts[3].condition);
+        System.assertEquals('', b.queryString());
+    }
+
+    @isTest
     static void unchangedGeneratedPartsGoBackVerbatim() {
         Map<String, Object> c = CriteriaService.newCriteria('job');
         c.put('items', CriteriaService.fromTkQueryParts(generatedParts()));
@@ -223,8 +284,10 @@ private class CriteriaServiceTest {
         c = CriteriaService.parse(CriteriaService.serialize(c));
         CriteriaService.PatchResult r = CriteriaService.applyPatch(c, '[{"op":"update","id":"c3","set":{"radius":25}}]');
         CriteriaService.BuildResult b = CriteriaService.toQueryParts(r.criteria);
-        System.assertEquals(null, b.parts[2].xml);
-        System.assertEquals('London+25', b.parts[2].values[0]);
+        // Edited location leaves the parts and goes to the query string
+        System.assertEquals(4, b.parts.size());
+        System.assertEquals('city:London+25', b.queryString());
+        System.assertEquals(new List<String>{ 'c3' }, b.queryCriteriaIds);
         System.assertEquals('London + 25 mi', CriteriaService.findItem(r.criteria, 'c3').get('label'));
         // Title untouched: still verbatim
         System.assertNotEquals(null, b.parts[0].xml);
@@ -378,6 +441,7 @@ private class CriteriaServiceTest {
 
     @isTest
     static void conditionAndWeightRoundTrip() {
+        excludeAs('EXCLUDED');
         for (String w : CriteriaService.WEIGHTS) {
             System.assertEquals(w, CriteriaService.weightFor(CriteriaService.conditionFor(w)));
         }

@@ -19,10 +19,13 @@ public class CandidateSearchTestMocks implements HttpCalloutMock {
     public static Integer total;
     public static Boolean hasMore = false;
     /** Generated parts echoed by searchWithUrl. */
+    /** Shape confirmed by job match on tksf_bh4sf_tso_vac: synonyms per item, coordinates on city, FULLTEXT keywords. */
     public static String echoedPartsXml =
-        '<queryParts><field>jobtitles</field><condition>REQUIRED</condition><weight>1.0</weight><items><value>Warehouse Operative</value></items></queryParts>'
-        + '<queryParts><field>it_skills</field><condition>FAVORED</condition><weight>1.0</weight><items><value>KS1234567890ABCDEFGH</value></items></queryParts>'
-        + '<queryParts><field>text_fingerprint</field><condition>FAVORED</condition><weight>0.5</weight><items><value>forklift warehouse picking</value></items></queryParts>';
+        '<queryParts><field>jobtitles</field><condition>REQUIRED</condition><weight>1.0</weight><items><value>[Warehouse Operative]</value><synonyms>Warehouse Worker</synonyms><synonyms>Picker</synonyms></items></queryParts>'
+        + '<queryParts><field>it_skills</field><condition>FAVORED</condition><weight>1.0</weight><items><value>KS1234567890ABCDEFGH</value><synonyms>Forklift Truck Operation</synonyms></items></queryParts>'
+        + '<queryParts><field>text_fingerprint</field><condition>FAVORED</condition><weight>0.5</weight><items><value>Document</value></items></queryParts>'
+        + '<queryParts><field>city</field><condition>STRONGLY_FAVORED</condition><weight>1.0</weight><items><value>GB Dagenham+25@51.5397 0.1436</value></items></queryParts>'
+        + '<queryParts><field>FULLTEXT</field><condition>FAVORED</condition><weight>1.0</weight><items><value>continuous improvement</value><synonyms>Kaizen</synonyms></items></queryParts>';
     public static Integer tkStatus = 200;
     public static Boolean tkFault = false;
     public static Boolean searchWithUrlFault = false;
@@ -64,13 +67,23 @@ public class CandidateSearchTestMocks implements HttpCalloutMock {
                 res.setBody('{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}');
                 return res;
             }
+            // Structured outputs: the answer is a text block. The prompt is identified from the system prompt
+            // (usePrompts() puts the prompt name in it); toolInputs stays keyed by the schema's old tool name.
             Map<String, Object> body = (Map<String, Object>) System.JSON.deserializeUntyped(req.getBody());
-            String tool = (String) ((Map<String, Object>) body.get('tool_choice')).get('name');
+            String systemPrompt = String.valueOf(body.get('system'));
+            String tool = systemPrompt.contains(SearchAiService.PARSE_PROMPT) ? 'set_criteria'
+                : systemPrompt.contains(SearchAiService.REFINE_PROMPT) ? 'update_criteria' : 'explain_candidates';
             List<String> queue = toolInputs.get(tool);
             String input = queue == null || queue.isEmpty() ? '{}' : (queue.size() > 1 ? queue.remove(0) : queue[0]);
-            res.setBody('{"id":"msg_test","type":"message","role":"assistant","model":"' + body.get('model') + '",'
-                + '"content":[{"type":"tool_use","id":"toolu_1","name":"' + tool + '","input":' + input + '}],'
-                + '"stop_reason":"tool_use","usage":{"input_tokens":120,"output_tokens":45}}');
+            res.setBody(System.JSON.serialize(new Map<String, Object>{
+                'id' => 'msg_test', 'type' => 'message', 'role' => 'assistant', 'model' => body.get('model'),
+                'content' => new List<Object>{
+                    new Map<String, Object>{ 'type' => 'thinking', 'thinking' => '', 'signature' => 'sig' },
+                    new Map<String, Object>{ 'type' => 'text', 'text' => input }
+                },
+                'stop_reason' => 'end_turn',
+                'usage' => new Map<String, Object>{ 'input_tokens' => 120, 'output_tokens' => 45 }
+            }));
         } else {
             res.setStatusCode(404);
             res.setBody('Unknown endpoint ' + endpoint);
@@ -83,9 +96,13 @@ public class CandidateSearchTestMocks implements HttpCalloutMock {
         for (String d : docIds) {
             items += '<resultItems><docID>' + d + '</docID><score>0.98</score>';
             for (String s : partScores) items += '<queryPartScores>' + s + '</queryPartScores>';
-            items += '<values><field>fullname</field><items>Ethan Kirby</items></values>'
-                + '<values><field>city</field><items>London</items></values>'
-                + '<highlights><field>FULLTEXT</field><snippets>... &lt;b&gt;Certified Forklift Operator&lt;/b&gt; ...</snippets></highlights>'
+            // Shape confirmed against tksf_bh4sf_tso_cv: fieldValues entries, highlighting inline with <b>
+            items += '<fieldValues>'
+                + '<entry><key>profskills</key><value/></entry>'
+                + '<entry><key>jobtitles</key><value><item><value>&lt;b&gt;Certified Forklift Operator&lt;/b&gt;</value></item></value></entry>'
+                + '<entry><key>city</key><value><item><value>GB London</value></item></value></entry>'
+                + '<entry><key>fullname</key><value><item><value>Ethan Kirby</value></item></value></entry>'
+                + '</fieldValues>'
                 + '</resultItems>';
         }
         Integer t = total == null ? docIds.size() : total;
@@ -136,7 +153,8 @@ public class CandidateSearchTestMocks implements HttpCalloutMock {
             p.toolName = name == SearchAiService.PARSE_PROMPT ? 'set_criteria'
                 : name == SearchAiService.REFINE_PROMPT ? 'update_criteria' : 'explain_candidates';
             p.toolDescription = 'test';
-            p.toolSchemaJson = '{"type":"object"}';
+            p.toolSchemaJson = '{"type":"object","properties":{"items":{"type":"array","maxItems":25,"items":{"type":"object","properties":{"label":{"type":"string","maxLength":120},"value":{"description":"any"}}}}}}';
+            p.effort = name == SearchAiService.EXPLAIN_PROMPT ? 'medium' : 'low';
             p.templateName = name;
             CandidateSearchConfig.promptOverrides.put(name, p);
         }
