@@ -560,7 +560,7 @@ public with sharing class CriteriaService {
                 item.put('kind', 'skill');
                 if (display.startsWithIgnoreCase('KS') && !display.contains(' ')) {
                     // A KS code: the first synonym TK sent names the skill (KSAXTOY5CH3G8GUTIAUU = Lightning Components)
-                    String name = p.synonyms.isEmpty() ? display : p.synonyms[0];
+                    String name = p.synonyms.isEmpty() ? display : p.synonyms[0].trim().removeEnd('.').trim();
                     item.put('code', display);
                     item.put('label', name);
                     item.put('value', name);
