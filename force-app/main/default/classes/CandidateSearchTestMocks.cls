@@ -67,9 +67,9 @@ public class CandidateSearchTestMocks implements HttpCalloutMock {
             // Structured outputs: the answer is a text block. The prompt is identified from the system prompt
             // (usePrompts() puts the prompt name in it); toolInputs stays keyed by the schema's old tool name.
             Map<String, Object> body = (Map<String, Object>) System.JSON.deserializeUntyped(req.getBody());
-            String system = String.valueOf(body.get('system'));
-            String tool = system.contains(SearchAiService.PARSE_PROMPT) ? 'set_criteria'
-                : system.contains(SearchAiService.REFINE_PROMPT) ? 'update_criteria' : 'explain_candidates';
+            String systemPrompt = String.valueOf(body.get('system'));
+            String tool = systemPrompt.contains(SearchAiService.PARSE_PROMPT) ? 'set_criteria'
+                : systemPrompt.contains(SearchAiService.REFINE_PROMPT) ? 'update_criteria' : 'explain_candidates';
             List<String> queue = toolInputs.get(tool);
             String input = queue == null || queue.isEmpty() ? '{}' : (queue.size() > 1 ? queue.remove(0) : queue[0]);
             res.setBody(System.JSON.serialize(new Map<String, Object>{
