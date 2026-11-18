@@ -376,8 +376,7 @@ public with sharing class CriteriaService {
         Map<String, Object> x = exclusions(criteria);
         if (x.get('placedWithinDays') != null && String.isNotBlank(cfg.tkLastPlacementField)) {
             Integer days = Decimal.valueOf(String.valueOf(x.get('placedWithinDays'))).intValue();
-            Date today = Date.today();
-            add(out, part(cfg.tkLastPlacementField, cfg.tkExcludeCondition, dateRange(today.addDays(-days), today)), 'exclusion:placedWithinDays');
+            add(out, part(cfg.tkLastPlacementField, cfg.tkExcludeCondition, '>=today-' + days), 'exclusion:placedWithinDays');
         }
         return out;
     }
@@ -420,27 +419,16 @@ public with sharing class CriteriaService {
         return CandidateSearchConfig.get().tkLocationField + ':' + place + '+' + radius;
     }
 
-    @TestVisible
-    private static String availabilityRange(Map<String, Object> item) {
-        Date today = Date.today();
-        if (item.get('withinDays') != null) {
-            return dateRange(null, today.addDays(dec(item, 'withinDays').intValue()));
-        }
-        return dateRange(null, Date.valueOf(str(item, 'value')));
-    }
-
     /**
-     * Date range for a TK date field. The open end uses a far date. Confirm the range syntax with the
-     * open item 2 Postman call (excluded part on custom_date_1); change DATE_RANGE_FORMAT if it differs.
+     * Date values use TK's relative date syntax, as the index's own facets do (documentdate: ">=today-365").
+     * Available within N days = date_available on or before today+N; an explicit date = on or before that date.
      */
     @TestVisible
-    private static final String DATE_RANGE_FORMAT = '{0}..{1}';
-
-    @TestVisible
-    private static String dateRange(Date fromDate, Date toDate) {
-        String f = fromDate == null ? '1900-01-01' : isoDate(fromDate);
-        String t = toDate == null ? '2999-12-31' : isoDate(toDate);
-        return String.format(DATE_RANGE_FORMAT, new List<Object>{ f, t });
+    private static String availabilityRange(Map<String, Object> item) {
+        if (item.get('withinDays') != null) {
+            return '<=today+' + dec(item, 'withinDays').intValue();
+        }
+        return '<=' + isoDate(Date.valueOf(str(item, 'value')));
     }
 
     private static String isoDate(Date d) {

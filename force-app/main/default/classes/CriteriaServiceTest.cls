@@ -113,7 +113,7 @@ private class CriteriaServiceTest {
 
         System.assertEquals('custom_date_1', b.parts[3].field);
         System.assertEquals('EXCLUDED', b.parts[3].condition);
-        System.assert(b.parts[3].values[0].endsWith(String.valueOf(Date.today())), b.parts[3].values[0]);
+        System.assertEquals('>=today-30', b.parts[3].values[0]);
     }
 
     @isTest
@@ -153,12 +153,12 @@ private class CriteriaServiceTest {
         System.assertEquals(1, b.notices.size());
 
         CandidateSearchConfig cfg = new CandidateSearchConfig();
-        cfg.tkAvailabilityField = 'custom_date_2';
+        cfg.tkAvailabilityField = 'date_available';
         CandidateSearchConfig.overrideForTest(cfg);
         b = CriteriaService.toQueryParts(c);
         System.assertEquals(3, b.parts.size());
-        System.assertEquals('custom_date_2', b.parts[2].field);
-        System.assert(b.parts[2].values[0].startsWith('1900-01-01..'), b.parts[2].values[0]);
+        System.assertEquals('date_available', b.parts[2].field);
+        System.assertEquals('<=today+28', b.parts[2].values[0]);
     }
 
     // ─── fromTkQueryParts ────────────────────────────────────────

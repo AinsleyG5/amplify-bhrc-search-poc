@@ -64,7 +64,7 @@
     </values>
     <values>
         <field>TK_Availability_Field__c</field>
-        <value xsi:nil="true"/>
+        <value xsi:type="xsd:string">date_available</value>
     </values>
     <values>
         <field>TK_Candidate_Environment__c</field>
@@ -96,7 +96,7 @@
     </values>
     <values>
         <field>TK_Language_Field__c</field>
-        <value xsi:nil="true"/>
+        <value xsi:type="xsd:string">language_skills</value>
     </values>
     <values>
         <field>TK_Last_Placement_Field__c</field>
