@@ -4,6 +4,7 @@
     <availability>online</availability>
     <description>Opens Candidate Search built from this job's Textkernel job document.</description>
     <displayType>button</displayType>
+    <encodingKey>UTF-8</encodingKey>
     <linkType>url</linkType>
     <masterLabel>Match Candidates</masterLabel>
     <openType>replace</openType>
