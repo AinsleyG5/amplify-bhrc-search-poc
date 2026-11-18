@@ -9,7 +9,7 @@
     border-radius: var(--amp-r-lg);
     background: var(--amp-hero);
     border: 1px solid var(--amp-hero-line);
-    color: var(--amp-ink);
+    color: var(--amp-on-hero);
 }
 
 .l-head {

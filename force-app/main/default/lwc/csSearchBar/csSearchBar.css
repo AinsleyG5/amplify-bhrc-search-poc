@@ -271,7 +271,7 @@
     align-items: center;
     gap: 6px;
     height: 32px;
-    border: 1.5px dashed #9cc4e0;
+    border: 1.5px dashed rgba(255, 255, 255, 0.6);
     border-radius: var(--amp-r-pill);
     background: transparent;
     padding: 0 14px;
@@ -279,15 +279,16 @@
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
-    color: var(--amp-blue-600);
+    /* On the blue banner */
+    color: #fff;
     transition:
         border-color 0.15s,
         background 0.15s;
 }
 
 .chip-add:hover {
-    border-color: var(--amp-blue);
-    background: var(--amp-surface);
+    border-color: #fff;
+    background: rgba(255, 255, 255, 0.12);
 }
 
 /* ── Options ──────────────────────────────────── */
@@ -298,7 +299,9 @@
     align-items: center;
     gap: 10px 24px;
     font-size: 12px;
-    color: var(--amp-muted);
+    /* On the blue banner */
+    color: var(--amp-on-hero);
+    font-weight: 500;
 }
 
 .opt {

@@ -16,7 +16,7 @@
                         <c-cs-icon name="x" size="14"></c-cs-icon>
                     </button>
                 </template>
-                <button class="btn btn-primary btn-lg nl-go" data-action="search" onclick={submit} disabled={searchDisabled}>
+                <button class="btn btn-search btn-lg nl-go" data-action="search" onclick={submit} disabled={searchDisabled}>
                     <template lwc:if={loading}><span class="spinner sm light"></span></template>
                     <template lwc:else><c-cs-icon name="search" size="16"></c-cs-icon></template>
                     <span>{searchLabel}</span>
