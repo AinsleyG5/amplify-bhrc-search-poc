@@ -2,8 +2,8 @@ import { LightningElement, api } from 'lwc';
 
 const SUGGESTIONS = [
     'Widen the radius to 25 miles',
-    'Drop anyone we placed in the last month',
-    'Nights count in their favour',
+    'Drop anyone placed in the last month',
+    'Prefer people who can do nights',
     'Why is the top candidate first?'
 ];
 

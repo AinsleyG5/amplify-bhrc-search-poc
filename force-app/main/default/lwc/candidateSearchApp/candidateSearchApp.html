@@ -2,10 +2,10 @@
     <div class="app">
         <header class={heroCls}>
             <div class="hero-top">
-                <c-cs-brand logo-url={logoUrl} tone="light"></c-cs-brand>
+                <c-cs-brand logo-url={logoUrl} tone="dark"></c-cs-brand>
                 <div class="hero-title">
                     <h1 class="h1">{heading}</h1>
-                    <p class="hero-sub">Describe who you need in plain English. Textkernel finds them, AI explains why.</p>
+                    <p class="hero-sub">Search by role, tickets, location and availability, in your own words.</p>
                 </div>
             </div>
             <div class="search-card">
@@ -57,7 +57,7 @@
                             </template>
                             <template lwc:if={showChatToggle}>
                                 <button class="btn btn-sm btn-ai" data-action="open-chat" onclick={openChat}>
-                                    <c-cs-icon name="sparkles" size="14"></c-cs-icon>Refine with AI
+                                    <c-cs-icon name="message" size="14"></c-cs-icon>Refine
                                 </button>
                             </template>
                         </div>

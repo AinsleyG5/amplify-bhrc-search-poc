@@ -64,7 +64,7 @@
         <div class="p-body" role="tabpanel">
             <template lwc:if={isWhy}>
                 <div class="ai-card">
-                    <div class="ai-head"><c-cs-icon name="sparkles" size="14"></c-cs-icon><span>AI summary</span></div>
+                    <div class="ai-head">Why they match</div>
                     <template lwc:if={explainPending}>
                         <div class="shimmer" aria-label="Explanation loading"><span></span><span></span><span></span></div>
                     </template>
@@ -73,16 +73,14 @@
                     </template>
                     <template lwc:if={explainMissing}>
                         <div class="p-explain">
-                            <span>No AI explanation yet.</span>
-                            <button class="btn btn-sm btn-ai" data-action="explain" onclick={handleExplain}>
-                                <c-cs-icon name="sparkles" size="13"></c-cs-icon>Explain this candidate
-                            </button>
+                            <span>Not explained yet.</span>
+                            <button class="btn btn-sm btn-ai" data-action="explain" onclick={handleExplain}>Explain</button>
                         </div>
                         <template lwc:if={explainErrorText}><div class="p-muted">{explainErrorText}</div></template>
                     </template>
                 </div>
 
-                <h3 class="eyebrow p-section">Criteria · met and not met per Textkernel</h3>
+                <h3 class="eyebrow p-section">Criteria, as scored by Textkernel</h3>
                 <ul class="why-list">
                     <template for:each={whyCriteria} for:item="c">
                         <li key={c.id} class={c.cls}>

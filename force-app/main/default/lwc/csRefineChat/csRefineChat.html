@@ -2,10 +2,9 @@
     <aside class="chat" aria-label="Refine the search">
         <header class="c-head">
             <div class="c-title">
-                <span class="c-badge"><c-cs-icon name="sparkles" size="15"></c-cs-icon></span>
                 <div>
-                    <div class="c-name">Refine with AI</div>
-                    <div class="c-sub">Each change re-runs the search</div>
+                    <div class="c-name">Refine search</div>
+                    <div class="c-sub">One change at a time. Undo any step.</div>
                 </div>
             </div>
             <div class="c-actions">
@@ -28,12 +27,10 @@
         <div class="log" aria-live="polite">
             <template lwc:if={isEmpty}>
                 <div class="intro">
-                    <p>Tell me how to change the search, one step at a time. You can undo any change.</p>
+                    <p>Try one of these, or type your own:</p>
                     <div class="sugs">
                         <template for:each={suggestions} for:item="s">
-                            <button key={s.id} class="sug" data-text={s.text} onclick={useSuggestion}>
-                                <c-cs-icon name="sparkles" size="12"></c-cs-icon><span>{s.text}</span>
-                            </button>
+                            <button key={s.id} class="sug" data-text={s.text} onclick={useSuggestion}>{s.text}</button>
                         </template>
                     </div>
                 </div>
@@ -54,9 +51,7 @@
                 </div>
             </template>
             <template lwc:if={busy}>
-                <div class="turn turn-assistant">
-                    <div class="bubble typing" aria-label="Working"><span></span><span></span><span></span></div>
-                </div>
+                <div class="working" role="status"><span class="spinner sm"></span>Updating the search…</div>
             </template>
         </div>
 
@@ -65,7 +60,7 @@
                 <textarea
                     class="msg"
                     rows="1"
-                    placeholder="Only nights, or widen to 25 miles…"
+                    placeholder="e.g. Only people who can start this week"
                     aria-label="Message to refine the search"
                     oninput={handleInput}
                     onkeydown={handleKeydown}

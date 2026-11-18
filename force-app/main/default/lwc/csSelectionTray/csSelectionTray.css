@@ -19,29 +19,11 @@
     justify-content: center;
     gap: 12px 14px;
     padding: 8px 8px 8px 18px;
-    background: rgba(15, 26, 58, 0.94);
-    backdrop-filter: blur(12px) saturate(1.4);
+    background: var(--amp-navy);
     color: #fff;
     border-radius: var(--amp-r-pill);
-    box-shadow:
-        0 20px 40px -12px rgba(15, 26, 58, 0.55),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    box-shadow: var(--amp-shadow-lg);
     font-size: 13px;
-    animation: tray-in 0.24s var(--amp-ease);
-}
-
-@keyframes tray-in {
-    from {
-        opacity: 0;
-        transform: translateY(16px);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .tray,
-    .picker {
-        animation: none;
-    }
 }
 
 .t-count {
@@ -53,7 +35,7 @@
 
 .t-num {
     font-size: 17px;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .t-label {
@@ -106,7 +88,7 @@
 
 .person:focus-visible {
     outline: 0;
-    box-shadow: 0 0 0 3px rgba(60, 200, 245, 0.6);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
 }
 
 .more {
@@ -148,7 +130,7 @@
 }
 
 .tray-btn:focus-visible {
-    box-shadow: 0 0 0 3px rgba(60, 200, 245, 0.6);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
 }
 
 .t-close {
@@ -170,7 +152,6 @@
     box-shadow: var(--amp-shadow-lg);
     padding: 14px;
     color: var(--amp-text);
-    animation: tray-in 0.18s var(--amp-ease);
 }
 
 .picker-head {
@@ -181,7 +162,7 @@
 }
 
 .picker-title {
-    font-weight: 800;
+    font-weight: 700;
     color: var(--amp-ink);
 }
 

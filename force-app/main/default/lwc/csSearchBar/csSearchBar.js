@@ -129,7 +129,7 @@ export default class CsSearchBar extends LightningElement {
         this.saveOpen = !this.saveOpen;
         if (!this.saveOpen) return;
         this.saveName = this.suggestedName;
-         
+
         Promise.resolve().then(() => {
             const input = this.template.querySelector('.save-input');
             if (input) {
@@ -367,11 +367,11 @@ export default class CsSearchBar extends LightningElement {
     }
 
     get editorTitle() {
-        return this.editor && this.editor.mode === 'add' ? 'Add a criterion' : 'Edit criterion';
+        return this.editor && this.editor.mode === 'add' ? 'Add criterion' : 'Edit criterion';
     }
 
     get editorSaveLabel() {
-        return this.editor && this.editor.mode === 'add' ? 'Add and search' : 'Update and search';
+        return this.editor && this.editor.mode === 'add' ? 'Add' : 'Save';
     }
 
     get isAdd() {
@@ -407,7 +407,7 @@ export default class CsSearchBar extends LightningElement {
     get valueLabel() {
         if (!this.editor) return 'Value';
         if (this.editor.kind === 'location') return 'Town or postcode';
-        if (this.editor.kind === 'skill' || this.editor.kind === 'certification') return `${kindLabel(this.editor.kind)} · suggestions after 2 letters`;
+        if (this.editor.kind === 'skill' || this.editor.kind === 'certification') return kindLabel(this.editor.kind);
         return kindLabel(this.editor.kind);
     }
 

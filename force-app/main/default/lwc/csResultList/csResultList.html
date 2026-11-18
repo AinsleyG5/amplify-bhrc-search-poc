@@ -77,8 +77,8 @@
             <template lwc:if={showEmpty}>
                 <div class="empty">
                     <div class="empty-icon"><c-cs-icon name="search" size="26"></c-cs-icon></div>
-                    <p class="empty-title">No candidates match all of these criteria</p>
-                    <p>Try a larger radius, change a "Must have" to "Nice to have", or ask the assistant to loosen the search.</p>
+                    <p class="empty-title">No matches</p>
+                    <p>Widen the radius or relax a must-have.</p>
                 </div>
             </template>
 
@@ -107,7 +107,7 @@
                 <template lwc:if={requestOpen}>
                     <div class="req-panel">
                         <div class="req-bar">
-                            <span class="req-note">Masked: the password is never shown.</span>
+                            <span class="req-note">Password masked</span>
                             <button class="btn-icon sm req-copy" onclick={copyRequest} aria-label="Copy request" title="Copy request">
                                 <c-cs-icon name="copy" size="14"></c-cs-icon>
                             </button>

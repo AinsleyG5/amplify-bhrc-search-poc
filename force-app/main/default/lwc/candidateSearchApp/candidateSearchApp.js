@@ -1,5 +1,7 @@
 import { LightningElement, api, wire } from 'lwc';
 import { CurrentPageReference } from 'lightning/navigation';
+import { loadStyle } from 'lightning/platformResourceLoader';
+import MONTSERRAT from '@salesforce/resourceUrl/Montserrat';
 
 import parseQuery from '@salesforce/apex/CandidateSearchController.parseQuery';
 import startJobMatch from '@salesforce/apex/CandidateSearchController.startJobMatch';
@@ -16,7 +18,16 @@ import logAction from '@salesforce/apex/CandidateSearchController.logAction';
 
 import { PAGE_SIZE, EXPLAIN_BATCH, COMPARE_MIN, COMPARE_MAX, clone, withoutTrace, diffLines, facetLabel, normalizeError, sleep } from 'c/csUtils';
 
+/** Montserrat @font-face rules (Static Resource). Fonts are page-wide, so child components inherit them. */
+function loadFont(cmp) {
+    loadStyle(cmp, MONTSERRAT).catch(() => {
+        // The fallback font stack still renders
+    });
+}
+
 const EXPLAIN_QUEUE_MS = 400;
+/** The candidate panel's minimum height (px): it is the main surface once open. */
+const PANEL_MIN_HEIGHT = 760;
 const AUTO_LOAD_LIMIT = 5;
 const CHAT_HISTORY_TURNS = 6;
 
@@ -89,6 +100,7 @@ export default class CandidateSearchApp extends LightningElement {
     _focusChat = false;
 
     connectedCallback() {
+        loadFont(this);
         this.loadHome();
     }
 
@@ -107,7 +119,7 @@ export default class CandidateSearchApp extends LightningElement {
             return;
         }
         const top = ws.getBoundingClientRect().top + window.scrollY;
-        const h = Math.max(520, window.innerHeight - top - 16);
+        const h = Math.max(this.panelDocId ? PANEL_MIN_HEIGHT : 520, window.innerHeight - top - 16);
         if (ws.style.height !== `${h}px`) ws.style.height = `${h}px`;
     }
 
@@ -117,6 +129,10 @@ export default class CandidateSearchApp extends LightningElement {
             window.addEventListener('resize', this._onResize);
         }
         this.fitWorkspace();
+        if (this._revealPanel) {
+            this._revealPanel = false;
+            this.revealWorkspace();
+        }
         if (this._focusPanel) {
             const panel = this.template.querySelector('c-cs-candidate-panel');
             if (panel) {
@@ -162,7 +178,7 @@ export default class CandidateSearchApp extends LightningElement {
     }
 
     get workspaceCls() {
-        return `workspace${this.chatOpen ? ' with-chat' : ''}${this.hasSelection ? ' with-tray' : ''}`;
+        return `workspace${this.chatOpen ? ' with-chat' : ''}${this.hasSelection ? ' with-tray' : ''}${this.panelDocId ? ' with-panel' : ''}`;
     }
 
     get panelRow() {
@@ -699,9 +715,18 @@ export default class CandidateSearchApp extends LightningElement {
         this.openPanel(event.detail.docId);
     }
 
+    /** When the open panel runs past the bottom of the window, scroll once so all of it is in view. */
+    revealWorkspace() {
+        const ws = this.template.querySelector('.workspace');
+        if (!ws || window.innerWidth < 900) return;
+        const box = ws.getBoundingClientRect();
+        if (box.bottom > window.innerHeight && typeof ws.scrollIntoView === 'function') ws.scrollIntoView({ block: 'start' });
+    }
+
     openPanel(docId) {
         const row = this.rows.find((r) => r.docId === docId);
         if (!row) return;
+        if (!this.panelDocId) this._revealPanel = true;
         this.panelDocId = docId;
         this._focusPanel = true;
         const ex = this.explanations[docId];
@@ -930,7 +955,7 @@ export default class CandidateSearchApp extends LightningElement {
             .map((f) => `${f.name || f.contactId}: ${f.error}`)
             .join('\n');
         this.toast(
-            res.added ? 'Done' : 'Nothing added',
+            res.added ? 'Added' : 'Nothing added',
             details ? `${res.message}\n${details}` : res.message,
             failed ? 'warning' : res.added ? 'success' : 'info'
         );

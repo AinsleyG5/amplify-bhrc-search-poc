@@ -3,9 +3,9 @@ import { formatDateTime } from 'c/csUtils';
 
 const EXAMPLES = [
     'Forklift-certified warehouse operatives within 15 miles of Dagenham',
-    'Registered nurses with ICU experience near Manchester, available within 4 weeks',
+    'Reach truck drivers near Thurrock who can start this week',
     'HGV Class 1 drivers in Birmingham who can do nights',
-    'Java developers with Spring Boot, London or remote'
+    'Pickers and packers within 10 miles of Milton Keynes, no placement in the last month'
 ];
 
 /**

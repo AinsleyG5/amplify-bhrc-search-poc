@@ -57,7 +57,7 @@
                 </p>
             </template>
             <template lwc:if={explainError}>
-                <p class="why-muted" title={errorText}>No explanation. <button class="link" onclick={handleExplain}>Try again</button></p>
+                <p class="why-muted" title={errorText}>Couldn't explain. <button class="link" onclick={handleExplain}>Retry</button></p>
             </template>
             <template lwc:if={explainAvailable}>
                 <button class="explain-btn" onclick={handleExplain}><c-cs-icon name="sparkles" size="12"></c-cs-icon>Explain</button>

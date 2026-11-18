@@ -123,7 +123,7 @@ export default class CsSelectionTray extends LightningElement {
         this.picked = null;
         this.results = [];
         this.runSearch(mode === 'job' && this.jobId ? this.jobId : '', true);
-         
+
         Promise.resolve().then(() => {
             const input = this.template.querySelector('.picker-input');
             if (input) input.focus();

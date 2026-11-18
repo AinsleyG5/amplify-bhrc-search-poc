@@ -1,5 +1,7 @@
 import { LightningElement, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
+import { loadStyle } from 'lightning/platformResourceLoader';
+import MONTSERRAT from '@salesforce/resourceUrl/Montserrat';
 
 /**
  * csHomeLauncher: mini search box for the Home page. Opens the Candidate Search tab with the text in c__q,
@@ -13,6 +15,12 @@ export default class CsHomeLauncher extends NavigationMixin(LightningElement) {
     @api logoUrl;
 
     text = '';
+
+    connectedCallback() {
+        loadStyle(this, MONTSERRAT).catch(() => {
+            // The fallback font stack still renders
+        });
+    }
 
     get disabled() {
         return !(this.text || '').trim();

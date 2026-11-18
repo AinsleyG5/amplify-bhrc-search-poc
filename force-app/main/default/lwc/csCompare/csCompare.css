@@ -15,20 +15,6 @@
     font-size: 13px;
     color: var(--amp-text);
     overflow: hidden;
-    animation: zoom-in 0.2s var(--amp-ease);
-}
-
-@keyframes zoom-in {
-    from {
-        opacity: 0;
-        transform: scale(0.98) translateY(8px);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .compare {
-        animation: none;
-    }
 }
 
 .cmp-head {
@@ -51,13 +37,13 @@
     width: 36px;
     height: 36px;
     border-radius: 12px;
-    color: #fff;
-    background: var(--amp-grad);
+    color: var(--amp-blue-600);
+    background: var(--amp-blue-50);
 }
 
 .cmp-title {
     font-size: 17px;
-    font-weight: 800;
+    font-weight: 700;
     color: var(--amp-ink);
     margin: 0;
 }
@@ -149,7 +135,7 @@
     padding: 0;
     font: inherit;
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 700;
     color: var(--amp-ink);
     cursor: pointer;
     border-radius: 4px;

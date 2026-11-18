@@ -56,7 +56,8 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
     @api
     focus() {
         const btn = this.template.querySelector('.close-btn');
-        if (btn) btn.focus();
+        // No scroll jump: the app decides what is in view
+        if (btn) btn.focus({ preventScroll: true });
     }
 
     async loadDetail(contactId) {

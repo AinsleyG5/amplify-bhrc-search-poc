@@ -7,9 +7,9 @@
 .launcher {
     padding: 18px 18px 20px;
     border-radius: var(--amp-r-lg);
-    background: var(--amp-grad-hero);
-    box-shadow: var(--amp-shadow);
-    color: #fff;
+    background: var(--amp-hero);
+    border: 1px solid var(--amp-hero-line);
+    color: var(--amp-ink);
 }
 
 .l-head {
@@ -23,9 +23,9 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    color: #fff;
+    background: var(--amp-surface);
+    border: 1px solid var(--amp-hero-line);
+    color: var(--amp-blue-600);
     font: inherit;
     font-size: 12px;
     font-weight: 600;
@@ -35,19 +35,18 @@
 }
 
 .l-open:hover {
-    background: rgba(255, 255, 255, 0.18);
+    border-color: var(--amp-blue);
 }
 
 .l-open:focus-visible {
     outline: 0;
-    box-shadow: 0 0 0 3px rgba(60, 200, 245, 0.6);
+    box-shadow: var(--amp-ring);
 }
 
 .l-title {
-    font-size: 18px;
-    font-weight: 800;
+    font-size: 17px;
+    font-weight: 700;
     margin: 16px 0 12px;
-    letter-spacing: -0.01em;
 }
 
 .l-box {
@@ -57,7 +56,7 @@
     padding: 5px 5px 5px 14px;
     border-radius: var(--amp-r-pill);
     background: #fff;
-    box-shadow: var(--amp-shadow);
+    border: 1px solid var(--amp-hero-line);
 }
 
 .l-icon {

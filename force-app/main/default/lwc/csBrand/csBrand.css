@@ -27,8 +27,7 @@
     height: 34px;
     border-radius: 11px;
     color: #fff;
-    background: var(--amp-grad);
-    box-shadow: 0 6px 16px -6px rgba(60, 200, 245, 0.8);
+    background: var(--amp-blue-600);
 }
 
 .compact .mark {
@@ -45,18 +44,14 @@
 
 .maker {
     font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    font-weight: 600;
 }
 
 .product {
     font-size: 17px;
-    font-weight: 900;
-    letter-spacing: 0.12em;
-    background: linear-gradient(90deg, #3cc8f5, #8be3ff);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: var(--amp-cyan);
 }
 
 .compact .product {
@@ -72,7 +67,5 @@
 }
 
 .brand-dark .product {
-    background: var(--amp-grad);
-    -webkit-background-clip: text;
-    background-clip: text;
+    color: var(--amp-blue-600);
 }

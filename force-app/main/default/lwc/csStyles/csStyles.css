@@ -34,15 +34,13 @@
     --amp-red-50: #fdecef;
     --amp-amber: #a86a0c;
     --amp-amber-50: #fdf3e1;
-    --amp-violet: #6a5cf6;
-    --amp-violet-50: #efedff;
+    /* No purple "AI" accent: AI content uses the brand blue */
+    --amp-violet: var(--amp-blue-600);
+    --amp-violet-50: var(--amp-blue-50);
 
-    /* Gradients */
-    --amp-grad: linear-gradient(135deg, #0a6fc2 0%, #009bdf 50%, #3cc8f5 100%);
-    --amp-grad-ai: linear-gradient(135deg, #009bdf 0%, #6a5cf6 100%);
-    --amp-grad-hero:
-        radial-gradient(1200px 400px at 85% -40%, rgba(60, 200, 245, 0.35), transparent 60%),
-        radial-gradient(800px 300px at 0% 120%, rgba(255, 105, 0, 0.18), transparent 60%), linear-gradient(120deg, #0f1a3a 0%, #1a2a5e 60%, #0d4f8f 100%);
+    /* Banner and the candidate panel header: one solid light blue */
+    --amp-hero: #e3f1fb;
+    --amp-hero-line: #c9e3f5;
 
     /* Shape */
     --amp-r-xs: 6px;
@@ -59,7 +57,8 @@
     --amp-ring: 0 0 0 4px rgba(0, 155, 223, 0.2);
 
     --amp-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-    --amp-font: inherit;
+    --amp-font: 'Montserrat', 'Salesforce Sans', Arial, sans-serif;
+    font-family: var(--amp-font);
 }
 
 /* ── Buttons ───────────────────────────────────── */
@@ -117,25 +116,24 @@
 .btn-primary {
     border: 0;
     color: #fff;
-    background: var(--amp-grad);
-    box-shadow: 0 6px 16px -6px rgba(0, 155, 223, 0.7);
+    background: var(--amp-blue-600);
+    box-shadow: none;
 }
 
 .btn-primary:hover {
-    background: var(--amp-grad);
-    filter: brightness(1.06);
+    background: #00669a;
 }
 
+/* Secondary solid action (Refine) */
 .btn-ai {
     border: 0;
     color: #fff;
-    background: var(--amp-grad-ai);
-    box-shadow: 0 6px 16px -6px rgba(106, 92, 246, 0.6);
+    background: var(--amp-ink);
+    box-shadow: none;
 }
 
 .btn-ai:hover {
-    background: var(--amp-grad-ai);
-    filter: brightness(1.06);
+    background: var(--amp-navy);
 }
 
 .btn-soft {
@@ -236,11 +234,9 @@
 }
 
 .field-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--amp-subtle);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--amp-muted);
 }
 
 .input {
@@ -375,11 +371,9 @@ select.input {
 }
 
 .eyebrow {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--amp-subtle);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--amp-muted);
 }
 
 /* ── Tags ──────────────────────────────────────── */
@@ -441,27 +435,27 @@ select.input {
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.02em;
-    background: var(--amp-grad);
-    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+    background: var(--amp-blue-600);
 }
 
+/* Solid, muted colours: a stable colour per candidate, no gradients */
 .avatar.hue-0 {
-    background: linear-gradient(135deg, #0a6fc2, #3cc8f5);
+    background: #0078b4;
 }
 .avatar.hue-1 {
-    background: linear-gradient(135deg, #6a5cf6, #9d8cff);
+    background: #4d5b8c;
 }
 .avatar.hue-2 {
-    background: linear-gradient(135deg, #0f8a6a, #3ccf9c);
+    background: #1d7f5f;
 }
 .avatar.hue-3 {
-    background: linear-gradient(135deg, #e85d00, #ff9a4d);
+    background: #c25a12;
 }
 .avatar.hue-4 {
-    background: linear-gradient(135deg, #c2367a, #ef6fa8);
+    background: #9b3a62;
 }
 .avatar.hue-5 {
-    background: linear-gradient(135deg, #202945, #4f5d8a);
+    background: #202945;
 }
 
 /* ── Score ring ────────────────────────────────── */
@@ -489,7 +483,7 @@ select.input {
 .ring-num {
     position: relative;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 700;
     color: var(--amp-ink);
     letter-spacing: -0.02em;
 }
