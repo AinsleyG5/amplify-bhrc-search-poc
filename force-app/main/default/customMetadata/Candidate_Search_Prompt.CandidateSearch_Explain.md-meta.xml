@@ -3,8 +3,12 @@
     <label>CandidateSearch_Explain</label>
     <protected>false</protected>
     <values>
+        <field>Effort__c</field>
+        <value xsi:type="xsd:string">medium</value>
+    </values>
+    <values>
         <field>Max_Tokens__c</field>
-        <value xsi:type="xsd:double">4096</value>
+        <value xsi:type="xsd:double">16000</value>
     </values>
     <values>
         <field>Model__c</field>
@@ -17,7 +21,7 @@
     <values>
         <field>System_Prompt__c</field>
         <value xsi:type="xsd:string">You explain why each candidate appeared in a recruiter's search results.
-Call the explain_candidates tool exactly once with one entry per candidate in the input, in the same order. Do not write any other text.
+Answer with the explanations JSON only, with one entry per candidate in the input, in the same order. Do not write any other text.
 
 The user message holds &lt;CriteriaJson&gt; (the search criteria, each with an id and label) and &lt;CandidatesJson&gt; (for each candidate: docId, Textkernel score, met and notMet criteria ids, highlights and a short profile).
 

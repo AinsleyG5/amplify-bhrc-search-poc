@@ -133,6 +133,8 @@ public with sharing class CandidateSearchConfig {
         public String toolDescription;
         public String toolSchemaJson;
         public String templateName;
+        /** output_config.effort: low, medium, high, xhigh, max. Null = model default. */
+        public String effort;
     }
 
     @TestVisible
@@ -147,7 +149,7 @@ public with sharing class CandidateSearchConfig {
         // which truncates the system prompt and the tool schema
         List<Candidate_Search_Prompt__mdt> recs = [
             SELECT DeveloperName, System_Prompt__c, Model__c, Max_Tokens__c, Timeout_Seconds__c,
-                   Tool_Name__c, Tool_Description__c, Tool_Schema_JSON__c, Prompt_Template_Name__c
+                   Tool_Name__c, Tool_Description__c, Tool_Schema_JSON__c, Prompt_Template_Name__c, Effort__c
             FROM Candidate_Search_Prompt__mdt
             WHERE DeveloperName = :name
             LIMIT 1
@@ -166,6 +168,7 @@ public with sharing class CandidateSearchConfig {
         p.toolDescription = rec.Tool_Description__c;
         p.toolSchemaJson = rec.Tool_Schema_JSON__c;
         p.templateName = text(rec.Prompt_Template_Name__c, name);
+        p.effort = text(rec.Effort__c, null);
         return p;
     }
 

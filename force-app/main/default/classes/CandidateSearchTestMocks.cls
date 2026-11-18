@@ -64,13 +64,23 @@ public class CandidateSearchTestMocks implements HttpCalloutMock {
                 res.setBody('{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}');
                 return res;
             }
+            // Structured outputs: the answer is a text block. The prompt is identified from the system prompt
+            // (usePrompts() puts the prompt name in it); toolInputs stays keyed by the schema's old tool name.
             Map<String, Object> body = (Map<String, Object>) System.JSON.deserializeUntyped(req.getBody());
-            String tool = (String) ((Map<String, Object>) body.get('tool_choice')).get('name');
+            String system = String.valueOf(body.get('system'));
+            String tool = system.contains(SearchAiService.PARSE_PROMPT) ? 'set_criteria'
+                : system.contains(SearchAiService.REFINE_PROMPT) ? 'update_criteria' : 'explain_candidates';
             List<String> queue = toolInputs.get(tool);
             String input = queue == null || queue.isEmpty() ? '{}' : (queue.size() > 1 ? queue.remove(0) : queue[0]);
-            res.setBody('{"id":"msg_test","type":"message","role":"assistant","model":"' + body.get('model') + '",'
-                + '"content":[{"type":"tool_use","id":"toolu_1","name":"' + tool + '","input":' + input + '}],'
-                + '"stop_reason":"tool_use","usage":{"input_tokens":120,"output_tokens":45}}');
+            res.setBody(System.JSON.serialize(new Map<String, Object>{
+                'id' => 'msg_test', 'type' => 'message', 'role' => 'assistant', 'model' => body.get('model'),
+                'content' => new List<Object>{
+                    new Map<String, Object>{ 'type' => 'thinking', 'thinking' => '', 'signature' => 'sig' },
+                    new Map<String, Object>{ 'type' => 'text', 'text' => input }
+                },
+                'stop_reason' => 'end_turn',
+                'usage' => new Map<String, Object>{ 'input_tokens' => 120, 'output_tokens' => 45 }
+            }));
         } else {
             res.setStatusCode(404);
             res.setBody('Unknown endpoint ' + endpoint);
@@ -140,7 +150,8 @@ public class CandidateSearchTestMocks implements HttpCalloutMock {
             p.toolName = name == SearchAiService.PARSE_PROMPT ? 'set_criteria'
                 : name == SearchAiService.REFINE_PROMPT ? 'update_criteria' : 'explain_candidates';
             p.toolDescription = 'test';
-            p.toolSchemaJson = '{"type":"object"}';
+            p.toolSchemaJson = '{"type":"object","properties":{"items":{"type":"array","maxItems":25,"items":{"type":"object","properties":{"label":{"type":"string","maxLength":120},"value":{"description":"any"}}}}}}';
+            p.effort = name == SearchAiService.EXPLAIN_PROMPT ? 'medium' : 'low';
             p.templateName = name;
             CandidateSearchConfig.promptOverrides.put(name, p);
         }
