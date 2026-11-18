@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>TK_Exclude_Condition__c</fullName>
-    <description>Condition enum for excluded parts. Open item 2: confirm the spelling.</description>
+    <description>Condition enum for excluded parts. Leave blank until confirmed: TK treats an unknown condition as REQUIRED, so a wrong value inverts the exclusion. Run scripts/apex/tkExclude.apex.</description>
     <label>TK Exclude Condition</label>
     <fieldManageability>DeveloperControlled</fieldManageability>
     <length>40</length>

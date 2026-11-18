@@ -316,6 +316,13 @@ public with sharing class CriteriaService {
                 continue;
             }
 
+            // Fail safe: an unconfirmed exclude condition is treated by TK as REQUIRED (tkFields.apex on
+            // tksf_bh4sf_tso_cv: "EXCLUDED" returned the same 66 as REQUIRED), which would invert the chip.
+            if (str(item, 'weight') == 'excluded' && String.isBlank(cfg.tkExcludeCondition)) {
+                out.notices.add('"' + str(item, 'label') + '" was not sent: excluding is switched off until the Textkernel exclude condition is confirmed.');
+                continue;
+            }
+
             if (kind == 'title') {
                 add(out, part(cfg.tkTitleField, condition, textValue(cfg.tkTitleField, value)), id);
             } else if (kind == 'skill') {
@@ -374,7 +381,9 @@ public with sharing class CriteriaService {
         }
 
         Map<String, Object> x = exclusions(criteria);
-        if (x.get('placedWithinDays') != null && String.isNotBlank(cfg.tkLastPlacementField)) {
+        if (x.get('placedWithinDays') != null && String.isBlank(cfg.tkExcludeCondition)) {
+            out.notices.add('"Placed in the last ' + x.get('placedWithinDays') + ' days" was not applied: excluding is switched off until the Textkernel exclude condition is confirmed.');
+        } else if (x.get('placedWithinDays') != null && String.isNotBlank(cfg.tkLastPlacementField)) {
             Integer days = Decimal.valueOf(String.valueOf(x.get('placedWithinDays'))).intValue();
             add(out, part(cfg.tkLastPlacementField, cfg.tkExcludeCondition, '>=today-' + days), 'exclusion:placedWithinDays');
         }
@@ -392,7 +401,8 @@ public with sharing class CriteriaService {
         String c = condition == null ? '' : condition.toUpperCase();
         if (c == 'REQUIRED') return 'required';
         if (c == 'STRONGLY_FAVORED') return 'strongly_preferred';
-        if (c == CandidateSearchConfig.get().tkExcludeCondition.toUpperCase() || c.startsWith('EXCLU') || c == 'MUST_NOT' || c == 'REJECTED') {
+        String configured = CandidateSearchConfig.get().tkExcludeCondition;
+        if ((String.isNotBlank(configured) && c == configured.toUpperCase()) || c.startsWith('EXCLU') || c == 'MUST_NOT' || c == 'REJECTED') {
             return 'excluded';
         }
         return 'preferred';

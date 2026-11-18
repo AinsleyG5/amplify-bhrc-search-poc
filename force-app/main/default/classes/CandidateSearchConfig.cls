@@ -16,7 +16,8 @@ public with sharing class CandidateSearchConfig {
     public String tkNamedCredential = 'TK_Candidate_Search';
     public String tkExternalCredential = 'TK_Search_Service_Account';
     public String tkAccessRoles = 'all';
-    public String tkExcludeCondition = 'EXCLUDED';
+    /** Blank = excluded chips and placedWithinDays are not sent (TK treats an unknown condition as REQUIRED). */
+    public String tkExcludeCondition;
     public List<String> tkResultFields = new List<String>{
         'fullname', 'jobtitles', 'recent_jobtitles', 'city', 'candidate_status',
         'custom_date_1', 'owner_id', 'owner_name', 'it_skills', 'profskills'
@@ -86,7 +87,7 @@ public with sharing class CandidateSearchConfig {
         cfg.tkNamedCredential = text(rec.TK_Named_Credential__c, cfg.tkNamedCredential);
         cfg.tkExternalCredential = text(rec.TK_External_Credential__c, cfg.tkExternalCredential);
         cfg.tkAccessRoles = text(rec.TK_Access_Roles__c, cfg.tkAccessRoles);
-        cfg.tkExcludeCondition = text(rec.TK_Exclude_Condition__c, cfg.tkExcludeCondition);
+        cfg.tkExcludeCondition = text(rec.TK_Exclude_Condition__c, null);
         if (String.isNotBlank(rec.TK_Result_Fields__c)) {
             cfg.tkResultFields = splitList(rec.TK_Result_Fields__c);
         }

@@ -88,8 +88,30 @@ private class CriteriaServiceTest {
 
     // ─── toQueryParts ────────────────────────────────────────────
 
+    private static void excludeAs(String condition) {
+        CandidateSearchConfig cfg = new CandidateSearchConfig();
+        cfg.tkExcludeCondition = condition;
+        CandidateSearchConfig.overrideForTest(cfg);
+    }
+
+    @isTest
+    static void exclusionsAreNotSentUntilTheConditionIsConfirmed() {
+        CriteriaService.BuildResult b = CriteriaService.toQueryParts(sample());
+        System.assertEquals(new List<String>{ 'c1', 'c2', 'filter:candidate_status' }, b.criteriaIds, 'placedWithinDays not sent');
+        System.assertEquals(1, b.notices.size());
+
+        Map<String, Object> c = CriteriaService.newCriteria('user');
+        CriteriaService.items(c).add(chip('c1', 'shift', 'nights', 'excluded'));
+        CriteriaService.items(c).add(chip('c2', 'skill', 'PLC', 'required'));
+        b = CriteriaService.toQueryParts(c);
+        System.assertEquals(new List<String>{ 'c2' }, b.criteriaIds, 'excluded chip not sent');
+        System.assert(b.notices[0].contains('nights'), b.notices[0]);
+        System.assertEquals('excluded', CriteriaService.weightFor('EXCLUDED'));
+    }
+
     @isTest
     static void toQueryPartsMapsKindsWeightsFiltersAndExclusions() {
+        excludeAs('EXCLUDED');
         CriteriaService.BuildResult b = CriteriaService.toQueryParts(sample());
 
         // title, certification, filter, placed-recently exclusion as parts; location in the query string
@@ -132,6 +154,7 @@ private class CriteriaServiceTest {
 
     @isTest
     static void excludedKmLocationShiftLanguageAndAvailability() {
+        excludeAs('EXCLUDED');
         Map<String, Object> c = CriteriaService.newCriteria('user');
         Map<String, Object> loc = chip('c1', 'location', 'RM9 6SA', 'required');
         loc.put('radius', 10);
@@ -153,6 +176,7 @@ private class CriteriaServiceTest {
         System.assertEquals(1, b.notices.size());
 
         CandidateSearchConfig cfg = new CandidateSearchConfig();
+        cfg.tkExcludeCondition = 'EXCLUDED';
         cfg.tkAvailabilityField = 'date_available';
         CandidateSearchConfig.overrideForTest(cfg);
         b = CriteriaService.toQueryParts(c);
@@ -382,6 +406,7 @@ private class CriteriaServiceTest {
 
     @isTest
     static void conditionAndWeightRoundTrip() {
+        excludeAs('EXCLUDED');
         for (String w : CriteriaService.WEIGHTS) {
             System.assertEquals(w, CriteriaService.weightFor(CriteriaService.conditionFor(w)));
         }

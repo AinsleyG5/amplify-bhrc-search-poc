@@ -80,7 +80,7 @@
     </values>
     <values>
         <field>TK_Exclude_Condition__c</field>
-        <value xsi:type="xsd:string">EXCLUDED</value>
+        <value xsi:nil="true"/>
     </values>
     <values>
         <field>TK_External_Credential__c</field>

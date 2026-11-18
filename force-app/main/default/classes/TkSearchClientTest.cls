@@ -2,6 +2,9 @@
 private class TkSearchClientTest {
 
     private static List<TkSearchClient.QueryPart> parts() {
+        CandidateSearchConfig cfg = new CandidateSearchConfig();
+        cfg.tkExcludeCondition = 'EXCLUDED';
+        CandidateSearchConfig.overrideForTest(cfg);
         return CriteriaService.toQueryParts(CriteriaService.parse(CandidateSearchTestMocks.criteriaJson())).parts;
     }
 
