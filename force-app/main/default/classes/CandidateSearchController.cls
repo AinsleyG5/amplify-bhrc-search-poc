@@ -78,6 +78,7 @@ public with sharing class CandidateSearchController {
         run.trace = trace;
         run.criteriaIds = built.criteriaIds;
         run.queryCriteriaIds = built.queryCriteriaIds;
+        run.excludedCriteriaIds = built.excludedCriteriaIds;
         run.notices.addAll(built.notices);
         run.auditId = auditId;
         if (trace.get('aiError') != null) run.notices.add(String.valueOf(trace.get('aiError')));
@@ -130,6 +131,7 @@ public with sharing class CandidateSearchController {
                     run.notices.add('Adjusted the generated query (location, skill cap or softer title) and searched again.');
                     run.criteriaIds = built.criteriaIds;
                     run.queryCriteriaIds = built.queryCriteriaIds;
+        run.excludedCriteriaIds = built.excludedCriteriaIds;
                     try {
                         run.result = TkSearchClient.search(built.parts, built.options());
                     } catch (TkSearchClient.TkException e) {
@@ -138,6 +140,7 @@ public with sharing class CandidateSearchController {
                         run.result = indexed;
                         run.criteriaIds = idsInOrder(criteria);
                         run.queryCriteriaIds = new List<String>();
+                        run.excludedCriteriaIds = new List<String>();
                     }
                     if (run.result !== indexed) {
                         run.result.requestXml = indexed.requestXml + '\n\n' + run.result.requestXml;
@@ -162,6 +165,7 @@ public with sharing class CandidateSearchController {
             CriteriaService.BuildResult built = CriteriaService.toQueryParts(run.criteria);
             run.criteriaIds = built.criteriaIds;
             run.queryCriteriaIds = built.queryCriteriaIds;
+        run.excludedCriteriaIds = built.excludedCriteriaIds;
             run.notices.addAll(built.notices);
             run.notices.add('Could not use the Textkernel job document (' + indexError + '). Built the search from the job record for ' + jobLabel + ' instead.');
             try {
@@ -468,6 +472,8 @@ public with sharing class CandidateSearchController {
         public List<String> criteriaIds = new List<String>();
         /** Location chips sent in the query string: met by every result. */
         public List<String> queryCriteriaIds = new List<String>();
+        /** Excluded chips (and the placed-recently exclusion) sent as -field:value in the query string. */
+        public List<String> excludedCriteriaIds = new List<String>();
         public List<String> notices = new List<String>();
         public TkSearchClient.Result result;
         public Id auditId;
@@ -518,6 +524,7 @@ public with sharing class CandidateSearchController {
                 w.firstPage = firstPage;
                 List<String> auditIds = new List<String>(s.criteriaIds);
                 for (String id : s.queryCriteriaIds) auditIds.add('q:' + id);
+                for (String id : s.excludedCriteriaIds) auditIds.add('x:' + id);
                 w.rows = SearchAuditService.resultRows(s.auditId, r, auditIds, flags, hidden);
                 w.appendRequestXml = firstPage ? null : r.requestXml;
                 w.rawResponse = firstPage ? r.responseXml : null;
@@ -535,6 +542,7 @@ public with sharing class CandidateSearchController {
             if (hidden.contains(h.docId)) continue;
             Map<String, Object> rowOut = row(h, r.offset + pos, s.criteriaIds, contacts.get(h.contactId), flags.get(h.contactId), recentDays);
             rowOut.put('queryCriteriaIds', s.queryCriteriaIds);
+            rowOut.put('excludedCriteriaIds', s.excludedCriteriaIds);
             rows.add(rowOut);
         }
 

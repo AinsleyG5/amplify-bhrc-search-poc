@@ -150,6 +150,8 @@ private class CandidateSearchControllerTest {
         System.assertEquals(auditId, (Id) res.get('auditId'));
         System.assertEquals(21, ((Map<String, Object>) ((List<Object>) res.get('rows'))[0]).get('rank'));
         System.assert(CandidateSearchTestMocks.requests[0].getBody().contains('<resultOffset>20</resultOffset>'));
+        System.assert(CandidateSearchTestMocks.requests[0].getBody().contains('<query>city:Dagenham+15 -custom_date_1:&gt;=today-30</query>'),
+            'location and the placed-recently exclusion go in the query string');
         Search_Audit_Result__c r = [SELECT Rank__c, Page_Offset__c FROM Search_Audit_Result__c WHERE Contact__c = :more[0].Id];
         System.assertEquals(21, r.Rank__c);
         System.assertEquals(20, r.Page_Offset__c);

@@ -267,6 +267,12 @@ public with sharing class CriteriaService {
          */
         public List<String> queryTerms = new List<String>();
         public List<String> queryCriteriaIds = new List<String>();
+        /**
+         * Excluded chips and placedWithinDays, also sent in the query string as -field:value: TK ignores every
+         * condition spelling for exclusion (all behave as REQUIRED), but query negation works
+         * (tkExclude.apex: -custom_date_1:>=today-1000 left 1106 of 1172). Stored as x:<id>, never met/not met.
+         */
+        public List<String> excludedCriteriaIds = new List<String>();
         public List<String> notices = new List<String>();
 
         public String queryString() {
@@ -288,6 +294,7 @@ public with sharing class CriteriaService {
         public List<String> auditCriteriaIds() {
             List<String> ids = new List<String>(criteriaIds);
             for (String id : queryCriteriaIds) ids.add('q:' + id);
+            for (String id : excludedCriteriaIds) ids.add('x:' + id);
             return ids;
         }
     }
@@ -316,10 +323,15 @@ public with sharing class CriteriaService {
                 continue;
             }
 
-            // Fail safe: an unconfirmed exclude condition is treated by TK as REQUIRED (tkFields.apex on
-            // tksf_bh4sf_tso_cv: "EXCLUDED" returned the same 66 as REQUIRED), which would invert the chip.
-            if (str(item, 'weight') == 'excluded' && String.isBlank(cfg.tkExcludeCondition)) {
-                out.notices.add('"' + str(item, 'label') + '" was not sent: excluding is switched off until the Textkernel exclude condition is confirmed.');
+            // Excluded: a negated query-string term, never a part (TK treats every exclude condition as REQUIRED)
+            if (str(item, 'weight') == 'excluded') {
+                String term = excludedTerm(item, cfg);
+                if (term == null) {
+                    out.notices.add('"' + str(item, 'label') + '" was not sent: it cannot be excluded yet.');
+                } else {
+                    out.queryTerms.add(term);
+                    out.excludedCriteriaIds.add(id);
+                }
                 continue;
             }
 
@@ -341,10 +353,6 @@ public with sharing class CriteriaService {
                 }
             } else if (kind == 'location') {
                 String label = str(item, 'label');
-                if (str(item, 'weight') == 'excluded') {
-                    out.notices.add('"' + label + '" was not sent: excluding a location is not supported yet.');
-                    continue;
-                }
                 if (str(item, 'weight') != 'required') {
                     out.notices.add('"' + label + '" is applied as a filter: Textkernel cannot weight a location.');
                 }
@@ -381,11 +389,10 @@ public with sharing class CriteriaService {
         }
 
         Map<String, Object> x = exclusions(criteria);
-        if (x.get('placedWithinDays') != null && String.isBlank(cfg.tkExcludeCondition)) {
-            out.notices.add('"Placed in the last ' + x.get('placedWithinDays') + ' days" was not applied: excluding is switched off until the Textkernel exclude condition is confirmed.');
-        } else if (x.get('placedWithinDays') != null && String.isNotBlank(cfg.tkLastPlacementField)) {
+        if (x.get('placedWithinDays') != null && String.isNotBlank(cfg.tkLastPlacementField)) {
             Integer days = Decimal.valueOf(String.valueOf(x.get('placedWithinDays'))).intValue();
-            add(out, part(cfg.tkLastPlacementField, cfg.tkExcludeCondition, '>=today-' + days), 'exclusion:placedWithinDays');
+            out.queryTerms.add('-' + cfg.tkLastPlacementField + ':>=today-' + days);
+            out.excludedCriteriaIds.add('exclusion:placedWithinDays');
         }
         return out;
     }
@@ -417,6 +424,34 @@ public with sharing class CriteriaService {
         Decimal radius = item.get('radius') == null ? CandidateSearchConfig.get().defaultRadiusMiles : dec(item, 'radius');
         if (str(item, 'unit') == 'km') radius = radius * 0.621371;
         return place + '+' + radius.round(System.RoundingMode.HALF_UP);
+    }
+
+    /** -field:value for an excluded chip, or null when the chip has nothing to negate. */
+    @TestVisible
+    private static String excludedTerm(Map<String, Object> item, CandidateSearchConfig cfg) {
+        String kind = str(item, 'kind');
+        String value = str(item, 'value');
+        if (kind == 'location') return '-' + locationQuery(item);
+        if (kind == 'availability') {
+            return String.isBlank(cfg.tkAvailabilityField) ? null : '-' + cfg.tkAvailabilityField + ':' + availabilityRange(item);
+        }
+        if (kind == 'title') return '-' + fieldTerm(cfg.tkTitleField, value);
+        if (kind == 'language') return '-' + fieldTerm(String.isBlank(cfg.tkLanguageField) ? 'FULLTEXT' : cfg.tkLanguageField, value);
+        if (kind == 'fingerprint' || kind == 'tk_raw') {
+            Map<String, Object> raw = item.get('raw') instanceof Map<String, Object> ? (Map<String, Object>) item.get('raw') : null;
+            List<String> values = raw == null ? new List<String>() : strings(raw.get('values'));
+            if (values.isEmpty() || kind == 'fingerprint') return null;
+            return '-' + fieldTerm(str(raw, 'field'), values[0]);
+        }
+        return String.isBlank(value) ? null : '-' + fieldTerm('FULLTEXT', value);
+    }
+
+    /** "phrase" for FULLTEXT, field:value otherwise (quoted when the value has a space). */
+    private static String fieldTerm(String field, String value) {
+        if (field == 'FULLTEXT') return quote(value);
+        String v = value.trim();
+        if (v.contains(' ') && !v.startsWith('"')) v = '"' + v.replace('"', '') + '"';
+        return field + ':' + v;
     }
 
     /** city:Dagenham+15, or city:"RM9 6SA"+15 when the place has a space (quoting not yet confirmed with TK). */

@@ -95,32 +95,41 @@ private class CriteriaServiceTest {
     }
 
     @isTest
-    static void exclusionsAreNotSentUntilTheConditionIsConfirmed() {
-        CriteriaService.BuildResult b = CriteriaService.toQueryParts(sample());
-        System.assertEquals(new List<String>{ 'c1', 'c2', 'filter:candidate_status' }, b.criteriaIds, 'placedWithinDays not sent');
-        System.assertEquals(1, b.notices.size());
-
+    static void exclusionsGoInTheQueryStringAsNegations() {
         Map<String, Object> c = CriteriaService.newCriteria('user');
-        CriteriaService.items(c).add(chip('c1', 'shift', 'nights', 'excluded'));
+        CriteriaService.items(c).add(chip('c1', 'shift', 'night shifts', 'excluded'));
         CriteriaService.items(c).add(chip('c2', 'skill', 'PLC', 'required'));
-        b = CriteriaService.toQueryParts(c);
-        System.assertEquals(new List<String>{ 'c2' }, b.criteriaIds, 'excluded chip not sent');
-        System.assert(b.notices[0].contains('nights'), b.notices[0]);
+        CriteriaService.items(c).add(chip('c3', 'language', 'Polish', 'excluded'));
+        CriteriaService.exclusions(c).put('placedWithinDays', 30);
+        CandidateSearchConfig cfg = new CandidateSearchConfig();
+        cfg.tkLanguageField = 'language_skills';
+        CandidateSearchConfig.overrideForTest(cfg);
+
+        CriteriaService.BuildResult b = CriteriaService.toQueryParts(c);
+        System.assertEquals(new List<String>{ 'c2' }, b.criteriaIds, 'no part for excluded chips');
+        System.assertEquals('-"night shifts" -language_skills:Polish -custom_date_1:>=today-30', b.queryString());
+        System.assertEquals(new List<String>{ 'c1', 'c3', 'exclusion:placedWithinDays' }, b.excludedCriteriaIds);
+        System.assertEquals(new List<String>{ 'c2', 'x:c1', 'x:c3', 'x:exclusion:placedWithinDays' }, b.auditCriteriaIds());
+        System.assertEquals(0, b.notices.size());
+
+        // Excluded chips are neither met nor not met
+        Map<String, List<String>> m = SearchAuditService.metAndNotMet('1', String.join(b.auditCriteriaIds(), ','));
+        System.assertEquals(new List<String>{ 'c2' }, m.get('met'));
+        System.assertEquals(0, m.get('notMet').size());
         System.assertEquals('excluded', CriteriaService.weightFor('EXCLUDED'));
     }
 
     @isTest
     static void toQueryPartsMapsKindsWeightsFiltersAndExclusions() {
-        excludeAs('EXCLUDED');
         CriteriaService.BuildResult b = CriteriaService.toQueryParts(sample());
 
-        // title, certification, filter, placed-recently exclusion as parts; location in the query string
-        System.assertEquals(4, b.parts.size());
-        System.assertEquals(new List<String>{ 'c1', 'c2', 'filter:candidate_status', 'exclusion:placedWithinDays' }, b.criteriaIds);
-        System.assertEquals('city:Dagenham+15', b.queryString());
+        // title, certification, filter as parts; location and the placed-recently exclusion in the query string
+        System.assertEquals(3, b.parts.size());
+        System.assertEquals(new List<String>{ 'c1', 'c2', 'filter:candidate_status' }, b.criteriaIds);
+        System.assertEquals('city:Dagenham+15 -custom_date_1:>=today-30', b.queryString());
         System.assertEquals(new List<String>{ 'c3' }, b.queryCriteriaIds);
-        System.assertEquals('q:c3', b.auditCriteriaIds()[4]);
-        System.assertEquals('city:Dagenham+15', b.options().query);
+        System.assertEquals('q:c3', b.auditCriteriaIds()[3]);
+        System.assertEquals('city:Dagenham+15 -custom_date_1:>=today-30', b.options().query);
         System.assert(!b.isEmpty());
 
         System.assertEquals('FULLTEXT', b.parts[0].field);
@@ -132,10 +141,6 @@ private class CriteriaServiceTest {
 
         System.assertEquals('candidate_status', b.parts[2].field);
         System.assertEquals('REQUIRED', b.parts[2].condition);
-
-        System.assertEquals('custom_date_1', b.parts[3].field);
-        System.assertEquals('EXCLUDED', b.parts[3].condition);
-        System.assertEquals('>=today-30', b.parts[3].values[0]);
     }
 
     @isTest
@@ -154,7 +159,6 @@ private class CriteriaServiceTest {
 
     @isTest
     static void excludedKmLocationShiftLanguageAndAvailability() {
-        excludeAs('EXCLUDED');
         Map<String, Object> c = CriteriaService.newCriteria('user');
         Map<String, Object> loc = chip('c1', 'location', 'RM9 6SA', 'required');
         loc.put('radius', 10);
@@ -168,21 +172,19 @@ private class CriteriaServiceTest {
         CriteriaService.items(c).add(av);
 
         CriteriaService.BuildResult b = CriteriaService.toQueryParts(c);
-        System.assertEquals('city:"RM9 6SA"+6', b.queryString());
-        System.assertEquals('EXCLUDED', b.parts[0].condition);
-        System.assertEquals('Polish', b.parts[1].values[0]);
+        System.assertEquals('city:"RM9 6SA"+6 -nights', b.queryString());
+        System.assertEquals('Polish', b.parts[0].values[0]);
         // Availability field not configured by default: not sent, with a notice
-        System.assertEquals(2, b.parts.size());
+        System.assertEquals(1, b.parts.size());
         System.assertEquals(1, b.notices.size());
 
         CandidateSearchConfig cfg = new CandidateSearchConfig();
-        cfg.tkExcludeCondition = 'EXCLUDED';
         cfg.tkAvailabilityField = 'date_available';
         CandidateSearchConfig.overrideForTest(cfg);
         b = CriteriaService.toQueryParts(c);
-        System.assertEquals(3, b.parts.size());
-        System.assertEquals('date_available', b.parts[2].field);
-        System.assertEquals('<=today+28', b.parts[2].values[0]);
+        System.assertEquals(2, b.parts.size());
+        System.assertEquals('date_available', b.parts[1].field);
+        System.assertEquals('<=today+28', b.parts[1].values[0]);
     }
 
     // ─── fromTkQueryParts ────────────────────────────────────────

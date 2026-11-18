@@ -16,7 +16,10 @@ public with sharing class CandidateSearchConfig {
     public String tkNamedCredential = 'TK_Candidate_Search';
     public String tkExternalCredential = 'TK_Search_Service_Account';
     public String tkAccessRoles = 'all';
-    /** Blank = excluded chips and placedWithinDays are not sent (TK treats an unknown condition as REQUIRED). */
+    /**
+     * Only used to read TK-generated parts back. Exclusions are sent as -field:value in the query string:
+     * no condition spelling excludes (tkExclude.apex), they all behave as REQUIRED.
+     */
     public String tkExcludeCondition;
     public List<String> tkResultFields = new List<String>{
         'fullname', 'jobtitles', 'recent_jobtitles', 'city', 'candidate_status',
