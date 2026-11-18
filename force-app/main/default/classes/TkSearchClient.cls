@@ -46,7 +46,13 @@ public with sharing class TkSearchClient {
         public String condition;
         public Decimal weight = 1.0;
         public List<String> values = new List<String>();
-        /** The part exactly as TK returned it. When set, it is sent back verbatim. */
+        /** Synonyms TK attached to the first item (for a KS code, the first one names the skill). */
+        public List<String> synonyms = new List<String>();
+        /**
+         * The part as TK returned it, minus its <synonyms> lists. When set, it is sent back verbatim. Synonyms are
+         * dropped because they can run to tens of kilobytes per part (job match on tksf_bh4sf_tso_vac) and TK
+         * expands them again from the search itself (synonymExpansionMode QUERY_AND_QUERYPARTS).
+         */
         public String xml;
         /** Chip the part came from (not sent to TK). */
         public String criteriaId;
@@ -357,13 +363,18 @@ public with sharing class TkSearchClient {
             String name = c.getName();
             if (name == 'items' || name == 'item') {
                 String v = firstText(c, new List<String>{ 'value', 'term' });
-                if (v == null) v = leafText(c);
+                if (v == null && c.getChildElements().isEmpty()) v = leafText(c);
                 if (String.isNotBlank(v)) p.values.add(v);
+                if (p.synonyms.isEmpty()) {
+                    for (Dom.XmlNode s : c.getChildElements()) {
+                        if (s.getName() == 'synonyms' && String.isNotBlank(leafText(s))) p.synonyms.add(leafText(s));
+                    }
+                }
             } else if (name == 'value' || name == 'values') {
                 if (String.isNotBlank(leafText(c))) p.values.add(leafText(c));
             }
         }
-        p.xml = serialize(n, 'queryParts');
+        p.xml = serialize(n, 'queryParts', new Set<String>{ 'synonyms' });
         return p;
     }
 
@@ -501,6 +512,11 @@ public with sharing class TkSearchClient {
     }
 
     private static String serialize(Dom.XmlNode n, String asName) {
+        return serialize(n, asName, new Set<String>());
+    }
+
+    /** As serialize, leaving out child elements with any of the given names. */
+    private static String serialize(Dom.XmlNode n, String asName, Set<String> skip) {
         if (n.getNodeType() == Dom.XmlNodeType.TEXT) return n.getText() == null ? '' : n.getText().escapeXml();
         if (n.getNodeType() != Dom.XmlNodeType.ELEMENT) return '';
         String attrs = '';
@@ -511,7 +527,10 @@ public with sharing class TkSearchClient {
             attrs += ' ' + key + '="' + String.valueOf(n.getAttributeValue(key, ns)).escapeXml() + '"';
         }
         String innerXml = '';
-        for (Dom.XmlNode c : n.getChildren()) innerXml += serialize(c, c.getName());
+        for (Dom.XmlNode c : n.getChildren()) {
+            if (c.getNodeType() == Dom.XmlNodeType.ELEMENT && skip.contains(c.getName())) continue;
+            innerXml += serialize(c, c.getName(), skip);
+        }
         return '<' + asName + attrs + '>' + innerXml + '</' + asName + '>';
     }
 }

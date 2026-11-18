@@ -19,10 +19,13 @@ public class CandidateSearchTestMocks implements HttpCalloutMock {
     public static Integer total;
     public static Boolean hasMore = false;
     /** Generated parts echoed by searchWithUrl. */
+    /** Shape confirmed by job match on tksf_bh4sf_tso_vac: synonyms per item, coordinates on city, FULLTEXT keywords. */
     public static String echoedPartsXml =
-        '<queryParts><field>jobtitles</field><condition>REQUIRED</condition><weight>1.0</weight><items><value>Warehouse Operative</value></items></queryParts>'
-        + '<queryParts><field>it_skills</field><condition>FAVORED</condition><weight>1.0</weight><items><value>KS1234567890ABCDEFGH</value></items></queryParts>'
-        + '<queryParts><field>text_fingerprint</field><condition>FAVORED</condition><weight>0.5</weight><items><value>forklift warehouse picking</value></items></queryParts>';
+        '<queryParts><field>jobtitles</field><condition>REQUIRED</condition><weight>1.0</weight><items><value>[Warehouse Operative]</value><synonyms>Warehouse Worker</synonyms><synonyms>Picker</synonyms></items></queryParts>'
+        + '<queryParts><field>it_skills</field><condition>FAVORED</condition><weight>1.0</weight><items><value>KS1234567890ABCDEFGH</value><synonyms>Forklift Truck Operation</synonyms></items></queryParts>'
+        + '<queryParts><field>text_fingerprint</field><condition>FAVORED</condition><weight>0.5</weight><items><value>Document</value></items></queryParts>'
+        + '<queryParts><field>city</field><condition>STRONGLY_FAVORED</condition><weight>1.0</weight><items><value>GB Dagenham+25@51.5397 0.1436</value></items></queryParts>'
+        + '<queryParts><field>FULLTEXT</field><condition>FAVORED</condition><weight>1.0</weight><items><value>continuous improvement</value><synonyms>Kaizen</synonyms></items></queryParts>';
     public static Integer tkStatus = 200;
     public static Boolean tkFault = false;
     public static Boolean searchWithUrlFault = false;

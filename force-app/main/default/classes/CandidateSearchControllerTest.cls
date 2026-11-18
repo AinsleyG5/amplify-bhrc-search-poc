@@ -224,6 +224,31 @@ private class CandidateSearchControllerTest {
     }
 
     @isTest
+    static void resultsFromAnotherOrgAreHiddenAndNeverLinked() {
+        List<Contact> cs = CandidateSearchTestMocks.contacts(1);
+        CandidateSearchTestMocks.docIds.add('00Dfo000004ft2e_003fo000005QaEkAAK');
+        CandidateSearchTestMocks.install();
+        Test.startTest();
+        Map<String, Object> res = obj(CandidateSearchController.runSearch(CandidateSearchTestMocks.criteriaJson(), 0, null));
+        Test.stopTest();
+        System.assertEquals(1, ((List<Object>) res.get('rows')).size());
+        System.assert(String.valueOf(res.get('notices')).contains('another Salesforce org'), String.valueOf(res.get('notices')));
+        Id auditId = (Id) res.get('auditId');
+        System.assertEquals('Success', [SELECT Status__c FROM Search_Audit__c WHERE Id = :auditId].Status__c, 'no failed lookups');
+        System.assertEquals(2, [SELECT COUNT() FROM Search_Audit_Result__c WHERE Search_Audit__c = :auditId], 'both still audited');
+    }
+
+    @isTest
+    static void storedCriteriaFitTheField() {
+        Map<String, Object> c = CriteriaService.parse(CandidateSearchTestMocks.criteriaJson());
+        Map<String, Object> item = (Map<String, Object>) CriteriaService.items(c)[0];
+        item.put('raw', new Map<String, Object>{ 'field' => 'jobtitles', 'xml' => 'x'.repeat(140000) });
+        String stored = CandidateSearchController.storedCriteriaJson(c);
+        System.assert(stored.length() <= SearchAuditService.LONG_TEXT_MAX);
+        System.assert(stored.contains('"field":"jobtitles"'), 'chips and fields kept');
+    }
+
+    @isTest
     static void invalidCriteriaAreRejected() {
         try {
             CandidateSearchController.runSearch('{"version":1,"items":[]}', 0, null);

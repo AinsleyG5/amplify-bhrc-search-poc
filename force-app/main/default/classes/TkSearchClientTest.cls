@@ -98,12 +98,15 @@ private class TkSearchClientTest {
         System.assert(body.contains('<url>' + url + '</url>'));
         System.assert(r.requestXml.contains('<url>doc://(index)/'));
         System.assertEquals('searchWithUrl', r.method);
-        System.assertEquals(3, r.queryParts.size());
+        System.assertEquals(5, r.queryParts.size());
         System.assertEquals('jobtitles', r.queryParts[0].field);
         System.assertEquals('REQUIRED', r.queryParts[0].condition);
-        System.assertEquals('Warehouse Operative', r.queryParts[0].values[0]);
+        System.assertEquals('[Warehouse Operative]', r.queryParts[0].values[0]);
         System.assertEquals(0.5, r.queryParts[2].weight);
         System.assert(r.queryParts[0].xml.startsWith('<queryParts><field>jobtitles</field>'), r.queryParts[0].xml);
+        System.assertEquals('Forklift Truck Operation', r.queryParts[1].synonyms[0], 'synonyms are read');
+        System.assert(!r.queryParts[0].xml.contains('synonyms'), 'but not kept in the stored XML: ' + r.queryParts[0].xml);
+        System.assertEquals('GB Dagenham+25@51.5397 0.1436', r.queryParts[3].values[0]);
     }
 
     @isTest

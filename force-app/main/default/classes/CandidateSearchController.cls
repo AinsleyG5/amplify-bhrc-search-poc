@@ -484,15 +484,31 @@ public with sharing class CandidateSearchController {
     private static String finish(SearchRun s) {
         TkSearchClient.Result r = s.result;
         Boolean firstPage = s.auditId == null;
-        String criteriaJson = CriteriaService.serialize(s.criteria);
+        String criteriaJson = storedCriteriaJson(s.criteria);
         Id jobId = idOrNull(CriteriaService.str(s.criteria, 'jobId'));
 
+        // The index can hold documents from other Salesforce orgs (seen on tksf_bh4sf_tso_cv): hide them, and never
+        // write a lookup to a Contact that is not in this org (the audit row insert would fail)
+        String org15 = UserInfo.getOrganizationId().left(15);
+        Set<String> foreign = new Set<String>();
         Set<Id> contactIds = new Set<Id>();
-        for (TkSearchClient.Hit h : r.hits) if (h.contactId != null) contactIds.add(h.contactId);
-
-        Map<Id, PipelineStatusService.Flags> flags = PipelineStatusService.flagsFor(jobId, contactIds);
-        s.notices.addAll(PipelineStatusService.warnings);
+        for (TkSearchClient.Hit h : r.hits) {
+            if (String.isNotBlank(h.docId) && h.docId.contains('_') && !h.docId.startsWith(org15)) {
+                foreign.add(h.docId);
+                h.contactId = null;
+            }
+            if (h.contactId != null) contactIds.add(h.contactId);
+        }
         Map<Id, Contact> contacts = contactsFor(contactIds);
+        for (TkSearchClient.Hit h : r.hits) {
+            if (h.contactId != null && !contacts.containsKey(h.contactId)) h.contactId = null;
+        }
+        if (!foreign.isEmpty()) {
+            s.notices.add(foreign.size() + ' result' + (foreign.size() == 1 ? '' : 's') + ' from another Salesforce org ' + (foreign.size() == 1 ? 'was' : 'were') + ' hidden.');
+        }
+
+        Map<Id, PipelineStatusService.Flags> flags = PipelineStatusService.flagsFor(jobId, contacts.keySet());
+        s.notices.addAll(PipelineStatusService.warnings);
         Integer recentDays = placedWithinDays(s.criteria);
 
         Boolean hidePipeline = CriteriaService.exclusions(s.criteria).get('pipelineForJob') == true;
@@ -539,7 +555,7 @@ public with sharing class CandidateSearchController {
         Integer pos = 0;
         for (TkSearchClient.Hit h : r.hits) {
             pos++;
-            if (hidden.contains(h.docId)) continue;
+            if (hidden.contains(h.docId) || foreign.contains(h.docId)) continue;
             Map<String, Object> rowOut = row(h, r.offset + pos, s.criteriaIds, contacts.get(h.contactId), flags.get(h.contactId), recentDays);
             rowOut.put('queryCriteriaIds', s.queryCriteriaIds);
             rowOut.put('excludedCriteriaIds', s.excludedCriteriaIds);
@@ -690,6 +706,23 @@ public with sharing class CandidateSearchController {
         trace.put('outputTokens', u.outputTokens);
         trace.put('durationMs', u.durationMs);
         trace.put('attempts', u.attempts);
+    }
+
+    /**
+     * Criteria JSON for Criteria_JSON__c and the recent search (Long Text 131072). If a long job-match query does not
+     * fit, the stored copy drops each part's verbatim XML (the chips, fields and values stay, so it still explains
+     * and re-runs). The LWC always gets the full criteria.
+     */
+    @TestVisible
+    private static String storedCriteriaJson(Map<String, Object> criteria) {
+        String full = CriteriaService.serialize(criteria);
+        if (full.length() <= SearchAuditService.LONG_TEXT_MAX) return full;
+        Map<String, Object> slim = (Map<String, Object>) System.JSON.deserializeUntyped(full);
+        for (Object o : CriteriaService.items(slim)) {
+            Object raw = ((Map<String, Object>) o).get('raw');
+            if (raw instanceof Map<String, Object>) ((Map<String, Object>) raw).remove('xml');
+        }
+        return CriteriaService.serialize(slim);
     }
 
     /** searchWithUrl result: one chip per generated part, in the order TK returned them. */

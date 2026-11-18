@@ -230,6 +230,39 @@ private class CriteriaServiceTest {
     }
 
     @isTest
+    static void jobMatchPartsBecomeReadableChips() {
+        CandidateSearchTestMocks.docIds = new List<String>();
+        TkSearchClient.Result r = TkSearchClient.parseResponse(CandidateSearchTestMocks.searchResponse(true));
+        List<Object> chips = CriteriaService.fromTkQueryParts(r.queryParts);
+
+        Map<String, Object> title = (Map<String, Object>) chips[0];
+        System.assertEquals('Warehouse Operative', title.get('label'), 'brackets removed');
+        Map<String, Object> skill = (Map<String, Object>) chips[1];
+        System.assertEquals('Forklift Truck Operation', skill.get('label'), 'KS code named by its first synonym');
+        System.assertEquals('KS1234567890ABCDEFGH', skill.get('code'));
+        Map<String, Object> loc = (Map<String, Object>) chips[3];
+        System.assertEquals('GB Dagenham', loc.get('value'));
+        System.assertEquals(25, ((Decimal) loc.get('radius')).intValue(), 'radius read before the @coordinates');
+        System.assertEquals('51.5397 0.1436', loc.get('geo'));
+        Map<String, Object> keyword = (Map<String, Object>) chips[4];
+        System.assertEquals('keyword', keyword.get('kind'), 'FULLTEXT parts are keyword chips, not tk_raw');
+        System.assertEquals('continuous improvement', keyword.get('label'));
+
+        // Unchanged: all verbatim. Radius edited: the location stays a part and keeps its coordinates.
+        Map<String, Object> c = CriteriaService.newCriteria('job');
+        c.put('items', chips);
+        c = CriteriaService.parse(CriteriaService.serialize(c));
+        CriteriaService.BuildResult b = CriteriaService.toQueryParts(c);
+        System.assertEquals(5, b.parts.size());
+        CriteriaService.PatchResult p = CriteriaService.applyPatch(c, '[{"op":"update","id":"c4","set":{"radius":10}}]');
+        b = CriteriaService.toQueryParts(p.criteria);
+        System.assertEquals(null, b.parts[3].xml);
+        System.assertEquals('GB Dagenham+10@51.5397 0.1436', b.parts[3].values[0]);
+        System.assertEquals('STRONGLY_FAVORED', b.parts[3].condition);
+        System.assertEquals('', b.queryString());
+    }
+
+    @isTest
     static void unchangedGeneratedPartsGoBackVerbatim() {
         Map<String, Object> c = CriteriaService.newCriteria('job');
         c.put('items', CriteriaService.fromTkQueryParts(generatedParts()));

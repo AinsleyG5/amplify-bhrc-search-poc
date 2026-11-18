@@ -356,6 +356,16 @@ public with sharing class CriteriaService {
                 if (str(item, 'weight') != 'required') {
                     out.notices.add('"' + label + '" is applied as a filter: Textkernel cannot weight a location.');
                 }
+                if (String.isNotBlank(str(item, 'geo'))) {
+                    // A TK-generated location keeps its coordinates and stays a part, as TK produced it
+                    // (US San Francisco CA+25@37.77493 -122.41942); only the radius changes
+                    String place = str(item, 'value');
+                    Decimal radius = dec(item, 'radius');
+                    if (str(item, 'unit') == 'km') radius = radius * 0.621371;
+                    String field = item.get('raw') instanceof Map<String, Object> ? str((Map<String, Object>) item.get('raw'), 'field') : cfg.tkLocationField;
+                    add(out, part(field, condition, place + '+' + radius.round(System.RoundingMode.HALF_UP) + '@' + str(item, 'geo')), id);
+                    continue;
+                }
                 out.queryTerms.add(locationQuery(item));
                 out.queryCriteriaIds.add(id);
             } else if (kind == 'keyword' || kind == 'shift') {
@@ -541,27 +551,47 @@ public with sharing class CriteriaService {
                 item.put('label', 'Job description');
                 item.put('value', null);
             } else if (TITLE_FIELDS.contains(field)) {
+                // TK wraps normalised titles in brackets: [Process Engineer]
+                String title = display.removeStart('[').removeEnd(']').trim();
                 item.put('kind', 'title');
-                item.put('label', display);
-                item.put('value', display);
+                item.put('label', title);
+                item.put('value', title);
             } else if (SKILL_FIELDS.contains(field)) {
                 item.put('kind', 'skill');
-                item.put('label', display);
-                item.put('value', display);
-                if (display.startsWithIgnoreCase('KS') && !display.contains(' ')) item.put('code', display);
+                if (display.startsWithIgnoreCase('KS') && !display.contains(' ')) {
+                    // A KS code: the first synonym TK sent names the skill (KSAXTOY5CH3G8GUTIAUU = Lightning Components)
+                    String name = p.synonyms.isEmpty() ? display : p.synonyms[0];
+                    item.put('code', display);
+                    item.put('label', name);
+                    item.put('value', name);
+                } else {
+                    item.put('label', display);
+                    item.put('value', display);
+                }
             } else if (LOCATION_FIELDS.contains(field)) {
+                // US San Francisco CA+50@37.77493 -122.41942: place, radius, then coordinates after @
                 item.put('kind', 'location');
-                List<String> bits = first.split('\\+');
-                String place = bits[0].trim();
-                Decimal radius = CandidateSearchConfig.get().defaultRadiusMiles;
-                if (bits.size() > 1 && bits[1].trim().isNumeric()) radius = Decimal.valueOf(bits[1].trim());
+                String placeAndRadius = first.substringBefore('@');
+                if (first.contains('@')) item.put('geo', first.substringAfter('@').trim());
+                String place = placeAndRadius.contains('+') ? placeAndRadius.substringBeforeLast('+').trim() : placeAndRadius.trim();
+                String r = placeAndRadius.contains('+') ? placeAndRadius.substringAfterLast('+').trim() : '';
+                Decimal radius = r.isNumeric() ? Decimal.valueOf(r) : CandidateSearchConfig.get().defaultRadiusMiles;
                 item.put('value', place);
                 item.put('radius', radius);
                 item.put('unit', 'mi');
                 item.put('label', place + ' + ' + radius + ' mi');
+            } else if (field == 'fulltext') {
+                // Keywords TK took from the job description: ordinary keyword chips
+                List<String> shown = new List<String>();
+                for (String v : p.values) shown.add(v.replace('"', '').trim());
+                item.put('kind', 'keyword');
+                item.put('label', String.join(shown, ', ').abbreviate(MAX_LABEL));
+                item.put('value', display);
             } else {
                 item.put('kind', 'tk_raw');
-                String label = p.field + ': ' + String.join(p.values, ', ');
+                String label = p.values.isEmpty()
+                    ? friendlyField(p.field)
+                    : friendlyField(p.field) + ': ' + String.join(p.values, ', ');
                 item.put('label', label.abbreviate(MAX_LABEL));
                 item.put('value', null);
             }
@@ -570,6 +600,20 @@ public with sharing class CriteriaService {
             out.add(item);
         }
         return out;
+    }
+
+    private static final Map<String, String> FRIENDLY_FIELDS = new Map<String, String>{
+        'workfield' => 'Work field and experience level',
+        'experience_years' => 'Years of experience',
+        'educationlevel_international' => 'Education level',
+        'experiencelevel' => 'Experience level',
+        'language_skills' => 'Language',
+        'date_available' => 'Available from'
+    };
+
+    private static String friendlyField(String field) {
+        String f = field == null ? '' : field.toLowerCase();
+        return FRIENDLY_FIELDS.containsKey(f) ? FRIENDLY_FIELDS.get(f) : field;
     }
 
     private static Map<String, Object> rawOf(TkSearchClient.QueryPart p) {
