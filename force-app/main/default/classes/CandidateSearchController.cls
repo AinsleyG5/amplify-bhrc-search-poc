@@ -590,8 +590,8 @@ public with sharing class CandidateSearchController {
     }
 
     /**
-     * Shortlists the candidates on the job (TR1__Opportunity_Discussed__c, the record PipelineStatusService reads as
-     * "Shortlisted"). Candidates already applied, shortlisted or placed on the job are skipped. Partial success:
+     * Shortlists the candidates on the job: a TR1__Application_V2__c at stage "Application" (API value; the label
+     * users see is "Shortlisted"). Candidates already applied, shortlisted or placed on the job are skipped. Partial success:
      * one bad record never blocks the rest. Logs "Shortlisted" on the audit for each one added.
      * Returns { added, addedIds, skipped: [{contactId, name, reason}], failed: [{contactId, name, error}], message }.
      */
@@ -765,13 +765,14 @@ public with sharing class CandidateSearchController {
         return out;
     }
 
-    /** Built dynamically, so a field name that differs in an org fails that record (readably), not the class deploy. */
+    /**
+     * Shortlist = application at the "Application" stage. Built dynamically with the configured candidate lookup
+     * (Application_Candidate_Field__c, TR1__Applicant__c), so a field that differs in an org fails that record
+     * readably instead of failing the class deploy.
+     */
     private static SObject shortlistRecord(Id jobId, Id contactId) {
-        Schema.SObjectType t = Schema.getGlobalDescribe().get('TR1__Opportunity_Discussed__c');
-        if (t == null) throw fail('Shortlisting is not available: TR1__Opportunity_Discussed__c is not in this org.');
-        SObject rec = t.newSObject();
-        rec.put('TR1__Job__c', jobId);
-        rec.put('TR1__Candidate__c', contactId);
+        TR1__Application_V2__c rec = new TR1__Application_V2__c(TR1__Job__c = jobId, TR1__Stage__c = PipelineStatusService.SHORTLIST_STAGE);
+        rec.put(CandidateSearchConfig.get().applicationCandidateField, contactId);
         return rec;
     }
 
