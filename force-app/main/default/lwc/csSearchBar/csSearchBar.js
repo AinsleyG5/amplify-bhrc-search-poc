@@ -16,6 +16,8 @@ const AUTOCOMPLETE_DEBOUNCE_MS = 250;
 export default class CsSearchBar extends LightningElement {
     @api loading = false;
     @api hasResults = false;
+    /** A search has started (results, an error or one in flight): Clear search is offered. */
+    @api active = false;
     @api defaultRadius = 15;
 
     _criteria;
@@ -76,6 +78,26 @@ export default class CsSearchBar extends LightningElement {
         this.dispatchEvent(new CustomEvent('search', { detail: { text } }));
     }
 
+    get hasText() {
+        return !!(this.text || '').length;
+    }
+
+    /** Shown once there is anything to clear: text, chips or results. */
+    get showClear() {
+        return this.active || this.hasResults || this.hasText || !!this._criteria;
+    }
+
+    /** Clears the text box only; the current results and chips stay. */
+    clearText() {
+        this.text = '';
+        this._textTouched = true;
+        const ta = this.template.querySelector('.nl-text');
+        if (ta) {
+            ta.value = '';
+            ta.focus();
+        }
+    }
+
     get searchDisabled() {
         return this.loading || !(this.text || '').trim();
     }
@@ -86,9 +108,11 @@ export default class CsSearchBar extends LightningElement {
 
     handleClear() {
         this.text = '';
+        this._textTouched = false;
         const ta = this.template.querySelector('.nl-text');
         if (ta) ta.value = '';
         this.editor = null;
+        this.suggestions = [];
         this.dispatchEvent(new CustomEvent('clear'));
     }
 

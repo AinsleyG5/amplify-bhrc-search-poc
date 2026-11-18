@@ -268,6 +268,9 @@ export default class CandidateSearchApp extends LightningElement {
         this.chatOpen = false;
         this.chatTurns = [];
         this.initialText = '';
+        this.loading = false;
+        this.loadingMore = false;
+        this.chatBusy = false;
         this.loadHome();
     }
 
@@ -507,6 +510,17 @@ export default class CandidateSearchApp extends LightningElement {
         }
         this.chatTurns = [...turns, this.turn('system', 'Undid the last change.')];
         const next = clone(prev);
+        next.trace = { searchType: 'Manual', parentAuditId: this.auditId };
+        this.execute(next, { seq: ++this._seq, compare: true });
+    }
+
+    /** Back to the criteria as first run (the bottom of the undo stack), as one more undoable step. */
+    handleReset() {
+        if (!this.history.length || this.busy) return;
+        const first = this.history[0];
+        this.pushHistory();
+        this.chatTurns = [...this.chatTurns, this.turn('system', 'Reset to the original search.', { change: true })];
+        const next = clone(first);
         next.trace = { searchType: 'Manual', parentAuditId: this.auditId };
         this.execute(next, { seq: ++this._seq, compare: true });
     }

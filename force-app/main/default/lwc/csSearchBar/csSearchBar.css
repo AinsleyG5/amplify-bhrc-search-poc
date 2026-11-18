@@ -52,6 +52,22 @@
     align-self: center;
 }
 
+.nl-clear {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: 0;
+    padding: 2px;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+.nl-clear:hover,
+.nl-clear:focus-visible {
+    background: var(--bh-bg, #f7f7f7);
+    outline: 0;
+}
+
 /* ── Chips ────────────────────────────────────── */
 
 .chips {

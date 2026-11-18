@@ -412,4 +412,29 @@ describe('c-candidate-search-app', () => {
         const tag = list.shadowRoot.querySelector('c-cs-result-row').shadowRoot.querySelector('.tag-pipeline');
         expect(tag.textContent).toBe('Shortlisted');
     });
+
+    it('Clear search goes back to the home panels; Reset changes returns to the first criteria', async () => {
+        runSearch.mockImplementation(({ criteriaJson }) => {
+            const { trace, ...criteria } = JSON.parse(criteriaJson); // eslint-disable-line no-unused-vars
+            return Promise.resolve(response([row(0), row(1)], { criteria }));
+        });
+        await searchFromUrl();
+        const bar = shadow(element, 'c-cs-search-bar');
+        bar.shadowRoot.querySelector('.chip-x[data-id="c2"]').click();
+        await flush(10);
+        bar.shadowRoot.querySelector('.chip-x[data-id="c3"]').click();
+        await flush(10);
+        expect(JSON.parse(runSearch.mock.calls[2][0].criteriaJson).items.map((i) => i.id)).toEqual(['c1']);
+
+        [...shadow(element, '.toolbar').querySelectorAll('lightning-button')].find((b) => b.label === 'Reset changes').click();
+        await flush(10);
+        expect(JSON.parse(runSearch.mock.calls[3][0].criteriaJson).items.map((i) => i.id)).toEqual(['c1', 'c2', 'c3']);
+
+        [...bar.shadowRoot.querySelectorAll('lightning-button')].find((b) => b.label === 'Clear search').click();
+        await flush(6);
+        expect(shadow(element, 'c-cs-result-list')).toBeNull();
+        expect(shadow(element, 'c-cs-home-panels')).not.toBeNull();
+        expect(bar.shadowRoot.querySelectorAll('.chip-body').length).toBe(0);
+        expect(bar.shadowRoot.querySelector('.nl-text').value).toBe('');
+    });
 });

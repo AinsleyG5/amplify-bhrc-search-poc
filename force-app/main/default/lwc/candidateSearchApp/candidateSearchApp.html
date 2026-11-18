@@ -6,6 +6,7 @@
                 initial-text={initialText}
                 loading={loading}
                 has-results={hasResults}
+                active={started}
                 onsearch={handleSearch}
                 oncriteriachange={handleCriteriaChange}
                 onsave={handleSave}
@@ -30,6 +31,13 @@
                             <lightning-button label="Refine with AI" icon-name="utility:einstein" onclick={openChat}></lightning-button>
                         </template>
                         <template lwc:if={canUndo}>
+                            <lightning-button
+                                label="Reset changes"
+                                icon-name="utility:refresh"
+                                onclick={handleReset}
+                                disabled={busy}
+                                title="Go back to the search as it was first run, before any edits or refine turns"
+                            ></lightning-button>
                             <lightning-button-icon
                                 icon-name="utility:undo"
                                 variant="border-filled"

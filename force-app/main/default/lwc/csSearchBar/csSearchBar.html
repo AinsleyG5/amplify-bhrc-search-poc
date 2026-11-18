@@ -11,8 +11,21 @@
                     oninput={handleText}
                     onkeydown={handleKeydown}
                 ></textarea>
+                <template lwc:if={hasText}>
+                    <button class="nl-clear" onclick={clearText} aria-label="Clear the text" title="Clear the text">
+                        <lightning-icon icon-name="utility:clear" size="x-small" alternative-text=""></lightning-icon>
+                    </button>
+                </template>
             </div>
             <lightning-button variant="brand" label="Search" onclick={submit} disabled={searchDisabled} class="nl-go"></lightning-button>
+            <template lwc:if={showClear}>
+                <lightning-button
+                    label="Clear search"
+                    icon-name="utility:refresh"
+                    onclick={handleClear}
+                    title="Clear the search and go back to your recent and saved searches"
+                ></lightning-button>
+            </template>
             <template lwc:if={hasResults}>
                 <lightning-button-icon
                     icon-name="utility:save"
@@ -20,13 +33,6 @@
                     alternative-text="Save this search"
                     title="Save this search"
                     onclick={handleSave}
-                ></lightning-button-icon>
-                <lightning-button-icon
-                    icon-name="utility:home"
-                    variant="border-filled"
-                    alternative-text="New search"
-                    title="New search"
-                    onclick={handleClear}
                 ></lightning-button-icon>
             </template>
         </div>
