@@ -311,6 +311,8 @@ public with sharing class TkSearchClient {
                 } else {
                     for (Dom.XmlNode k : kids) addDecimal(h.queryPartScores, leafText(k));
                 }
+            } else if (name == 'fieldValues' && !c.getChildElements().isEmpty() && c.getChildElements()[0].getName() == 'entry') {
+                addEntries(h, c);
             } else if (FIELD_VALUE_NAMES.contains(name)) {
                 addNamedValues(h.fields, c);
             } else if (HIGHLIGHT_NAMES.contains(name)) {
@@ -371,6 +373,33 @@ public with sharing class TkSearchClient {
             return parseHit(doc.getRootElement());
         } catch (Exception e) {
             return new Hit();
+        }
+    }
+
+    /**
+     * The real response shape (confirmed against tksf_bh4sf_tso_cv):
+     * <fieldValues><entry><key>jobtitles</key><value><item><value>&lt;b&gt;Warehouse&lt;/b&gt; Operative</value></item></value></entry></fieldValues>
+     * Highlighting is inline: matched terms are wrapped in <b>. Values with a <b> are copied to the highlights
+     * (tags kept, for the UI and the explain prompt); the field values themselves are stored without tags.
+     */
+    private static void addEntries(Hit h, Dom.XmlNode fieldValues) {
+        for (Dom.XmlNode entry : fieldValues.getChildElements()) {
+            if (entry.getName() != 'entry') continue;
+            String key = firstText(entry, new List<String>{ 'key' });
+            if (key == null) continue;
+            List<String> raw = new List<String>();
+            for (Dom.XmlNode c : entry.getChildElements()) {
+                if (c.getName() == 'value') collectLeaves(c, raw);
+            }
+            List<String> plain = new List<String>();
+            for (String v : raw) {
+                if (v.contains('<b>')) {
+                    if (!h.highlights.containsKey(key)) h.highlights.put(key, new List<String>());
+                    h.highlights.get(key).add(v);
+                }
+                plain.add(v.replace('<b>', '').replace('</b>', ''));
+            }
+            h.fields.put(key, plain);
         }
     }
 

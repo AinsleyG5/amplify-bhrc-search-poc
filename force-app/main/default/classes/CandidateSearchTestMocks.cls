@@ -83,9 +83,13 @@ public class CandidateSearchTestMocks implements HttpCalloutMock {
         for (String d : docIds) {
             items += '<resultItems><docID>' + d + '</docID><score>0.98</score>';
             for (String s : partScores) items += '<queryPartScores>' + s + '</queryPartScores>';
-            items += '<values><field>fullname</field><items>Ethan Kirby</items></values>'
-                + '<values><field>city</field><items>London</items></values>'
-                + '<highlights><field>FULLTEXT</field><snippets>... &lt;b&gt;Certified Forklift Operator&lt;/b&gt; ...</snippets></highlights>'
+            // Shape confirmed against tksf_bh4sf_tso_cv: fieldValues entries, highlighting inline with <b>
+            items += '<fieldValues>'
+                + '<entry><key>profskills</key><value/></entry>'
+                + '<entry><key>jobtitles</key><value><item><value>&lt;b&gt;Certified Forklift Operator&lt;/b&gt;</value></item></value></entry>'
+                + '<entry><key>city</key><value><item><value>GB London</value></item></value></entry>'
+                + '<entry><key>fullname</key><value><item><value>Ethan Kirby</value></item></value></entry>'
+                + '</fieldValues>'
                 + '</resultItems>';
         }
         Integer t = total == null ? docIds.size() : total;

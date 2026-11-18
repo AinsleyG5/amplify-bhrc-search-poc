@@ -39,7 +39,11 @@ private class TkSearchClientTest {
         System.assertEquals(98, h.scorePct.intValue());
         System.assertEquals(new List<Decimal>{ 1.0, 0.0 }, h.queryPartScores);
         System.assertEquals('Ethan Kirby', h.fields.get('fullname')[0]);
-        System.assert(h.highlights.get('FULLTEXT')[0].contains('<b>Certified Forklift Operator</b>'));
+        System.assertEquals('GB London', h.fields.get('city')[0]);
+        System.assertEquals('Certified Forklift Operator', h.fields.get('jobtitles')[0], 'tags stripped from field values');
+        System.assertEquals(0, h.fields.get('profskills').size());
+        System.assert(h.highlights.get('jobtitles')[0].contains('<b>Certified Forklift Operator</b>'), 'inline highlights kept');
+        System.assert(!h.highlights.containsKey('city'));
         System.assertEquals(1, r.facets.size());
         System.assertEquals('candidate_status', r.facets[0].field);
         System.assertEquals(4, r.facets[0].values[0].count);
@@ -52,7 +56,7 @@ private class TkSearchClientTest {
         TkSearchClient.Hit again = TkSearchClient.parseHitXml(h.xml);
         System.assertEquals(h.docId, again.docId);
         System.assertEquals(h.queryPartScores, again.queryPartScores);
-        System.assertEquals(1, again.highlights.get('FULLTEXT').size());
+        System.assertEquals(1, again.highlights.get('jobtitles').size());
     }
 
     @isTest
