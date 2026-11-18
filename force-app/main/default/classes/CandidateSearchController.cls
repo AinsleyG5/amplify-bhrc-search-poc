@@ -688,6 +688,53 @@ public with sharing class CandidateSearchController {
         return out.toJson('Added', 'to ' + pools[0].Name, 'already in the pool');
     }
 
+    /** Objects the tray's job and talent pool pickers may search, with the extra field shown under the name. */
+    private static final Map<String, String> PICKABLE = new Map<String, String>{
+        'TR1__Job__c' => 'TR1__Job_Title__c',
+        'TR1__Call_List__c' => null
+    };
+
+    /**
+     * Record search for the tray pickers (replaces lightning-record-picker): up to 8 jobs or talent pools whose
+     * Name (or job title) contains the term, most recently changed first. A blank term returns the most recent.
+     * A record Id as the term returns that record (to label a preselected job). Returns [{id, name, sub}].
+     */
+    @AuraEnabled
+    public static String searchRecords(String objectApiName, String term) {
+        if (!PICKABLE.containsKey(objectApiName)) throw fail('Search is not available for ' + objectApiName + '.');
+        Schema.SObjectType t = Schema.getGlobalDescribe().get(objectApiName);
+        if (t == null) throw fail(objectApiName + ' is not in this org.');
+        Map<String, Schema.SObjectField> fm = t.getDescribe().fields.getMap();
+        String subField = PICKABLE.get(objectApiName);
+        if (subField != null && !fm.containsKey(subField.toLowerCase())) subField = null;
+        Boolean subFilterable = subField != null && fm.get(subField.toLowerCase()).getDescribe().isFilterable();
+
+        String q = term == null ? '' : term.trim();
+        Id recordId = idOrNull(q);
+        String pattern = '%' + q.replace('%', '').replace('_', '\\_') + '%';
+        String soql = 'SELECT Id, Name' + (subField == null ? '' : ', ' + subField) + ' FROM ' + objectApiName;
+        if (recordId != null && recordId.getSObjectType() == t) {
+            soql += ' WHERE Id = :recordId';
+        } else if (String.isNotBlank(q)) {
+            soql += ' WHERE (Name LIKE :pattern' + (subFilterable ? ' OR ' + subField + ' LIKE :pattern' : '') + ')';
+        }
+        soql += ' ORDER BY LastModifiedDate DESC LIMIT 8';
+
+        List<Object> out = new List<Object>();
+        try {
+            for (SObject r : Database.query(soql)) {
+                out.add(new Map<String, Object>{
+                    'id' => r.Id,
+                    'name' => r.get('Name'),
+                    'sub' => subField == null ? null : r.get(subField)
+                });
+            }
+        } catch (QueryException e) {
+            throw fail('Search failed: ' + e.getMessage());
+        }
+        return System.JSON.serialize(out);
+    }
+
     /** Collects the per-candidate result of a bulk action. */
     private class BulkOutcome {
         public Map<Id, Contact> names;

@@ -127,10 +127,10 @@ export function metAndNotMet(row) {
 /** "Up 2", "Down 1", "New" against the previous page-1 ranks (docId to rank). */
 export function changeTag(prevRanks, docId, rank) {
     if (!prevRanks) return null;
-    if (!(docId in prevRanks)) return { label: 'New', cls: 'tag tag-new' };
+    if (!(docId in prevRanks)) return { label: 'New', cls: 'tag tag-blue', icon: 'sparkles' };
     const diff = prevRanks[docId] - rank;
-    if (diff > 0) return { label: `Up ${diff}`, cls: 'tag tag-up' };
-    if (diff < 0) return { label: `Down ${-diff}`, cls: 'tag tag-down' };
+    if (diff > 0) return { label: `Up ${diff}`, cls: 'tag tag-green', icon: 'arrow-up' };
+    if (diff < 0) return { label: `Down ${-diff}`, cls: 'tag tag-red', icon: 'arrow-down' };
     return null;
 }
 
@@ -264,4 +264,63 @@ export function prettyXmlLines(xml) {
         }
     }
     return lines;
+}
+
+/** "Ethan Kirby" -> "EK". */
+export function initials(name) {
+    const parts = String(name || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    if (!parts.length) return '?';
+    return ((parts[0][0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
+
+/** Stable avatar colour class from a key (doc id or name). */
+export function avatarClass(key) {
+    let h = 0;
+    const s = String(key || '');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 997;
+    return `avatar hue-${h % 6}`;
+}
+
+/** Score ring: class and style for a 0-100 score. */
+export function ring(scorePct) {
+    const n = scorePct === null || scorePct === undefined || Number.isNaN(Number(scorePct)) ? null : Math.round(Number(scorePct));
+    const p = n === null ? 0 : Math.max(0, Math.min(100, n));
+    return {
+        cls: `ring ${p >= 80 ? 'high' : p >= 50 ? 'mid' : 'low'}`,
+        style: `--p:${p}`,
+        text: n === null ? '–' : `${n}`
+    };
+}
+
+/**
+ * TK highlight HTML ("a <b>forklift</b> licence") as text segments, so it renders without innerHTML:
+ * [{ key, text, bold }].
+ */
+export function highlightSegments(html) {
+    const clean = safeHighlight(html);
+    const out = [];
+    const re = /<b>([\s\S]*?)<\/b>/gi;
+    let last = 0;
+    let m;
+    let i = 0;
+    while ((m = re.exec(clean)) !== null) {
+        if (m.index > last) out.push({ key: `s${i++}`, text: decode(clean.slice(last, m.index)), bold: false });
+        out.push({ key: `s${i++}`, text: decode(m[1]), bold: true });
+        last = re.lastIndex;
+    }
+    if (last < clean.length) out.push({ key: `s${i++}`, text: decode(clean.slice(last)), bold: false });
+    return out.map((s) => ({ ...s, cls: s.bold ? 'hl-hit' : 'hl-txt' }));
+}
+
+function decode(s) {
+    return String(s)
+        .replace(/<\/?b>/gi, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
 }

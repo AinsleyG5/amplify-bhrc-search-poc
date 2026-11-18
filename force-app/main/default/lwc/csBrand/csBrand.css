@@ -1,0 +1,78 @@
+@import 'c/csStyles';
+
+:host {
+    display: inline-flex;
+}
+
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo {
+    display: block;
+    height: 34px;
+    width: auto;
+}
+
+.compact .logo {
+    height: 26px;
+}
+
+.mark {
+    display: inline-grid;
+    place-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    color: #fff;
+    background: var(--amp-grad);
+    box-shadow: 0 6px 16px -6px rgba(60, 200, 245, 0.8);
+}
+
+.compact .mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+}
+
+.words {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+}
+
+.maker {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.product {
+    font-size: 17px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    background: linear-gradient(90deg, #3cc8f5, #8be3ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.compact .product {
+    font-size: 14px;
+}
+
+.brand-light .maker {
+    color: #fff;
+}
+
+.brand-dark .maker {
+    color: var(--amp-ink);
+}
+
+.brand-dark .product {
+    background: var(--amp-grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+}

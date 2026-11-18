@@ -2,38 +2,65 @@
     <div class="bar">
         <div class="nl-row">
             <div class="nl-input">
-                <lightning-icon icon-name="utility:search" size="x-small" class="nl-icon" alternative-text=""></lightning-icon>
+                <span class="nl-icon"><c-cs-icon name="sparkles" size="18"></c-cs-icon></span>
                 <textarea
                     class="nl-text"
                     rows="1"
-                    placeholder="Describe who you need, for example: forklift-certified warehouse operatives within 15 miles of Dagenham"
+                    placeholder="Describe who you need: forklift-certified warehouse operatives within 15 miles of Dagenham"
                     aria-label="Describe the candidates you are looking for"
                     oninput={handleText}
                     onkeydown={handleKeydown}
                 ></textarea>
                 <template lwc:if={hasText}>
-                    <button class="nl-clear" onclick={clearText} aria-label="Clear the text" title="Clear the text">
-                        <lightning-icon icon-name="utility:clear" size="x-small" alternative-text=""></lightning-icon>
+                    <button class="btn-icon sm nl-clear" onclick={clearText} aria-label="Clear the text" title="Clear the text">
+                        <c-cs-icon name="x" size="14"></c-cs-icon>
                     </button>
                 </template>
+                <button class="btn btn-primary btn-lg nl-go" data-action="search" onclick={submit} disabled={searchDisabled}>
+                    <template lwc:if={loading}><span class="spinner sm light"></span></template>
+                    <template lwc:else><c-cs-icon name="search" size="16"></c-cs-icon></template>
+                    <span>{searchLabel}</span>
+                </button>
             </div>
-            <lightning-button variant="brand" label="Search" onclick={submit} disabled={searchDisabled} class="nl-go"></lightning-button>
             <template lwc:if={showClear}>
-                <lightning-button
-                    label="Clear search"
-                    icon-name="utility:refresh"
-                    onclick={handleClear}
-                    title="Clear the search and go back to your recent and saved searches"
-                ></lightning-button>
-            </template>
-            <template lwc:if={hasResults}>
-                <lightning-button-icon
-                    icon-name="utility:save"
-                    variant="border-filled"
-                    alternative-text="Save this search"
-                    title="Save this search"
-                    onclick={handleSave}
-                ></lightning-button-icon>
+                <div class="nl-actions">
+                    <template lwc:if={hasResults}>
+                        <div class="save-wrap">
+                            <button class="btn btn-icon-text" data-action="save" onclick={handleSave} aria-expanded={saveOpen} title="Save this search">
+                                <c-cs-icon name="bookmark" size="15"></c-cs-icon><span>Save</span>
+                            </button>
+                            <template lwc:if={saveOpen}>
+                                <div class="pop save-pop" role="dialog" aria-label="Save this search">
+                                    <label class="field">
+                                        <span class="field-label">Name this search</span>
+                                        <input
+                                            class="input save-input"
+                                            type="text"
+                                            maxlength="80"
+                                            value={saveName}
+                                            oninput={handleSaveName}
+                                            onkeydown={handleSaveKeydown}
+                                        />
+                                    </label>
+                                    <div class="pop-actions">
+                                        <button class="btn btn-ghost btn-sm" onclick={cancelSave}>Cancel</button>
+                                        <button class="btn btn-primary btn-sm" data-action="confirm-save" onclick={confirmSave} disabled={saveDisabled}>
+                                            Save search
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <button
+                        class="btn btn-icon-text"
+                        data-action="clear"
+                        onclick={handleClear}
+                        title="Clear the search and go back to your recent and saved searches"
+                    >
+                        <c-cs-icon name="reset" size="15"></c-cs-icon><span>Clear search</span>
+                    </button>
+                </div>
             </template>
         </div>
 
@@ -42,18 +69,19 @@
                 <template for:each={chips} for:item="chip">
                     <span key={chip.id} class={chip.cls} role="listitem">
                         <button class="chip-body" data-id={chip.id} onclick={openChip} title={chip.title} aria-label={chip.title}>
+                            <span class={chip.dotCls}></span>
                             <span class="chip-kind">{chip.kind}</span>
                             <span class="chip-label">{chip.label}</span>
                             <span class="chip-weight">{chip.weight}</span>
                         </button>
                         <button class="chip-x" data-id={chip.id} onclick={removeChip} aria-label={chip.removeLabel} title={chip.removeLabel}>
-                            <lightning-icon icon-name="utility:close" size="xx-small" alternative-text=""></lightning-icon>
+                            <c-cs-icon name="x" size="12" stroke-width="2.5"></c-cs-icon>
                         </button>
                     </span>
                 </template>
                 <template for:each={filterChips} for:item="f">
                     <span key={f.key} class="chip chip-filter" role="listitem">
-                        <span class="chip-body chip-static"><span class="chip-kind">Filter</span><span class="chip-label">{f.label}</span></span>
+                        <span class="chip-body chip-static"><c-cs-icon name="filter" size="12"></c-cs-icon><span class="chip-label">{f.label}</span></span>
                         <button
                             class="chip-x"
                             data-field={f.field}
@@ -62,21 +90,21 @@
                             aria-label={f.removeLabel}
                             title={f.removeLabel}
                         >
-                            <lightning-icon icon-name="utility:close" size="xx-small" alternative-text=""></lightning-icon>
+                            <c-cs-icon name="x" size="12" stroke-width="2.5"></c-cs-icon>
                         </button>
                     </span>
                 </template>
                 <template for:each={exclusionChips} for:item="x">
                     <span key={x.key} class="chip chip-exclusion" role="listitem">
-                        <span class="chip-body chip-static"><span class="chip-kind">Exclude</span><span class="chip-label">{x.label}</span></span>
+                        <span class="chip-body chip-static"><c-cs-icon name="ban" size="12"></c-cs-icon><span class="chip-label">{x.label}</span></span>
                         <button class="chip-x" data-key={x.key} onclick={removeExclusion} aria-label={x.removeLabel} title={x.removeLabel}>
-                            <lightning-icon icon-name="utility:close" size="xx-small" alternative-text=""></lightning-icon>
+                            <c-cs-icon name="x" size="12" stroke-width="2.5"></c-cs-icon>
                         </button>
                     </span>
                 </template>
                 <button class="chip-add" onclick={openAdd} aria-label="Add a criterion">
-                    <lightning-icon icon-name="utility:add" size="xx-small" alternative-text=""></lightning-icon>
-                    <span>Add</span>
+                    <c-cs-icon name="plus" size="13" stroke-width="2.5"></c-cs-icon>
+                    <span>Add criterion</span>
                 </button>
             </div>
 
@@ -84,10 +112,11 @@
                 <label class="opt">
                     <span>Exclude anyone placed in the last</span>
                     <input
-                        class="opt-days"
+                        class="input opt-days"
                         type="number"
                         min="1"
                         max="3650"
+                        placeholder="–"
                         value={placedDays}
                         onchange={handlePlacedDays}
                         aria-label="Exclude anyone placed in the last N days"
@@ -95,8 +124,8 @@
                     <span>days</span>
                 </label>
                 <template lwc:if={isJobSearch}>
-                    <label class="opt">
-                        <input type="checkbox" checked={pipelineHidden} onchange={togglePipeline} />
+                    <label class="opt opt-toggle">
+                        <input class="switch" type="checkbox" role="switch" checked={pipelineHidden} onchange={togglePipeline} />
                         <span>Hide candidates already on this job</span>
                     </label>
                 </template>
@@ -105,27 +134,25 @@
 
         <template lwc:if={hasEditor}>
             <div class="editor" onkeydown={handleEditorKeydown} role="group" aria-label={editorTitle}>
-                <div class="editor-title">{editorTitle}</div>
+                <div class="editor-head">
+                    <div class="editor-title">{editorTitle}</div>
+                    <button class="btn-icon sm" onclick={cancelEditor} aria-label="Close the editor"><c-cs-icon name="x" size="14"></c-cs-icon></button>
+                </div>
                 <div class="editor-grid">
                     <template lwc:if={isAdd}>
-                        <lightning-combobox
-                            label="Type"
-                            data-field="kind"
-                            value={editor.kind}
-                            options={kindOptions}
-                            onchange={handleEditor}
-                            class="ed-kind"
-                        ></lightning-combobox>
+                        <label class="field ed-kind">
+                            <span class="field-label">Type</span>
+                            <select class="input" data-field="kind" onchange={handleEditor}>
+                                <template for:each={kindOptions} for:item="k">
+                                    <option key={k.value} value={k.value} selected={k.selected}>{k.label}</option>
+                                </template>
+                            </select>
+                        </label>
                     </template>
                     <template lwc:if={showValue}>
-                        <div class="ed-value">
-                            <lightning-input
-                                label={valueLabel}
-                                data-field="value"
-                                value={editor.value}
-                                onchange={handleEditor}
-                                autocomplete="off"
-                            ></lightning-input>
+                        <div class="field ed-value">
+                            <span class="field-label">{valueLabel}</span>
+                            <input class="input" type="text" data-field="value" value={editor.value} oninput={handleEditor} autocomplete="off" />
                             <template lwc:if={hasSuggestions}>
                                 <ul class="suggest" role="listbox" aria-label="Skill suggestions">
                                     <template for:each={suggestions} for:item="s">
@@ -141,43 +168,32 @@
                         </div>
                     </template>
                     <template lwc:if={isLocation}>
-                        <lightning-input
-                            type="number"
-                            label="Radius (miles)"
-                            data-field="radius"
-                            value={editor.radius}
-                            min="0"
-                            max="500"
-                            onchange={handleEditor}
-                            class="ed-radius"
-                        ></lightning-input>
+                        <label class="field ed-num">
+                            <span class="field-label">Radius (miles)</span>
+                            <input class="input" type="number" data-field="radius" value={editor.radius} min="0" max="500" oninput={handleEditor} />
+                        </label>
                     </template>
                     <template lwc:if={isAvailability}>
-                        <lightning-input
-                            type="number"
-                            label="Available within (days)"
-                            data-field="withinDays"
-                            value={editor.withinDays}
-                            min="1"
-                            max="365"
-                            onchange={handleEditor}
-                            class="ed-radius"
-                        ></lightning-input>
+                        <label class="field ed-num">
+                            <span class="field-label">Within (days)</span>
+                            <input class="input" type="number" data-field="withinDays" value={editor.withinDays} min="1" max="365" oninput={handleEditor} />
+                        </label>
                     </template>
-                    <lightning-radio-group
-                        label="Weight"
-                        data-field="weight"
-                        options={weightOptions}
-                        value={editor.weight}
-                        type="button"
-                        onchange={handleEditor}
-                        class="ed-weight"
-                    ></lightning-radio-group>
+                    <div class="field">
+                        <span class="field-label">Weight</span>
+                        <div class="seg" role="group" aria-label="Weight">
+                            <template for:each={weightOptions} for:item="w">
+                                <button key={w.value} class="seg-btn" data-value={w.value} aria-pressed={w.pressed} onclick={handleWeight}>{w.label}</button>
+                            </template>
+                        </div>
+                    </div>
                 </div>
-                <template lwc:if={editorError}><div class="ed-error" role="alert">{editorError}</div></template>
+                <template lwc:if={editorError}>
+                    <div class="ed-error" role="alert"><c-cs-icon name="alert" size="14"></c-cs-icon>{editorError}</div>
+                </template>
                 <div class="editor-actions">
-                    <lightning-button label="Cancel" onclick={cancelEditor}></lightning-button>
-                    <lightning-button variant="brand" label={editorSaveLabel} onclick={saveEditor}></lightning-button>
+                    <button class="btn btn-ghost" onclick={cancelEditor}>Cancel</button>
+                    <button class="btn btn-primary" data-action="save-editor" onclick={saveEditor}>{editorSaveLabel}</button>
                 </div>
             </div>
         </template>

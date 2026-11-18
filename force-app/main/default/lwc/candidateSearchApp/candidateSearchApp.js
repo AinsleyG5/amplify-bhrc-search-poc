@@ -1,7 +1,5 @@
-import { LightningElement, wire } from 'lwc';
+import { LightningElement, api, wire } from 'lwc';
 import { CurrentPageReference } from 'lightning/navigation';
-import { ShowToastEvent } from 'lightning/platformShowToastEvent';
-import LightningPrompt from 'lightning/prompt';
 
 import parseQuery from '@salesforce/apex/CandidateSearchController.parseQuery';
 import startJobMatch from '@salesforce/apex/CandidateSearchController.startJobMatch';
@@ -30,6 +28,15 @@ const CHAT_HISTORY_TURNS = 6;
  * re-read when they change, so a second Match click from another job works without a reload.
  */
 export default class CandidateSearchApp extends LightningElement {
+    /** App Builder: logo image URL (for example /resource/AmplifyLogo). Blank shows the Amplify wordmark. */
+    @api logoUrl;
+    /** App Builder: page title under the logo. */
+    @api heading = 'Candidate Search';
+
+    /** [{ id, title, message, variant, cls, icon }] */
+    toasts = [];
+    _toastId = 0;
+
     // ─── Search state ──────────────────────────────
     criteria = null;
     /** Undo stack: criteria snapshots (no trace), one per change. */
@@ -85,7 +92,31 @@ export default class CandidateSearchApp extends LightningElement {
         this.loadHome();
     }
 
+    disconnectedCallback() {
+        if (this._onResize) window.removeEventListener('resize', this._onResize);
+    }
+
+    /**
+     * The workspace fills the window below where it starts (the Salesforce header and the hero vary), so the list,
+     * panel and chat scroll inside it and the chat's message box stays on screen.
+     */
+    fitWorkspace() {
+        const ws = this.template.querySelector('.workspace');
+        if (!ws || window.innerWidth < 900) {
+            if (ws) ws.style.height = '';
+            return;
+        }
+        const top = ws.getBoundingClientRect().top + window.scrollY;
+        const h = Math.max(520, window.innerHeight - top - 16);
+        if (ws.style.height !== `${h}px`) ws.style.height = `${h}px`;
+    }
+
     renderedCallback() {
+        if (!this._onResize) {
+            this._onResize = () => this.fitWorkspace();
+            window.addEventListener('resize', this._onResize);
+        }
+        this.fitWorkspace();
         if (this._focusPanel) {
             const panel = this.template.querySelector('c-cs-candidate-panel');
             if (panel) {
@@ -131,7 +162,7 @@ export default class CandidateSearchApp extends LightningElement {
     }
 
     get workspaceCls() {
-        return `workspace${this.chatOpen ? ' with-chat' : ''}`;
+        return `workspace${this.chatOpen ? ' with-chat' : ''}${this.hasSelection ? ' with-tray' : ''}`;
     }
 
     get panelRow() {
@@ -226,37 +257,22 @@ export default class CandidateSearchApp extends LightningElement {
         }
     }
 
-    async handleSave() {
-        if (!this.criteria) return;
-        const suggested = (
-            this.criteria.naturalLanguage ||
-            this.criteria.items
-                .map((i) => i.label)
-                .slice(0, 3)
-                .join(', ') ||
-            'My search'
-        ).slice(0, 80);
-        const name = await LightningPrompt.open({
-            message: 'Name this search',
-            label: 'Save search',
-            defaultValue: suggested
-        });
-        if (name === null || name === undefined) return;
-        if (!name.trim()) {
-            this.toast('Not saved', 'Give the search a name.', 'warning');
-            return;
-        }
+    async handleSave(event) {
+        const name = ((event.detail && event.detail.name) || '').trim();
+        if (!this.criteria || !name) return;
         try {
-            await saveSearch({
-                name: name.trim(),
-                criteriaJson: JSON.stringify(withoutTrace(this.criteria)),
-                favourite: false
-            });
-            this.toast('Search saved', `"${name.trim()}" is in your saved searches.`, 'success');
+            await saveSearch({ name, criteriaJson: JSON.stringify(withoutTrace(this.criteria)), favourite: false });
+            this.toast('Search saved', `"${name}" is in your saved searches.`, 'success');
             this.loadHome();
         } catch (e) {
             this.toast('Search not saved', normalizeError(e), 'error');
         }
+    }
+
+    handleRunExample(event) {
+        const text = event.detail.text;
+        this.initialText = text;
+        this.searchText(text);
     }
 
     handleClear() {
@@ -921,13 +937,33 @@ export default class CandidateSearchApp extends LightningElement {
     }
 
     toast(title, message, variant) {
-        this.dispatchEvent(
-            new ShowToastEvent({
-                title,
-                message,
-                variant,
-                mode: variant === 'error' || variant === 'warning' ? 'sticky' : 'dismissible'
-            })
-        );
+        const id = `toast${++this._toastId}`;
+        const icon = variant === 'success' ? 'check' : variant === 'info' ? 'sparkles' : 'alert';
+        this.toasts = [...this.toasts.slice(-2), { id, title, message, variant, icon, cls: `toast toast-${variant}` }];
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => this.removeToast(id), variant === 'error' || variant === 'warning' ? 10000 : 5000);
+    }
+
+    removeToast(id) {
+        this.toasts = this.toasts.filter((t) => t.id !== id);
+    }
+
+    dismissToast(event) {
+        this.removeToast(event.currentTarget.dataset.id);
+    }
+
+    get hasToasts() {
+        return this.toasts.length > 0;
+    }
+
+    get heroCls() {
+        return `hero${this.started ? ' compact' : ''}`;
+    }
+
+    get resultTitle() {
+        if (this.loading) return 'Searching…';
+        if (!this.criteria) return '';
+        if (this.criteria.jobId) return 'Job match';
+        return 'Results';
     }
 }

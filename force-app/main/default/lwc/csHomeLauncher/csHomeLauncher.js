@@ -9,6 +9,8 @@ export default class CsHomeLauncher extends NavigationMixin(LightningElement) {
     /** API name of the Candidate Search App Page tab. */
     @api tabApiName = 'Candidate_Search';
     @api heading = 'Find candidates';
+    /** Optional logo image URL (for example /resource/AmplifyLogo). Blank shows the Amplify wordmark. */
+    @api logoUrl;
 
     text = '';
 

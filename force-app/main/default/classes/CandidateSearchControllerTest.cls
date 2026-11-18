@@ -358,4 +358,21 @@ private class CandidateSearchControllerTest {
         }
         CandidateSearchController.logAction(null, null, 'opened'); // ignored
     }
+
+    @isTest
+    static void searchRecordsOnlyAllowsJobsAndPools() {
+        try {
+            CandidateSearchController.searchRecords('Contact', 'a');
+            System.assert(false, 'expected an error');
+        } catch (AuraHandledException e) {
+            System.assert(e.getMessage().contains('not available'), e.getMessage());
+        }
+        TR1__Call_List__c pool = new TR1__Call_List__c(Name = 'Forklift drivers pool');
+        insert pool;
+        List<Object> found = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.searchRecords('TR1__Call_List__c', 'forklift'));
+        System.assertEquals(1, found.size());
+        System.assertEquals(pool.Id, ((Map<String, Object>) found[0]).get('id'));
+        found = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.searchRecords('TR1__Call_List__c', pool.Id));
+        System.assertEquals('Forklift drivers pool', ((Map<String, Object>) found[0]).get('name'));
+    }
 }

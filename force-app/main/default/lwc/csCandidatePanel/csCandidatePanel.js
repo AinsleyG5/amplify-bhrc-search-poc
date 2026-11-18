@@ -1,7 +1,7 @@
 import { LightningElement, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import getCandidateDetail from '@salesforce/apex/CandidateSearchController.getCandidateDetail';
-import { metAndNotMet, kindLabel, weightLabel, formatDate, safeHighlight, normalizeError, READ_ONLY_KINDS } from 'c/csUtils';
+import { metAndNotMet, kindLabel, weightLabel, formatDate, highlightSegments, initials, avatarClass, ring, normalizeError, READ_ONLY_KINDS } from 'c/csUtils';
 
 const TABS = [
     { value: 'why', label: 'Why' },
@@ -92,6 +92,18 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
         return s === null || s === undefined ? '' : `${Math.round(s)}% match`;
     }
 
+    get initials() {
+        return initials(this._row && this._row.name);
+    }
+
+    get avatarCls() {
+        return `${avatarClass(this._row && (this._row.contactId || this._row.docId))} avatar-lg`;
+    }
+
+    get score() {
+        return ring(this._row && this._row.scorePct);
+    }
+
     get pipelineLabel() {
         const p = (this._row && this._row.pipeline) || {};
         return p.label || '';
@@ -120,7 +132,7 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
         return TABS.map((t) => ({
             ...t,
             selected: this.tab === t.value ? 'true' : 'false',
-            cls: `tab${this.tab === t.value ? ' tab-on' : ''}`,
+            cls: 'seg-btn tab',
             tabIndex: this.tab === t.value ? '0' : '-1',
             id: `tab-${t.value}`
         }));
@@ -201,7 +213,7 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
                 meta: `${kindLabel(it.kind)} · ${weightLabel(it.weight)}`,
                 status,
                 cls: `why-item why-${excluded ? 'excluded' : isMet ? 'met' : isNotMet ? 'notmet' : 'na'}`,
-                icon: excluded ? 'utility:ban' : isMet ? 'utility:check' : isNotMet ? 'utility:close' : 'utility:dash',
+                icon: excluded ? 'ban' : isMet ? 'check' : isNotMet ? 'x' : 'minus',
                 evidence: ev.evidence || '',
                 source: ev.source || '',
                 hasEvidence: !!ev.evidence
@@ -217,8 +229,8 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
                 if (out.length < 8)
                     out.push({
                         id: `${field}-${i}`,
-                        field,
-                        html: safeHighlight(snippet)
+                        field: field.replace(/_/g, ' '),
+                        segments: highlightSegments(snippet)
                     });
             });
         });

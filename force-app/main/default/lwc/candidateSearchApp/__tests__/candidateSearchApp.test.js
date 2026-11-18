@@ -12,6 +12,9 @@ import getCandidateDetail from '@salesforce/apex/CandidateSearchController.getCa
 import startJobMatch from '@salesforce/apex/CandidateSearchController.startJobMatch';
 import logAction from '@salesforce/apex/CandidateSearchController.logAction';
 import bulkAddToJob from '@salesforce/apex/CandidateSearchController.bulkAddToJob';
+import bulkAddToTalentPool from '@salesforce/apex/CandidateSearchController.bulkAddToTalentPool';
+import saveSearch from '@salesforce/apex/CandidateSearchController.saveSearch';
+import searchRecords from '@salesforce/apex/CandidateSearchController.searchRecords';
 
 jest.mock('@salesforce/apex/CandidateSearchController.parseQuery', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.startJobMatch', () => ({ default: jest.fn() }), { virtual: true });
@@ -27,6 +30,7 @@ jest.mock('@salesforce/apex/CandidateSearchController.bulkAddToJob', () => ({ de
 jest.mock('@salesforce/apex/CandidateSearchController.bulkAddToTalentPool', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.logAction', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.autocompleteSkills', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/CandidateSearchController.searchRecords', () => ({ default: jest.fn() }), { virtual: true });
 
 const CRITERIA = {
     version: 1,
@@ -277,9 +281,9 @@ describe('c-candidate-search-app', () => {
         await flush();
         const tray = shadow(element, 'c-cs-selection-tray');
         expect(tray).not.toBeNull();
-        expect(tray.shadowRoot.querySelector('.t-count').textContent).toBe('2 selected');
+        expect(tray.shadowRoot.querySelector('.t-num').textContent).toBe('2');
 
-        [...tray.shadowRoot.querySelectorAll('lightning-button')].find((b) => b.label === 'Compare').click();
+        tray.shadowRoot.querySelector('[data-action="compare"]').click();
         await flush(8);
         expect(JSON.parse(getCompareData.mock.calls[0][0].contactIdsJson)).toEqual([row(0).contactId, row(1).contactId]);
         const cmp = shadow(element, 'c-cs-compare');
@@ -308,7 +312,7 @@ describe('c-candidate-search-app', () => {
         );
         runSearch.mockResolvedValue(response([row(1, { rank: 1 }), row(0, { rank: 2 }), row(5, { rank: 3 })]));
 
-        shadow(element, '.toolbar lightning-button').click();
+        shadow(element, '[data-action="open-chat"]').click();
         await flush();
         const chat = shadow(element, 'c-cs-refine-chat');
         chat.dispatchEvent(new CustomEvent('refine', { detail: { message: 'widen to 25 miles' } }));
@@ -355,7 +359,7 @@ describe('c-candidate-search-app', () => {
             parentAuditId: 'a0X000000000001AAA'
         });
 
-        shadow(element, '.toolbar lightning-button-icon').click();
+        shadow(element, '[data-action="undo"]').click();
         await flush(10);
         const third = JSON.parse(runSearch.mock.calls[2][0].criteriaJson);
         expect(third.items.map((i) => i.id)).toEqual(['c1', 'c2', 'c3']);
@@ -402,14 +406,14 @@ describe('c-candidate-search-app', () => {
         list.shadowRoot.querySelector('c-cs-result-row').shadowRoot.querySelector('.name-btn').click();
         await flush(8);
         const panel = shadow(element, 'c-cs-candidate-panel');
-        [...panel.shadowRoot.querySelectorAll('lightning-button')].find((b) => b.label === 'Shortlist on job').click();
+        panel.shadowRoot.querySelector('[data-action="shortlist"]').click();
         await flush(8);
         expect(bulkAddToJob).toHaveBeenCalledWith({
             jobId: 'a1w000000000001AAA',
             contactIdsJson: JSON.stringify([row(0).contactId]),
             auditId: 'a0X000000000001AAA'
         });
-        const tag = list.shadowRoot.querySelector('c-cs-result-row').shadowRoot.querySelector('.tag-pipeline');
+        const tag = list.shadowRoot.querySelector('c-cs-result-row').shadowRoot.querySelector('.tag-amber');
         expect(tag.textContent).toBe('Shortlisted');
     });
 
@@ -426,15 +430,58 @@ describe('c-candidate-search-app', () => {
         await flush(10);
         expect(JSON.parse(runSearch.mock.calls[2][0].criteriaJson).items.map((i) => i.id)).toEqual(['c1']);
 
-        [...shadow(element, '.toolbar').querySelectorAll('lightning-button')].find((b) => b.label === 'Reset changes').click();
+        shadow(element, '[data-action="reset"]').click();
         await flush(10);
         expect(JSON.parse(runSearch.mock.calls[3][0].criteriaJson).items.map((i) => i.id)).toEqual(['c1', 'c2', 'c3']);
 
-        [...bar.shadowRoot.querySelectorAll('lightning-button')].find((b) => b.label === 'Clear search').click();
+        bar.shadowRoot.querySelector('[data-action="clear"]').click();
         await flush(6);
         expect(shadow(element, 'c-cs-result-list')).toBeNull();
         expect(shadow(element, 'c-cs-home-panels')).not.toBeNull();
         expect(bar.shadowRoot.querySelectorAll('.chip-body').length).toBe(0);
         expect(bar.shadowRoot.querySelector('.nl-text').value).toBe('');
+    });
+
+    it('saves the search from the inline popover with the typed name', async () => {
+        saveSearch.mockResolvedValue('a0Y000000000001AAA');
+        await searchFromUrl();
+        const bar = shadow(element, 'c-cs-search-bar');
+        bar.shadowRoot.querySelector('[data-action="save"]').click();
+        await flush();
+        const input = bar.shadowRoot.querySelector('.save-input');
+        expect(input.value).toBe('forklift operatives near Dagenham');
+        input.value = 'Dagenham forklift';
+        input.dispatchEvent(new CustomEvent('input'));
+        bar.shadowRoot.querySelector('[data-action="confirm-save"]').click();
+        await flush(8);
+        expect(saveSearch.mock.calls[0][0].name).toBe('Dagenham forklift');
+        expect(JSON.parse(saveSearch.mock.calls[0][0].criteriaJson).trace).toBeUndefined();
+        expect(shadow(element, '.toast-success')).not.toBeNull();
+    });
+
+    it('adds the selection to a talent pool picked in the tray', async () => {
+        searchRecords.mockResolvedValue(JSON.stringify([{ id: 'a0P000000000001AAA', name: 'Forklift pool', sub: null }]));
+        bulkAddToTalentPool.mockResolvedValue(
+            JSON.stringify({ added: 1, addedIds: [row(0).contactId], skipped: [], failed: [], message: 'Added 1 candidate to Forklift pool.' })
+        );
+        await searchFromUrl();
+        const cb = shadow(element, 'c-cs-result-list').shadowRoot.querySelector('c-cs-result-row').shadowRoot.querySelector('input[type="checkbox"]');
+        cb.checked = true;
+        cb.dispatchEvent(new CustomEvent('change'));
+        await flush();
+        const tray = shadow(element, 'c-cs-selection-tray');
+        tray.shadowRoot.querySelector('[data-action="add-pool"]').click();
+        await flush(6);
+        expect(searchRecords).toHaveBeenCalledWith({ objectApiName: 'TR1__Call_List__c', term: '' });
+        tray.shadowRoot.querySelector('.opt').click();
+        await flush();
+        tray.shadowRoot.querySelector('[data-action="confirm"]').click();
+        await flush(8);
+        expect(bulkAddToTalentPool).toHaveBeenCalledWith({
+            poolId: 'a0P000000000001AAA',
+            contactIdsJson: JSON.stringify([row(0).contactId]),
+            auditId: 'a0X000000000001AAA'
+        });
+        expect(shadow(element, 'c-cs-selection-tray')).toBeNull();
     });
 });

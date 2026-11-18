@@ -1,0 +1,19 @@
+<template>
+    <svg
+        class="ic"
+        viewBox="0 0 24 24"
+        width={px}
+        height={px}
+        fill={fill}
+        stroke="currentColor"
+        stroke-width={stroke}
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        focusable="false"
+    >
+        <template for:each={paths} for:item="p">
+            <path key={p.key} d={p.d}></path>
+        </template>
+    </svg>
+</template>

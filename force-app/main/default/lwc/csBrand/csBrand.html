@@ -1,0 +1,14 @@
+<template>
+    <span class={cls}>
+        <template lwc:if={hasLogo}>
+            <img class="logo" src={logoUrl} alt="Bullhorn Amplify" />
+        </template>
+        <template lwc:else>
+            <span class="mark" aria-hidden="true"><c-cs-icon name="sparkles" size="16" stroke-width="2.2"></c-cs-icon></span>
+            <span class="words">
+                <span class="maker">Bullhorn</span>
+                <span class="product">AMPLIFY</span>
+            </span>
+        </template>
+    </span>
+</template>

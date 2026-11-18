@@ -1,52 +1,66 @@
 <template>
     <div class="app">
-        <div class="top">
-            <c-cs-search-bar
-                criteria={criteria}
-                initial-text={initialText}
-                loading={loading}
-                has-results={hasResults}
-                active={started}
-                onsearch={handleSearch}
-                oncriteriachange={handleCriteriaChange}
-                onsave={handleSave}
-                onclear={handleClear}
-            ></c-cs-search-bar>
-        </div>
+        <header class={heroCls}>
+            <div class="hero-top">
+                <c-cs-brand logo-url={logoUrl} tone="light"></c-cs-brand>
+                <div class="hero-title">
+                    <h1 class="h1">{heading}</h1>
+                    <p class="hero-sub">Describe who you need in plain English. Textkernel finds them, AI explains why.</p>
+                </div>
+            </div>
+            <div class="search-card">
+                <c-cs-search-bar
+                    criteria={criteria}
+                    initial-text={initialText}
+                    loading={loading}
+                    has-results={hasResults}
+                    active={started}
+                    onsearch={handleSearch}
+                    oncriteriachange={handleCriteriaChange}
+                    onsave={handleSave}
+                    onclear={handleClear}
+                ></c-cs-search-bar>
+            </div>
+        </header>
 
         <template lwc:if={showHome}>
-            <c-cs-home-panels
-                data={homeData}
-                loading={homeLoading}
-                error={homeError}
-                onrunsearch={handleRunSaved}
-                onfavourite={handleFavourite}
-            ></c-cs-home-panels>
+            <div class="home-wrap">
+                <c-cs-home-panels
+                    data={homeData}
+                    loading={homeLoading}
+                    error={homeError}
+                    onrunsearch={handleRunSaved}
+                    onfavourite={handleFavourite}
+                    onrunexample={handleRunExample}
+                ></c-cs-home-panels>
+            </div>
         </template>
         <template lwc:else>
             <div class={workspaceCls}>
                 <div class="main">
                     <div class="toolbar">
-                        <template lwc:if={showChatToggle}>
-                            <lightning-button label="Refine with AI" icon-name="utility:einstein" onclick={openChat}></lightning-button>
-                        </template>
-                        <template lwc:if={canUndo}>
-                            <lightning-button
-                                label="Reset changes"
-                                icon-name="utility:refresh"
-                                onclick={handleReset}
-                                disabled={busy}
-                                title="Go back to the search as it was first run, before any edits or refine turns"
-                            ></lightning-button>
-                            <lightning-button-icon
-                                icon-name="utility:undo"
-                                variant="border-filled"
-                                alternative-text="Undo the last change"
-                                title="Undo the last change"
-                                onclick={handleUndo}
-                                disabled={busy}
-                            ></lightning-button-icon>
-                        </template>
+                        <div class="toolbar-title">{resultTitle}</div>
+                        <div class="toolbar-actions">
+                            <template lwc:if={canUndo}>
+                                <button class="btn btn-sm btn-ghost" data-action="undo" onclick={handleUndo} disabled={busy} title="Undo the last change">
+                                    <c-cs-icon name="undo" size="14"></c-cs-icon>Undo
+                                </button>
+                                <button
+                                    class="btn btn-sm"
+                                    data-action="reset"
+                                    onclick={handleReset}
+                                    disabled={busy}
+                                    title="Go back to the search as it was first run, before any edits or refine turns"
+                                >
+                                    <c-cs-icon name="reset" size="14"></c-cs-icon>Reset changes
+                                </button>
+                            </template>
+                            <template lwc:if={showChatToggle}>
+                                <button class="btn btn-sm btn-ai" data-action="open-chat" onclick={openChat}>
+                                    <c-cs-icon name="sparkles" size="14"></c-cs-icon>Refine with AI
+                                </button>
+                            </template>
+                        </div>
                     </div>
                     <div class="list-wrap">
                         <c-cs-result-list
@@ -136,6 +150,23 @@
                         onremove={handleCompareRemove}
                     ></c-cs-compare>
                 </div>
+            </div>
+        </template>
+
+        <template lwc:if={hasToasts}>
+            <div class="toasts" role="status" aria-live="polite">
+                <template for:each={toasts} for:item="t">
+                    <div key={t.id} class={t.cls}>
+                        <span class="toast-icon"><c-cs-icon name={t.icon} size="15" stroke-width="2.5"></c-cs-icon></span>
+                        <div class="toast-text">
+                            <div class="toast-title">{t.title}</div>
+                            <div class="toast-msg">{t.message}</div>
+                        </div>
+                        <button class="btn-icon sm toast-x" data-id={t.id} onclick={dismissToast} aria-label="Dismiss">
+                            <c-cs-icon name="x" size="13"></c-cs-icon>
+                        </button>
+                    </div>
+                </template>
             </div>
         </template>
     </div>

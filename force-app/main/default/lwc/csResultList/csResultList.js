@@ -1,5 +1,5 @@
 import { LightningElement, api } from 'lwc';
-import { metAndNotMet, changeTag, facetLabel, prettyXmlLines, READ_ONLY_KINDS } from 'c/csUtils';
+import { metAndNotMet, changeTag, facetLabel, prettyXmlLines, initials, avatarClass, ring, READ_ONLY_KINDS } from 'c/csUtils';
 
 /**
  * csResultList: result rows, infinite scroll, facet filters, selection, request viewer (screen 2A).
@@ -91,13 +91,19 @@ export default class CsResultList extends LightningElement {
                     id: c.id,
                     label,
                     cls: `crit-item crit-${status}`,
-                    icon: isMet ? 'utility:check' : isNotMet ? 'utility:close' : 'utility:dash',
+                    icon: isMet ? 'check' : isNotMet ? 'x' : 'minus',
                     statusText: isMet ? 'Met' : isNotMet ? 'Not met' : 'Not scored',
                     title: `${label}: ${isMet ? 'met' : isNotMet ? 'not met' : 'not scored separately'} (per Textkernel)`
                 };
             });
             const p = r.pipeline || {};
+            const score = ring(r.scorePct);
             return {
+                initials: initials(r.name),
+                avatarCls: avatarClass(r.contactId || r.docId),
+                ringCls: score.cls,
+                ringStyle: score.style,
+                ringText: score.text,
                 key: r.docId,
                 docId: r.docId,
                 contactId: r.contactId,
@@ -253,7 +259,7 @@ export default class CsResultList extends LightningElement {
     }
 
     get requestIcon() {
-        return this.requestOpen ? 'utility:chevrondown' : 'utility:chevronright';
+        return this.requestOpen ? 'chevron-down' : 'chevron-right';
     }
 
     toggleRequest() {

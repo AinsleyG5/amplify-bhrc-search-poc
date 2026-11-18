@@ -1,28 +1,48 @@
 <template>
-    <div class={rowCls} data-doc-id={item.docId}>
+    <div class={rowCls} data-doc-id={item.docId} onclick={handleRowClick}>
         <div class="sel" onclick={stop}>
-            <input type="checkbox" checked={item.selected} disabled={checkboxDisabled} onchange={handleSelect} aria-label={selectLabel} title={checkboxTitle} />
+            <input
+                class="checkbox"
+                type="checkbox"
+                checked={item.selected}
+                disabled={checkboxDisabled}
+                onchange={handleSelect}
+                aria-label={selectLabel}
+                title={checkboxTitle}
+            />
         </div>
-        <div class="rank" aria-hidden="true">{item.rank}</div>
 
         <div class="who">
-            <button class="name-btn" onclick={handleOpen} aria-label={openLabel}>{item.name}</button>
-            <div class="sub">
-                <span>{item.title}</span>
-                <template lwc:if={item.city}><span class="dot" aria-hidden="true">·</span><span>{item.city}</span></template>
-            </div>
-            <div class="tags">
-                <template lwc:if={item.changeTag}><span class={item.changeTag.cls}>{item.changeTag.label}</span></template>
-                <template lwc:if={item.pipelineLabel}><span class="tag tag-pipeline">{item.pipelineLabel}</span></template>
-                <template lwc:if={item.placedRecently}><span class="tag tag-placed">Placed recently</span></template>
+            <span class={item.avatarCls} aria-hidden="true">{item.initials}</span>
+            <div class="who-text">
+                <div class="name-line">
+                    <button class="name-btn" onclick={handleOpen} aria-label={openLabel}>{item.name}</button>
+                    <span class="rank">#{item.rank}</span>
+                </div>
+                <div class="sub">
+                    <span class="sub-title">{item.title}</span>
+                    <template lwc:if={item.city}
+                        ><span class="sub-city"><c-cs-icon name="pin" size="12"></c-cs-icon>{item.city}</span></template
+                    >
+                </div>
+                <div class="tags">
+                    <template lwc:if={item.changeTag}
+                        ><span class={item.changeTag.cls}
+                            ><c-cs-icon name={item.changeTag.icon} size="11" stroke-width="2.5"></c-cs-icon>{item.changeTag.label}</span
+                        ></template
+                    >
+                    <template lwc:if={item.pipelineLabel}><span class="tag tag-amber">{item.pipelineLabel}</span></template>
+                    <template lwc:if={item.placedRecently}><span class="tag tag-violet">Placed recently</span></template>
+                </div>
             </div>
         </div>
 
         <div class="crit" aria-label="Criteria met">
             <template for:each={item.criteria} for:item="c">
                 <span key={c.id} class={c.cls} title={c.title}>
-                    <lightning-icon icon-name={c.icon} size="xx-small" alternative-text={c.statusText}></lightning-icon>
+                    <c-cs-icon name={c.icon} size="11" stroke-width="3"></c-cs-icon>
                     <span class="crit-label">{c.label}</span>
+                    <span class="sr-only">{c.statusText}</span>
                 </span>
             </template>
         </div>
@@ -32,22 +52,22 @@
                 <div class="shimmer" aria-label="Explanation loading"><span></span><span></span></div>
             </template>
             <template lwc:if={explainDone}>
-                <p class="summary">{summary}</p>
-            </template>
-            <template lwc:if={explainError}>
-                <p class="why-error" title={errorText}>
-                    No explanation.
-                    <button class="link" onclick={handleExplain}>Try again</button>
+                <p class="summary">
+                    <span class="ai-mark"><c-cs-icon name="sparkles" size="12"></c-cs-icon></span>{summary}
                 </p>
             </template>
+            <template lwc:if={explainError}>
+                <p class="why-muted" title={errorText}>No explanation. <button class="link" onclick={handleExplain}>Try again</button></p>
+            </template>
             <template lwc:if={explainAvailable}>
-                <button class="link" onclick={handleExplain}>Explain</button>
+                <button class="explain-btn" onclick={handleExplain}><c-cs-icon name="sparkles" size="12"></c-cs-icon>Explain</button>
             </template>
         </div>
 
-        <div class="score" title="Textkernel score">
-            <span class="score-num">{scoreText}</span>
-            <span class="score-bar"><span class="score-fill" style={scoreStyle}></span></span>
+        <div class="score" title="Textkernel match score">
+            <div class={item.ringCls} style={item.ringStyle}>
+                <span class="ring-num">{item.ringText}</span>
+            </div>
         </div>
     </div>
 </template>

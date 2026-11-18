@@ -71,8 +71,14 @@ export default class CsResultRow extends LightningElement {
         return this.item && this.item.selectable ? this.selectLabel : 'This result has no Salesforce candidate record';
     }
 
-    handleOpen() {
+    handleOpen(event) {
+        if (event) event.stopPropagation();
         this.dispatchEvent(new CustomEvent('rowopen', { detail: { docId: this.item.docId } }));
+    }
+
+    /** Anywhere on the row opens the candidate (the name button stays the keyboard target). */
+    handleRowClick() {
+        this.handleOpen();
     }
 
     handleSelect(event) {

@@ -7,4 +7,10 @@
     <targets>
         <target>lightning__AppPage</target>
     </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__AppPage">
+            <property name="heading" type="String" label="Page title" default="Candidate Search" />
+            <property name="logoUrl" type="String" label="Logo URL (optional)" description="Image URL for the Amplify logo, for example /resource/AmplifyLogo. Blank shows the Amplify wordmark." />
+        </targetConfig>
+    </targetConfigs>
 </LightningComponentBundle>

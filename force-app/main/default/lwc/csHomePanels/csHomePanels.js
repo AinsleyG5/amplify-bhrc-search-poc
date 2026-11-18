@@ -1,10 +1,17 @@
 import { LightningElement, api } from 'lwc';
 import { formatDateTime } from 'c/csUtils';
 
+const EXAMPLES = [
+    'Forklift-certified warehouse operatives within 15 miles of Dagenham',
+    'Registered nurses with ICU experience near Manchester, available within 4 weeks',
+    'HGV Class 1 drivers in Birmingham who can do nights',
+    'Java developers with Spring Boot, London or remote'
+];
+
 /**
  * csHomePanels: recent searches, saved searches and favourites (screen 1), from getRecentAndSaved.
  *
- * Events: runsearch { id, saved }, favourite { id, favourite }.
+ * Events: runsearch { id, saved }, favourite { id, favourite }, runexample { text }.
  */
 export default class CsHomePanels extends LightningElement {
     @api data;
@@ -61,6 +68,18 @@ export default class CsHomePanels extends LightningElement {
 
     get isEmpty() {
         return !this.loading && !this.error && !this.hasFavourites && !this.hasSaved && !this.hasRecent;
+    }
+
+    get examples() {
+        return EXAMPLES.map((text, i) => ({ id: `e${i}`, text }));
+    }
+
+    get hasAny() {
+        return this.hasFavourites || this.hasSaved || this.hasRecent;
+    }
+
+    handleExample(event) {
+        this.dispatchEvent(new CustomEvent('runexample', { detail: { text: event.currentTarget.dataset.text } }));
     }
 
     handleRun(event) {

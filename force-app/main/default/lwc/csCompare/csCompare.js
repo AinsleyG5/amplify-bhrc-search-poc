@@ -1,6 +1,6 @@
 import { LightningElement, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
-import { kindLabel, weightLabel, formatDate, READ_ONLY_KINDS } from 'c/csUtils';
+import { kindLabel, weightLabel, formatDate, initials, avatarClass, ring, READ_ONLY_KINDS } from 'c/csUtils';
 
 /**
  * csCompare: 2 to 4 candidates side by side (screen 4), from CandidateSearchController.getCompareData.
@@ -29,7 +29,8 @@ export default class CsCompare extends NavigationMixin(LightningElement) {
     }
 
     get gridStyle() {
-        return `grid-template-columns: 180px repeat(${Math.max(this.candidates.length, 1)}, minmax(180px, 1fr));`;
+        const n = Math.max(this.candidates.length, 1);
+        return `grid-template-columns: 190px repeat(${n}, minmax(220px, 1fr)); min-width: ${190 + n * 230}px;`;
     }
 
     get heads() {
@@ -38,7 +39,12 @@ export default class CsCompare extends NavigationMixin(LightningElement) {
             contactId: c.contactId,
             name: c.name,
             sub: [c.title, c.city].filter(Boolean).join(' · '),
-            score: c.scorePct === null || c.scorePct === undefined ? '' : `${Math.round(c.scorePct)}%`,
+            hasScore: c.scorePct !== null && c.scorePct !== undefined,
+            ringCls: ring(c.scorePct).cls,
+            ringStyle: ring(c.scorePct).style,
+            ringText: ring(c.scorePct).text,
+            initials: initials(c.name),
+            avatarCls: avatarClass(c.contactId),
             removeLabel: `Remove ${c.name} from the comparison`,
             openLabel: `Open ${c.name}`
         }));
@@ -83,7 +89,7 @@ export default class CsCompare extends NavigationMixin(LightningElement) {
                     const ev = (c.evidence || {})[it.id] || {};
                     const status = met ? 'met' : notMet ? 'notmet' : 'na';
                     return cell(`${c.contactId}-${it.id}`, met ? 'Met' : notMet ? 'Not met' : 'Not scored', `cell cell-${status}`, {
-                        icon: met ? 'utility:check' : notMet ? 'utility:close' : 'utility:dash',
+                        icon: met ? 'check' : notMet ? 'x' : 'minus',
                         hasIcon: true,
                         evidence: ev.evidence || ''
                     });

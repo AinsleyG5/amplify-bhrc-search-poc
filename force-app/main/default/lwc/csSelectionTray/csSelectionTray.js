@@ -1,8 +1,13 @@
 import { LightningElement, api } from 'lwc';
-import { COMPARE_MIN, COMPARE_MAX } from 'c/csUtils';
+import searchRecords from '@salesforce/apex/CandidateSearchController.searchRecords';
+import { COMPARE_MIN, COMPARE_MAX, initials, avatarClass, normalizeError } from 'c/csUtils';
+
+const SEARCH_DEBOUNCE_MS = 250;
+const OBJECTS = { job: 'TR1__Job__c', pool: 'TR1__Call_List__c' };
 
 /**
- * csSelectionTray: bottom tray for the selected candidates. Compare (2 to 4), add to job, add to talent pool.
+ * csSelectionTray: floating tray for the selected candidates. Compare (2 to 4), add to job, add to talent pool.
+ * The job and pool pickers search with CandidateSearchController.searchRecords.
  *
  * selected: [{ docId, contactId, name }]
  * Events: compare {}, addtojob { jobId }, addtopool { poolId }, deselect { docId }, clear {}.
@@ -10,26 +15,16 @@ import { COMPARE_MIN, COMPARE_MAX } from 'c/csUtils';
 export default class CsSelectionTray extends LightningElement {
     @api selected = [];
     @api busy = false;
-
-    _jobId;
-    @api
-    get jobId() {
-        return this._jobId;
-    }
-    set jobId(value) {
-        this._jobId = value;
-        if (value && !this.pickedJobId) this.pickedJobId = value;
-    }
+    /** The job of a job match: preselected in the job picker. */
+    @api jobId;
 
     mode = null; // null | 'job' | 'pool'
-    pickedJobId;
-    pickedPoolId;
-
-    jobDisplayInfo = {
-        primaryField: 'Name',
-        additionalFields: ['TR1__Job_Title__c']
-    };
-    poolDisplayInfo = { primaryField: 'Name' };
+    query = '';
+    results = [];
+    searching = false;
+    searchError = null;
+    picked = null; // { id, name, sub }
+    _timer;
 
     get count() {
         return (this.selected || []).length;
@@ -40,15 +35,17 @@ export default class CsSelectionTray extends LightningElement {
     }
 
     get people() {
-        return (this.selected || []).slice(0, 6).map((s) => ({
+        return (this.selected || []).slice(0, 5).map((s) => ({
             ...s,
+            initials: initials(s.name),
+            avatarCls: `${avatarClass(s.contactId || s.docId)} mini`,
             removeLabel: `Remove ${s.name} from the selection`
         }));
     }
 
     get moreText() {
-        const more = this.count - 6;
-        return more > 0 ? `+${more} more` : '';
+        const more = this.count - 5;
+        return more > 0 ? `+${more}` : '';
     }
 
     get compareDisabled() {
@@ -61,66 +58,141 @@ export default class CsSelectionTray extends LightningElement {
         return 'Compare side by side';
     }
 
-    get isJobMode() {
-        return this.mode === 'job';
+    // ─── Picker ─────────────────────────────────────
+
+    get pickerOpen() {
+        return !!this.mode;
     }
 
-    get isPoolMode() {
-        return this.mode === 'pool';
+    get pickerTitle() {
+        return this.mode === 'job' ? 'Shortlist on a job' : 'Add to a talent pool';
     }
 
-    get confirmJobDisabled() {
-        return this.busy || !this.pickedJobId;
+    get pickerPlaceholder() {
+        return this.mode === 'job' ? 'Search jobs by name or title' : 'Search talent pools';
     }
 
-    get confirmPoolDisabled() {
-        return this.busy || !this.pickedPoolId;
+    get confirmLabel() {
+        const n = `${this.count} candidate${this.count === 1 ? '' : 's'}`;
+        return this.mode === 'job' ? `Shortlist ${n}` : `Add ${n}`;
     }
 
-    get addJobLabel() {
-        return `Shortlist ${this.count} on job`;
+    get confirmDisabled() {
+        return this.busy || !this.picked;
     }
 
-    get addPoolLabel() {
-        return `Add ${this.count} to pool`;
+    get jobBtnCls() {
+        return `btn btn-sm tray-btn${this.mode === 'job' ? ' on' : ''}`;
     }
+
+    get poolBtnCls() {
+        return `btn btn-sm tray-btn${this.mode === 'pool' ? ' on' : ''}`;
+    }
+
+    get resultItems() {
+        return this.results.map((r) => ({
+            ...r,
+            cls: `opt${this.picked && this.picked.id === r.id ? ' opt-on' : ''}`,
+            selected: this.picked && this.picked.id === r.id ? 'true' : 'false'
+        }));
+    }
+
+    get hasResults() {
+        return this.results.length > 0;
+    }
+
+    get showNoResults() {
+        return !this.searching && !this.searchError && !this.hasResults;
+    }
+
+    showJob() {
+        this.openPicker('job');
+    }
+
+    showPool() {
+        this.openPicker('pool');
+    }
+
+    openPicker(mode) {
+        if (this.mode === mode) {
+            this.mode = null;
+            return;
+        }
+        this.mode = mode;
+        this.query = '';
+        this.picked = null;
+        this.results = [];
+        this.runSearch(mode === 'job' && this.jobId ? this.jobId : '', true);
+         
+        Promise.resolve().then(() => {
+            const input = this.template.querySelector('.picker-input');
+            if (input) input.focus();
+        });
+    }
+
+    closePicker() {
+        this.mode = null;
+    }
+
+    handleQuery(event) {
+        this.query = event.target.value;
+        clearTimeout(this._timer);
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        this._timer = setTimeout(() => this.runSearch(this.query, false), SEARCH_DEBOUNCE_MS);
+    }
+
+    async runSearch(term, preselect) {
+        const mode = this.mode;
+        if (!mode) return;
+        this.searching = true;
+        this.searchError = null;
+        try {
+            const list = JSON.parse(await searchRecords({ objectApiName: OBJECTS[mode], term }));
+            if (mode !== this.mode) return;
+            this.results = list || [];
+            if (preselect && term && this.results.length === 1) this.picked = this.results[0];
+            if (preselect && term && !this.results.length) this.runSearch('', false);
+        } catch (e) {
+            this.searchError = normalizeError(e);
+            this.results = [];
+        } finally {
+            this.searching = false;
+        }
+    }
+
+    pick(event) {
+        const id = event.currentTarget.dataset.id;
+        this.picked = this.results.find((r) => r.id === id) || null;
+    }
+
+    handlePickerKeydown(event) {
+        if (event.key === 'Escape') {
+            event.stopPropagation();
+            this.closePicker();
+        } else if (event.key === 'Enter' && this.picked) {
+            event.preventDefault();
+            this.confirm();
+        }
+    }
+
+    confirm() {
+        if (!this.picked) return;
+        if (this.mode === 'job') {
+            this.dispatchEvent(new CustomEvent('addtojob', { detail: { jobId: this.picked.id } }));
+        } else {
+            this.dispatchEvent(new CustomEvent('addtopool', { detail: { poolId: this.picked.id } }));
+        }
+        this.mode = null;
+    }
+
+    // ─── Actions ────────────────────────────────────
 
     handleCompare() {
         this.dispatchEvent(new CustomEvent('compare'));
     }
 
-    showJob() {
-        this.mode = this.mode === 'job' ? null : 'job';
-    }
-
-    showPool() {
-        this.mode = this.mode === 'pool' ? null : 'pool';
-    }
-
-    handleJobPick(event) {
-        this.pickedJobId = event.detail.recordId;
-    }
-
-    handlePoolPick(event) {
-        this.pickedPoolId = event.detail.recordId;
-    }
-
-    confirmJob() {
-        this.dispatchEvent(new CustomEvent('addtojob', { detail: { jobId: this.pickedJobId } }));
-        this.mode = null;
-    }
-
-    confirmPool() {
-        this.dispatchEvent(new CustomEvent('addtopool', { detail: { poolId: this.pickedPoolId } }));
-        this.mode = null;
-    }
-
     handleDeselect(event) {
-        this.dispatchEvent(
-            new CustomEvent('deselect', {
-                detail: { docId: event.currentTarget.dataset.id }
-            })
-        );
+        this.dispatchEvent(new CustomEvent('deselect', { detail: { docId: event.currentTarget.dataset.id } }));
     }
 
     handleClear() {

@@ -10,7 +10,7 @@ const AUTOCOMPLETE_DEBOUNCE_MS = 250;
  * Events (all detail objects are plain copies):
  * - search        { text }               new natural-language search
  * - criteriachange { criteria, summary } a chip, filter or exclusion changed; the app re-runs the search
- * - save          {}                      save the current search
+ * - save          { name }                save the current search under that name
  * - clear         {}                      back to the home panels
  */
 export default class CsSearchBar extends LightningElement {
@@ -48,6 +48,14 @@ export default class CsSearchBar extends LightningElement {
     renderedCallback() {
         const ta = this.template.querySelector('.nl-text');
         if (ta && ta.value !== this.text && this.template.activeElement !== ta) ta.value = this.text || '';
+        this.autoGrow(ta);
+    }
+
+    /** The search box grows with the text (up to the CSS max-height). */
+    autoGrow(ta) {
+        if (!ta) return;
+        ta.style.height = 'auto';
+        ta.style.height = `${ta.scrollHeight}px`;
     }
 
     /** Editor state: null, or { mode: 'add'|'edit', id, kind, value, label, weight, radius, unit, code, withinDays }. */
@@ -62,6 +70,7 @@ export default class CsSearchBar extends LightningElement {
     handleText(event) {
         this.text = event.target.value;
         this._textTouched = true;
+        this.autoGrow(event.target);
     }
 
     handleKeydown(event) {
@@ -102,8 +111,65 @@ export default class CsSearchBar extends LightningElement {
         return this.loading || !(this.text || '').trim();
     }
 
+    // ─── Save (inline popover) ──────────────────────
+
+    saveOpen = false;
+    saveName = '';
+
+    get suggestedName() {
+        const c = this._criteria || {};
+        const fromChips = (c.items || [])
+            .map((i) => i.label)
+            .slice(0, 3)
+            .join(', ');
+        return (c.naturalLanguage || fromChips || 'My search').slice(0, 80);
+    }
+
     handleSave() {
-        this.dispatchEvent(new CustomEvent('save'));
+        this.saveOpen = !this.saveOpen;
+        if (!this.saveOpen) return;
+        this.saveName = this.suggestedName;
+         
+        Promise.resolve().then(() => {
+            const input = this.template.querySelector('.save-input');
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        });
+    }
+
+    handleSaveName(event) {
+        this.saveName = event.target.value;
+    }
+
+    handleSaveKeydown(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            this.confirmSave();
+        } else if (event.key === 'Escape') {
+            event.stopPropagation();
+            this.saveOpen = false;
+        }
+    }
+
+    get saveDisabled() {
+        return !(this.saveName || '').trim();
+    }
+
+    confirmSave() {
+        const name = (this.saveName || '').trim();
+        if (!name) return;
+        this.saveOpen = false;
+        this.dispatchEvent(new CustomEvent('save', { detail: { name } }));
+    }
+
+    cancelSave() {
+        this.saveOpen = false;
+    }
+
+    get searchLabel() {
+        return this.loading ? 'Searching' : 'Search';
     }
 
     handleClear() {
@@ -113,6 +179,7 @@ export default class CsSearchBar extends LightningElement {
         if (ta) ta.value = '';
         this.editor = null;
         this.suggestions = [];
+        this.saveOpen = false;
         this.dispatchEvent(new CustomEvent('clear'));
     }
 
@@ -132,6 +199,7 @@ export default class CsSearchBar extends LightningElement {
                 label: it.label || it.value,
                 kind: kindLabel(it.kind),
                 weight: weightShort(weight),
+                dotCls: `dot dot-${weight}`,
                 readOnly,
                 title: readOnly
                     ? `${kindLabel(it.kind)} from the Textkernel job document${it.raw && it.raw.field ? ` (${it.raw.field})` : ''}. It can be removed but not edited.`
@@ -311,11 +379,17 @@ export default class CsSearchBar extends LightningElement {
     }
 
     get kindOptions() {
-        return ADDABLE_KINDS;
+        const kind = this.editor && this.editor.kind;
+        return ADDABLE_KINDS.map((k) => ({ ...k, selected: k.value === kind }));
     }
 
     get weightOptions() {
-        return WEIGHTS.map((w) => ({ label: w.label, value: w.value }));
+        const weight = this.editor && this.editor.weight;
+        return WEIGHTS.map((w) => ({ label: w.label, value: w.value, pressed: w.value === weight ? 'true' : 'false' }));
+    }
+
+    handleWeight(event) {
+        this.editor = { ...this.editor, weight: event.currentTarget.dataset.value };
     }
 
     get isLocation() {
@@ -333,7 +407,7 @@ export default class CsSearchBar extends LightningElement {
     get valueLabel() {
         if (!this.editor) return 'Value';
         if (this.editor.kind === 'location') return 'Town or postcode';
-        if (this.editor.kind === 'skill' || this.editor.kind === 'certification') return `${kindLabel(this.editor.kind)} (type 2+ letters for suggestions)`;
+        if (this.editor.kind === 'skill' || this.editor.kind === 'certification') return `${kindLabel(this.editor.kind)} · suggestions after 2 letters`;
         return kindLabel(this.editor.kind);
     }
 
@@ -343,7 +417,7 @@ export default class CsSearchBar extends LightningElement {
 
     handleEditor(event) {
         const field = event.target.dataset.field;
-        const value = event.detail && event.detail.value !== undefined ? event.detail.value : event.target.value;
+        const value = event.target.value;
         this.editor = { ...this.editor, [field]: value };
         if (field === 'value') {
             this.editor.code = null;

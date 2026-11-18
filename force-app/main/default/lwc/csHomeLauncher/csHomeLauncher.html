@@ -1,17 +1,22 @@
 <template>
-    <lightning-card title={heading} icon-name="standard:search">
-        <lightning-button slot="actions" variant="base" label="Open Candidate Search" onclick={openTab}></lightning-button>
-        <div class="launch">
+    <div class="launcher">
+        <div class="l-head">
+            <c-cs-brand logo-url={logoUrl} tone="light" compact></c-cs-brand>
+            <button class="l-open" onclick={openTab}>Open Candidate Search<c-cs-icon name="chevron-right" size="14"></c-cs-icon></button>
+        </div>
+        <div class="l-title">{heading}</div>
+        <div class="l-box">
+            <span class="l-icon"><c-cs-icon name="sparkles" size="16"></c-cs-icon></span>
             <input
                 class="q"
                 type="search"
-                placeholder="For example: forklift-certified warehouse operatives near Dagenham"
+                placeholder="Forklift-certified warehouse operatives near Dagenham"
                 aria-label="Describe the candidates you are looking for"
                 value={text}
                 oninput={handleInput}
                 onkeydown={handleKeydown}
             />
-            <lightning-button variant="brand" label="Search" onclick={go} disabled={disabled}></lightning-button>
+            <button class="btn btn-primary" data-action="search" onclick={go} disabled={disabled}><c-cs-icon name="search" size="15"></c-cs-icon>Search</button>
         </div>
-    </lightning-card>
+    </div>
 </template>
