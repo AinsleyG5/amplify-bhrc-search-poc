@@ -238,11 +238,38 @@ public with sharing class TkSearchClient {
             throw new TkException('Textkernel did not answer: ' + e.getMessage());
         }
         if (res.getStatusCode() != 200) {
-            String fault = faultText(res.getBody());
-            throw new TkException('Textkernel returned HTTP ' + res.getStatusCode()
-                + (String.isBlank(fault) ? '' : ': ' + fault));
+            System.debug(LoggingLevel.ERROR, 'TK HTTP ' + res.getStatusCode() + ' from callout:' + cfg.tkNamedCredential + ' body: ' + res.getBody());
+            throw new TkException(httpErrorText(cfg.tkNamedCredential, res));
         }
         return res;
+    }
+
+    /**
+     * Readable HTTP error: status, which Named Credential was called, the SOAP fault or a text snippet of the body,
+     * and what to check for the common statuses.
+     */
+    @TestVisible
+    private static String httpErrorText(String namedCredential, HttpResponse res) {
+        Integer code = res.getStatusCode();
+        String body = res.getBody();
+        String detail = faultText(body);
+        if (String.isNotBlank(detail) && detail.contains('<')) detail = detail.stripHtmlTags();
+        detail = String.isBlank(detail) ? null : detail.normalizeSpace().abbreviate(300);
+
+        String msg = 'Textkernel returned HTTP ' + code + (String.isBlank(res.getStatus()) ? '' : ' ' + res.getStatus())
+            + ' from the ' + namedCredential + ' Named Credential'
+            + (detail == null ? ' (empty response body).' : ': ' + detail);
+        if (!msg.endsWith('.')) msg += '.';
+
+        if (code == 404 || code == 405) {
+            msg += ' The URL on that Named Credential does not point at the Textkernel SOAP search service.'
+                + ' Check it in Setup: it should be the same URL as TK_Agent_Search_Endpoint, which the Talent Pool viewer uses.';
+        } else if (code == 401 || code == 403) {
+            msg += ' Check the environment and password on the TK_Search_Service_Account External Credential, and that the user\'s permission set grants its principal.';
+        } else if (code >= 500) {
+            msg += ' Textkernel or the network is not answering. If the body mentions DNS, the Named Credential URL host is wrong.';
+        }
+        return msg;
     }
 
     // ═════════════════════════════════════════════════════════════

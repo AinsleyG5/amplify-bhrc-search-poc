@@ -189,4 +189,22 @@ private class TkSearchClientTest {
         p.xml = '<queryParts>verbatim</queryParts>';
         System.assertEquals(p.xml, TkSearchClient.partXml(p));
     }
+
+    @isTest
+    static void httpErrorsSayWhatWasCalledAndWhatToCheck() {
+        HttpResponse res = new HttpResponse();
+        res.setStatusCode(404);
+        res.setStatus('Not Found');
+        res.setBody('');
+        String msg = TkSearchClient.httpErrorText('TK_Candidate_Search', res);
+        System.assert(msg.startsWith('Textkernel returned HTTP 404 Not Found from the TK_Candidate_Search Named Credential (empty response body).'), msg);
+        System.assert(msg.contains('TK_Agent_Search_Endpoint'), msg);
+
+        res.setStatusCode(503);
+        res.setStatus('Service Unavailable');
+        res.setBody('<html><body><h1>ERR_DNS_FAIL</h1><p>Unable to resolve DNS</p></body></html>');
+        msg = TkSearchClient.httpErrorText('TK_Candidate_Search', res);
+        System.assert(msg.contains('ERR_DNS_FAIL Unable to resolve DNS'), msg);
+        System.assert(!msg.contains('<'), msg);
+    }
 }
