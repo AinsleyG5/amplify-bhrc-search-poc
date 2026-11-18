@@ -11,7 +11,7 @@ private class CandidateSearchControllerTest {
         CandidateSearchTestMocks.usePrompts();
         List<Contact> cs = CandidateSearchTestMocks.contacts(3);
         CandidateSearchTestMocks.toolInputs.put('set_criteria', new List<String>{ CandidateSearchTestMocks.PARSE_OUTPUT });
-        CandidateSearchTestMocks.partScores = new List<String>{ '1.0', '1.0', '0.0', '1.0' };
+        CandidateSearchTestMocks.partScores = new List<String>{ '1.0', '0.0', '1.0' };
         CandidateSearchTestMocks.total = 9;
         CandidateSearchTestMocks.hasMore = true;
         CandidateSearchTestMocks.install();
@@ -36,8 +36,10 @@ private class CandidateSearchControllerTest {
         System.assertEquals(cs[0].Id, row.get('contactId'));
         System.assertEquals(1, row.get('rank'));
         System.assertEquals(98, row.get('scorePct'));
-        System.assertEquals(new List<Object>{ 1, 1, 0, 1 }, row.get('queryPartFlags'));
-        System.assertEquals(new List<Object>{ 'c1', 'c2', 'c3', 'filter:candidate_status' }, row.get('criteriaIds'));
+        System.assertEquals(new List<Object>{ 1, 0, 1 }, row.get('queryPartFlags'));
+        System.assertEquals(new List<Object>{ 'c1', 'c2', 'filter:candidate_status' }, row.get('criteriaIds'));
+        System.assertEquals(new List<Object>{ 'c3' }, row.get('queryCriteriaIds'));
+        System.assert(CandidateSearchTestMocks.requests[1].getBody().contains('<query>city:Dagenham+15</query>'), 'location goes in the query string');
         System.assertEquals('Test0 Candidate0', row.get('name'));
         System.assertEquals(1, ((List<Object>) res.get('facets')).size());
         System.assert(((Map<String, Object>) res.get('criteria')).get('trace') == null, 'trace is never returned or stored');
@@ -58,18 +60,20 @@ private class CandidateSearchControllerTest {
         System.assert(a.TK_Request_XML__c.contains('<password>(hidden)</password>'));
         System.assertNotEquals(null, a.Saved_Search__c, 'logged as a recent search');
         System.assertEquals(3, [SELECT COUNT() FROM Search_Audit_Result__c WHERE Search_Audit__c = :auditId]);
+        Search_Audit_Result__c first = [SELECT TK_Criteria_Map__c FROM Search_Audit_Result__c WHERE Search_Audit__c = :auditId ORDER BY Rank__c LIMIT 1];
+        System.assertEquals('c1,c2,filter:candidate_status,q:c3', first.TK_Criteria_Map__c);
     }
 
     /** Builds an audit with result rows the way the writer would, before any callout in the test. */
     private static Id seedAudit(List<Contact> cs) {
-        CandidateSearchTestMocks.partScores = new List<String>{ '1.0', '0.0', '1.0', '1.0', '1.0' };
+        CandidateSearchTestMocks.partScores = new List<String>{ '1.0', '0.0', '1.0', '1.0' };
         TkSearchClient.Result r = TkSearchClient.parseResponse(CandidateSearchTestMocks.searchResponse(false));
         r.method = 'search';
         SearchAuditService.AuditStart s = new SearchAuditService.AuditStart();
         s.criteriaJson = CandidateSearchTestMocks.criteriaJson();
         Search_Audit__c a = SearchAuditService.newAudit(s, r, 'Success', null);
         insert a;
-        List<String> ids = CriteriaService.toQueryParts(CriteriaService.parse(s.criteriaJson)).criteriaIds;
+        List<String> ids = CriteriaService.toQueryParts(CriteriaService.parse(s.criteriaJson)).auditCriteriaIds();
         insert SearchAuditService.resultRows(a.Id, r, ids, new Map<Id, PipelineStatusService.Flags>(), new Set<String>());
         insert new Task(WhoId = cs[0].Id, Subject = 'Call', Description = 'Has a forklift licence, happy to do nights.');
         return a.Id;

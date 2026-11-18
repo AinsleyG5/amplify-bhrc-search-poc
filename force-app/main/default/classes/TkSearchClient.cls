@@ -56,6 +56,8 @@ public with sharing class TkSearchClient {
         public Integer pageSize;
         public Integer offset = 0;
         public List<String> resultFields;
+        /** Free-text query string, sent before the parts. Used for location, which TK only geo-interprets here. */
+        public String query;
     }
 
     public class Hit {
@@ -103,8 +105,9 @@ public with sharing class TkSearchClient {
 
     public static Result search(List<QueryPart> parts, SearchOptions opts) {
         CandidateSearchConfig cfg = CandidateSearchConfig.get();
-        if (parts == null || parts.isEmpty()) throw new TkException('There is nothing to search on.');
         if (opts == null) opts = new SearchOptions();
+        if (parts == null) parts = new List<QueryPart>();
+        if (parts.isEmpty() && String.isBlank(opts.query)) throw new TkException('There is nothing to search on.');
 
         Integer pageSize = opts.pageSize == null ? cfg.pageSize : opts.pageSize;
         pageSize = Math.max(1, Math.min(MAX_PAGE_SIZE, pageSize));
@@ -115,7 +118,7 @@ public with sharing class TkSearchClient {
         }
         List<String> resultFields = opts.resultFields == null ? cfg.tkResultFields : opts.resultFields;
 
-        String request = '';
+        String request = String.isBlank(opts.query) ? '' : '<query>' + opts.query.escapeXml() + '</query>';
         for (QueryPart p : parts) request += partXml(p);
         request += '<pageSize>' + pageSize + '</pageSize>';
         request += '<resultOffset>' + offset + '</resultOffset>';

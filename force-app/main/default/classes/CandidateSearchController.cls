@@ -69,14 +69,15 @@ public with sharing class CandidateSearchController {
         }
 
         CriteriaService.BuildResult built = CriteriaService.toQueryParts(criteria);
-        if (built.parts.isEmpty()) throw fail('None of the criteria can be sent to Textkernel yet. Add a title, skill or keyword.');
+        if (built.isEmpty()) throw fail('None of the criteria can be sent to Textkernel yet. Add a title, skill or keyword.');
 
-        TkSearchClient.SearchOptions opts = new TkSearchClient.SearchOptions();
+        TkSearchClient.SearchOptions opts = built.options();
         opts.offset = offset == null ? 0 : offset;
         SearchRun run = new SearchRun();
         run.criteria = criteria;
         run.trace = trace;
         run.criteriaIds = built.criteriaIds;
+        run.queryCriteriaIds = built.queryCriteriaIds;
         run.notices.addAll(built.notices);
         run.auditId = auditId;
         if (trace.get('aiError') != null) run.notices.add(String.valueOf(trace.get('aiError')));
@@ -128,13 +129,15 @@ public with sharing class CandidateSearchController {
                 if (changed) {
                     run.notices.add('Adjusted the generated query (location, skill cap or softer title) and searched again.');
                     run.criteriaIds = built.criteriaIds;
+                    run.queryCriteriaIds = built.queryCriteriaIds;
                     try {
-                        run.result = TkSearchClient.search(built.parts, new TkSearchClient.SearchOptions());
+                        run.result = TkSearchClient.search(built.parts, built.options());
                     } catch (TkSearchClient.TkException e) {
                         // The indexed result is still good: show it rather than fail the match
                         run.notices.add('The adjusted search failed (' + e.getMessage() + '), so these are the unadjusted results.');
                         run.result = indexed;
                         run.criteriaIds = idsInOrder(criteria);
+                        run.queryCriteriaIds = new List<String>();
                     }
                     if (run.result !== indexed) {
                         run.result.requestXml = indexed.requestXml + '\n\n' + run.result.requestXml;
@@ -158,10 +161,11 @@ public with sharing class CandidateSearchController {
             }
             CriteriaService.BuildResult built = CriteriaService.toQueryParts(run.criteria);
             run.criteriaIds = built.criteriaIds;
+            run.queryCriteriaIds = built.queryCriteriaIds;
             run.notices.addAll(built.notices);
             run.notices.add('Could not use the Textkernel job document (' + indexError + '). Built the search from the job record for ' + jobLabel + ' instead.');
             try {
-                run.result = TkSearchClient.search(built.parts, new TkSearchClient.SearchOptions());
+                run.result = TkSearchClient.search(built.parts, built.options());
             } catch (TkSearchClient.TkException e) {
                 return searchFailed(run, e.getMessage());
             }
@@ -462,6 +466,8 @@ public with sharing class CandidateSearchController {
         public Map<String, Object> criteria;
         public Map<String, Object> trace = new Map<String, Object>();
         public List<String> criteriaIds = new List<String>();
+        /** Location chips sent in the query string: met by every result. */
+        public List<String> queryCriteriaIds = new List<String>();
         public List<String> notices = new List<String>();
         public TkSearchClient.Result result;
         public Id auditId;
@@ -510,7 +516,9 @@ public with sharing class CandidateSearchController {
                 SearchAuditWriter w = new SearchAuditWriter();
                 w.auditId = s.auditId;
                 w.firstPage = firstPage;
-                w.rows = SearchAuditService.resultRows(s.auditId, r, s.criteriaIds, flags, hidden);
+                List<String> auditIds = new List<String>(s.criteriaIds);
+                for (String id : s.queryCriteriaIds) auditIds.add('q:' + id);
+                w.rows = SearchAuditService.resultRows(s.auditId, r, auditIds, flags, hidden);
                 w.appendRequestXml = firstPage ? null : r.requestXml;
                 w.rawResponse = firstPage ? r.responseXml : null;
                 if (firstPage) w.recent = recent(s, criteriaJson, jobId);
@@ -525,7 +533,9 @@ public with sharing class CandidateSearchController {
         for (TkSearchClient.Hit h : r.hits) {
             pos++;
             if (hidden.contains(h.docId)) continue;
-            rows.add(row(h, r.offset + pos, s.criteriaIds, contacts.get(h.contactId), flags.get(h.contactId), recentDays));
+            Map<String, Object> rowOut = row(h, r.offset + pos, s.criteriaIds, contacts.get(h.contactId), flags.get(h.contactId), recentDays);
+            rowOut.put('queryCriteriaIds', s.queryCriteriaIds);
+            rows.add(rowOut);
         }
 
         List<Object> facets = new List<Object>();

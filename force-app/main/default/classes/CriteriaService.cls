@@ -260,7 +260,36 @@ public with sharing class CriteriaService {
         public List<TkSearchClient.QueryPart> parts = new List<TkSearchClient.QueryPart>();
         /** Same order as parts: chip id, "filter:<field>" or "exclusion:<key>". */
         public List<String> criteriaIds = new List<String>();
+        /**
+         * Location goes in the free-text <query> string, not a query part: TK only geo-interprets the query string
+         * (confirmed on tksf_bh4sf_tso_cv: city:Dagenham+15 finds 4, a city part "Dagenham+15" finds 0).
+         * The query string has no per-part score, so these chips are met by every result.
+         */
+        public List<String> queryTerms = new List<String>();
+        public List<String> queryCriteriaIds = new List<String>();
         public List<String> notices = new List<String>();
+
+        public String queryString() {
+            return String.join(queryTerms, ' ');
+        }
+
+        public Boolean isEmpty() {
+            return parts.isEmpty() && queryTerms.isEmpty();
+        }
+
+        /** Search options carrying the query string. The caller sets the offset. */
+        public TkSearchClient.SearchOptions options() {
+            TkSearchClient.SearchOptions o = new TkSearchClient.SearchOptions();
+            o.query = queryString();
+            return o;
+        }
+
+        /** criteriaIds, then "q:<id>" for each query-string chip: stored in TK_Criteria_Map__c. */
+        public List<String> auditCriteriaIds() {
+            List<String> ids = new List<String>(criteriaIds);
+            for (String id : queryCriteriaIds) ids.add('q:' + id);
+            return ids;
+        }
     }
 
     public static BuildResult toQueryParts(Map<String, Object> criteria) {
@@ -304,7 +333,16 @@ public with sharing class CriteriaService {
                     add(out, part(cfg.tkCertificationCodeField, condition == 'REQUIRED' ? 'STRONGLY_FAVORED' : condition, code), id);
                 }
             } else if (kind == 'location') {
-                add(out, part(cfg.tkLocationField, condition, locationValue(item)), id);
+                String label = str(item, 'label');
+                if (str(item, 'weight') == 'excluded') {
+                    out.notices.add('"' + label + '" was not sent: excluding a location is not supported yet.');
+                    continue;
+                }
+                if (str(item, 'weight') != 'required') {
+                    out.notices.add('"' + label + '" is applied as a filter: Textkernel cannot weight a location.');
+                }
+                out.queryTerms.add(locationQuery(item));
+                out.queryCriteriaIds.add(id);
             } else if (kind == 'keyword' || kind == 'shift') {
                 add(out, part('FULLTEXT', condition, quote(value)), id);
             } else if (kind == 'language') {
@@ -370,6 +408,16 @@ public with sharing class CriteriaService {
         Decimal radius = item.get('radius') == null ? CandidateSearchConfig.get().defaultRadiusMiles : dec(item, 'radius');
         if (str(item, 'unit') == 'km') radius = radius * 0.621371;
         return place + '+' + radius.round(System.RoundingMode.HALF_UP);
+    }
+
+    /** city:Dagenham+15, or city:"RM9 6SA"+15 when the place has a space (quoting not yet confirmed with TK). */
+    @TestVisible
+    private static String locationQuery(Map<String, Object> item) {
+        String v = locationValue(item);
+        String place = v.substringBeforeLast('+');
+        String radius = v.substringAfterLast('+');
+        if (place.contains(' ')) place = '"' + place.replace('"', '') + '"';
+        return CandidateSearchConfig.get().tkLocationField + ':' + place + '+' + radius;
     }
 
     @TestVisible

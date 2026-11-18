@@ -14,11 +14,13 @@ private class TkSearchClientTest {
 
         TkSearchClient.SearchOptions opts = new TkSearchClient.SearchOptions();
         opts.offset = 20;
+        opts.query = 'city:Dagenham+15';
         Test.startTest();
         TkSearchClient.Result r = TkSearchClient.search(parts(), opts);
         Test.stopTest();
 
         String body = CandidateSearchTestMocks.requests[0].getBody();
+        System.assert(body.contains('<request><query>city:Dagenham+15</query><queryParts>'), body);
         System.assert(body.contains('<sear:search>'), body);
         System.assert(body.contains('<resultOffset>20</resultOffset>'), body);
         System.assert(body.contains('<pageSize>20</pageSize>'), body);
@@ -130,6 +132,17 @@ private class TkSearchClientTest {
             }
         }
         System.assertEquals(null, TkSearchClient.faultText(''));
+    }
+
+    @isTest
+    static void aQueryStringAloneIsEnough() {
+        CandidateSearchTestMocks.install();
+        TkSearchClient.SearchOptions opts = new TkSearchClient.SearchOptions();
+        opts.query = 'city:Dagenham+15';
+        Test.startTest();
+        TkSearchClient.search(null, opts);
+        Test.stopTest();
+        System.assert(CandidateSearchTestMocks.requests[0].getBody().contains('<query>city:Dagenham+15</query>'));
     }
 
     @isTest
