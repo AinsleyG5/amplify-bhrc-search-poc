@@ -968,7 +968,7 @@ export default class CandidateSearchApp extends LightningElement {
 
     openParser() {
         this.parserOpen = true;
-         
+
         Promise.resolve().then(() => {
             const btn = this.template.querySelector('.parser-close');
             if (btn) btn.focus();
@@ -990,7 +990,7 @@ export default class CandidateSearchApp extends LightningElement {
 
     toast(title, message, variant) {
         const id = `toast${++this._toastId}`;
-        const icon = variant === 'success' ? 'check' : variant === 'info' ? 'sparkles' : 'alert';
+        const icon = variant === 'success' ? 'check' : variant === 'info' ? 'message' : 'alert';
         this.toasts = [...this.toasts.slice(-2), { id, title, message, variant, icon, cls: `toast toast-${variant}` }];
         // eslint-disable-next-line @lwc/lwc/no-async-operation
         setTimeout(() => this.removeToast(id), variant === 'error' || variant === 'warning' ? 10000 : 5000);

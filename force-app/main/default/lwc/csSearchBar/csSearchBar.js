@@ -174,7 +174,7 @@ export default class CsSearchBar extends LightningElement {
                 index: r.selectable ? i : -1,
                 cls: `ta-row ta-${r.kind}${active ? ' ta-active' : ''}`,
                 selected: active ? 'true' : 'false',
-                icon: r.kind === 'ai' ? 'sparkles' : r.kind === 'profession' ? 'briefcase' : r.kind === 'skill' ? 'check' : 'alert'
+                icon: r.kind === 'ai' ? 'message' : r.kind === 'profession' ? 'briefcase' : r.kind === 'skill' ? 'check' : 'alert'
             };
         });
     }

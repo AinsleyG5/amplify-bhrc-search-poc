@@ -1,0 +1,43 @@
+<template>
+    <div class="jm">
+        <template lwc:if={loading}>
+            <div class="shimmer jm-loading" aria-label="Matching jobs"><span></span><span></span><span></span><span></span></div>
+        </template>
+        <template lwc:if={error}>
+            <div class="jm-error" role="alert">{error} <button class="link" onclick={load}>Retry</button></div>
+        </template>
+        <template lwc:if={showEmpty}><p class="jm-muted">No matching jobs found.</p></template>
+        <template lwc:if={hasJobs}>
+            <div class="jm-count">{countText}, ranked by Textkernel</div>
+            <ul class="jm-list">
+                <template for:each={items} for:item="j">
+                    <li key={j.jobId} class="jm-item">
+                        <div class={j.ringCls} style={j.ringStyle}><span class="ring-num">{j.ringText}</span></div>
+                        <div class="jm-text">
+                            <button class="jm-name" data-id={j.jobId} onclick={openJob} aria-label={j.openLabel}>{j.heading}</button>
+                            <div class="jm-sub">{j.sub}</div>
+                            <template lwc:if={j.status}><span class="tag">{j.status}</span></template>
+                        </div>
+                        <div class="jm-actions">
+                            <template lwc:if={j.note}><span class="jm-note">{j.note}</span></template>
+                            <template lwc:else>
+                                <button
+                                    class="btn btn-sm btn-soft"
+                                    data-id={j.jobId}
+                                    data-action="shortlist-job"
+                                    onclick={shortlist}
+                                    disabled={j.shortlistDisabled}
+                                    aria-label={j.shortlistLabel}
+                                >
+                                    <template lwc:if={j.busy}><span class="spinner sm"></span></template>
+                                    <template lwc:else><c-cs-icon name="plus" size="13"></c-cs-icon></template>
+                                    Shortlist
+                                </button>
+                            </template>
+                        </div>
+                    </li>
+                </template>
+            </ul>
+        </template>
+    </div>
+</template>

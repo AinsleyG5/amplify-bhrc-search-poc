@@ -52,15 +52,13 @@
                 <div class="shimmer" aria-label="Explanation loading"><span></span><span></span></div>
             </template>
             <template lwc:if={explainDone}>
-                <p class="summary">
-                    <span class="ai-mark"><c-cs-icon name="sparkles" size="12"></c-cs-icon></span>{summary}
-                </p>
+                <p class="summary">{summary}</p>
             </template>
             <template lwc:if={explainError}>
                 <p class="why-muted" title={errorText}>Couldn't explain. <button class="link" onclick={handleExplain}>Retry</button></p>
             </template>
             <template lwc:if={explainAvailable}>
-                <button class="explain-btn" onclick={handleExplain}><c-cs-icon name="sparkles" size="12"></c-cs-icon>Explain</button>
+                <button class="explain-btn" onclick={handleExplain}>Explain</button>
             </template>
         </div>
 

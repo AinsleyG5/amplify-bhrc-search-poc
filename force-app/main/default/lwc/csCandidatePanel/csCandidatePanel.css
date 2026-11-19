@@ -97,7 +97,7 @@
 .p-sub {
     color: var(--amp-on-hero-muted);
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     margin-top: 4px;
 }
 
@@ -459,4 +459,64 @@
 .note-text {
     white-space: pre-line;
     line-height: 1.55;
+}
+
+/* Textkernel profile (portal layout) */
+.tk-head {
+    margin-top: 0;
+}
+
+.tk-profile {
+    margin: 0;
+}
+
+.tk-row {
+    display: grid;
+    grid-template-columns: 170px 1fr;
+    gap: 16px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--amp-line-soft);
+    font-size: 13.5px;
+}
+
+.tk-row dt {
+    color: var(--amp-muted);
+    font-size: 13px;
+}
+
+.tk-row dd {
+    margin: 0;
+    color: var(--amp-ink);
+}
+
+.tk-values {
+    display: inline;
+}
+
+.tk-val:not(:last-child)::after {
+    content: ', ';
+}
+
+.tk-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.tk-pill {
+    /* inline-block, not flex: flex would drop the space between a bold match and the rest of the text */
+    display: inline-block;
+    line-height: 22px;
+    height: 24px;
+    white-space: nowrap;
+    padding: 0 10px;
+    border-radius: var(--amp-r-pill);
+    background: var(--amp-bg);
+    border: 1px solid var(--amp-line);
+    font-size: 12px;
+}
+
+.tk-more {
+    margin-left: 6px;
+    font-size: 12px;
 }

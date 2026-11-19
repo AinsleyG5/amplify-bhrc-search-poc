@@ -421,4 +421,22 @@ private class CandidateSearchControllerTest {
         System.assertEquals('[]', CandidateSearchController.suggestProfessions('f'));
         System.assertEquals('[]', CandidateSearchController.suggestSimilarSkills('[]'));
     }
+
+    @isTest
+    static void matchCandidateToJobsSearchesTheJobEnvironment() {
+        CandidateSearchTestMocks.install();
+        Test.startTest();
+        Map<String, Object> res = (Map<String, Object>) System.JSON.deserializeUntyped(CandidateSearchController.matchCandidateToJobs('00D000000000001_003000000000001AAA'));
+        Test.stopTest();
+        String sent = CandidateSearchTestMocks.requests[0].getBody();
+        System.assert(sent.contains('<sear:searchWithUrl>'), sent);
+        System.assert(sent.contains('doc://'), sent);
+        System.assertNotEquals(null, res.get('jobs'));
+        try {
+            CandidateSearchController.matchCandidateToJobs(' ');
+            System.assert(false, 'expected an error');
+        } catch (AuraHandledException e) {
+            System.assert(e.getMessage().contains('no Textkernel document'));
+        }
+    }
 }

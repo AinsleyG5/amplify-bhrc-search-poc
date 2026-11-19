@@ -127,7 +127,7 @@ export function metAndNotMet(row) {
 /** "Up 2", "Down 1", "New" against the previous page-1 ranks (docId to rank). */
 export function changeTag(prevRanks, docId, rank) {
     if (!prevRanks) return null;
-    if (!(docId in prevRanks)) return { label: 'New', cls: 'tag tag-blue', icon: 'sparkles' };
+    if (!(docId in prevRanks)) return { label: 'New', cls: 'tag tag-blue', icon: 'plus' };
     const diff = prevRanks[docId] - rank;
     if (diff > 0) return { label: `Up ${diff}`, cls: 'tag tag-green', icon: 'arrow-up' };
     if (diff < 0) return { label: `Down ${-diff}`, cls: 'tag tag-red', icon: 'arrow-down' };

@@ -42,7 +42,7 @@
 
 .nl-icon {
     display: inline-flex;
-    color: var(--amp-violet);
+    color: var(--amp-subtle);
 }
 
 .nl-text {
@@ -448,7 +448,7 @@
     font-size: 12px;
     /* On the blue banner */
     color: var(--amp-on-hero);
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .opt {

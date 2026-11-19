@@ -544,6 +544,71 @@ public with sharing class CandidateSearchController {
     }
 
     // ═════════════════════════════════════════════════════════════
+    // Match to jobs (reverse match)
+    // ═════════════════════════════════════════════════════════════
+
+    /** Optional job fields shown in the list: selected only when they exist in the org. */
+    private static final List<String> JOB_FIELDS = new List<String>{
+        'TR1__Job_Title__c', 'TR1__Status__c', 'TR1__City__c', 'TR1__Account__r.Name'
+    };
+
+    /**
+     * Jobs that match a candidate, ranked by Textkernel (searchWithUrl in the job environment with the candidate's
+     * document). Returns { jobs: [{ jobId, name, title, status, city, account, scorePct, rank }], total }.
+     * Jobs from another org or not visible to the user are left out.
+     */
+    @AuraEnabled
+    public static String matchCandidateToJobs(String docId) {
+        if (String.isBlank(docId)) throw fail('This result has no Textkernel document.');
+        TkSearchClient.Result r;
+        try {
+            r = TkSearchClient.matchCandidateToJobs(docId, 25);
+        } catch (TkSearchClient.TkException e) {
+            throw fail('Matching jobs failed. ' + e.getMessage());
+        }
+        String org15 = UserInfo.getOrganizationId().left(15);
+        Map<Id, TkSearchClient.Hit> byJob = new Map<Id, TkSearchClient.Hit>();
+        List<Id> order = new List<Id>();
+        for (TkSearchClient.Hit h : r.hits) {
+            if (String.isBlank(h.docId) || !h.docId.contains('_') || !h.docId.startsWith(org15)) continue;
+            Id jobId = idOrNull(h.docId.substringAfterLast('_'));
+            if (jobId == null || byJob.containsKey(jobId)) continue;
+            byJob.put(jobId, h);
+            order.add(jobId);
+        }
+        List<Object> jobs = new List<Object>();
+        if (!order.isEmpty()) {
+            Map<String, Schema.SObjectField> fm = Schema.SObjectType.TR1__Job__c.fields.getMap();
+            List<String> fields = new List<String>{ 'Id', 'Name' };
+            for (String f : JOB_FIELDS) {
+                String base = f.contains('.') ? f.substringBefore('.').replace('__r', '__c') : f;
+                if (fm.containsKey(base.toLowerCase())) fields.add(f);
+            }
+            Set<Id> ids = byJob.keySet();
+            Map<Id, SObject> recs = new Map<Id, SObject>(Database.query('SELECT ' + String.join(fields, ', ') + ' FROM TR1__Job__c WHERE Id IN :ids'));
+            Integer rank = 0;
+            for (Id jobId : order) {
+                SObject j = recs.get(jobId);
+                if (j == null) continue;
+                rank++;
+                TkSearchClient.Hit h = byJob.get(jobId);
+                SObject acct = fields.contains('TR1__Account__r.Name') ? j.getSObject('TR1__Account__r') : null;
+                jobs.add(new Map<String, Object>{
+                    'jobId' => jobId,
+                    'name' => j.get('Name'),
+                    'title' => fields.contains('TR1__Job_Title__c') ? j.get('TR1__Job_Title__c') : null,
+                    'status' => fields.contains('TR1__Status__c') ? j.get('TR1__Status__c') : null,
+                    'city' => fields.contains('TR1__City__c') ? j.get('TR1__City__c') : null,
+                    'account' => acct == null ? null : acct.get('Name'),
+                    'scorePct' => h.scorePct,
+                    'rank' => rank
+                });
+            }
+        }
+        return System.JSON.serialize(new Map<String, Object>{ 'jobs' => jobs, 'total' => r.total });
+    }
+
+    // ═════════════════════════════════════════════════════════════
     // CV tab
     // ═════════════════════════════════════════════════════════════
 
@@ -1207,6 +1272,8 @@ public with sharing class CandidateSearchController {
             'city' => c != null && String.isNotBlank(c.MailingCity) ? c.MailingCity : firstValue(h.fields, 'city'),
             'distance' => null,
             'highlights' => h.highlights,
+            // Textkernel profile fields for the panel's Profile tab (TK_Result_Fields__c)
+            'fields' => h.fields,
             'pipeline' => pipeline
         };
     }

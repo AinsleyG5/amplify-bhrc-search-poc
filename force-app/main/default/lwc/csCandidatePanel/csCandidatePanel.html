@@ -41,6 +41,15 @@
                 <button class="btn btn-sm btn-ghost" data-action="dismiss" onclick={handleDismiss}>
                     <c-cs-icon name="eye-off" size="14"></c-cs-icon>Dismiss
                 </button>
+                <button
+                    class="btn btn-sm btn-soft"
+                    data-action="match-jobs"
+                    onclick={matchToJobs}
+                    disabled={noRecord}
+                    title="Find open jobs that match this candidate"
+                >
+                    <c-cs-icon name="briefcase" size="14"></c-cs-icon>Match to jobs
+                </button>
             </div>
 
             <div class="seg tabs" role="tablist" aria-label="Candidate details" onkeydown={handleTabKeydown}>
@@ -121,7 +130,34 @@
                 <c-cs-cv-viewer doc-id={docId} contact-id={contactId} terms={cvTerms}></c-cs-cv-viewer>
             </template>
 
+            <template lwc:if={isJobs}>
+                <c-cs-job-matches doc-id={docId} contact-id={contactId}></c-cs-job-matches>
+            </template>
+
             <template lwc:if={isProfile}>
+                <template lwc:if={hasTkProfile}>
+                    <h3 class="eyebrow p-section tk-head">From the Textkernel profile</h3>
+                    <dl class="tk-profile">
+                        <template for:each={tkProfile} for:item="r">
+                            <div key={r.key} class="tk-row">
+                                <dt>{r.label}</dt>
+                                <dd>
+                                    <span class={r.listCls}>
+                                        <template for:each={r.values} for:item="v">
+                                            <span key={v.key} class={v.cls}
+                                                ><template for:each={v.segs} for:item="g"><span key={g.key} class={g.cls}>{g.text}</span></template></span
+                                            >
+                                        </template>
+                                    </span>
+                                    <template lwc:if={r.moreText}
+                                        ><button class="link tk-more" data-label={r.label} onclick={toggleMore}>{r.moreText}</button></template
+                                    >
+                                </dd>
+                            </div>
+                        </template>
+                    </dl>
+                    <h3 class="eyebrow p-section">From Salesforce</h3>
+                </template>
                 <template lwc:if={noRecord}><p class="p-muted">This result has no Salesforce candidate record.</p></template>
                 <template lwc:if={detailLoading}
                     ><div class="p-loading"><span class="spinner" role="status" aria-label="Loading profile"></span></div

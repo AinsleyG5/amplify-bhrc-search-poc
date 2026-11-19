@@ -8,8 +8,33 @@ const TABS = [
     { value: 'cv', label: 'CV' },
     { value: 'profile', label: 'Profile' },
     { value: 'skills', label: 'Skills' },
-    { value: 'activity', label: 'Activity' }
+    { value: 'activity', label: 'Activity' },
+    { value: 'jobs', label: 'Jobs' }
 ];
+
+/** Textkernel profile fields for the Profile tab, in the portal's order and with its labels. */
+const TK_PROFILE = [
+    { fields: ['documentdate'], label: 'Last modified', date: true },
+    { fields: ['recent_jobtitles', 'lastjobtitle'], label: 'Recent positions' },
+    { fields: ['jobtitles'], label: 'All positions' },
+    { fields: ['workfield'], label: 'Current work field' },
+    { fields: ['experiencelevel'], label: 'Experience level' },
+    { fields: ['employers'], label: 'All employers' },
+    { fields: ['experience_years'], label: 'Years of experience' },
+    { fields: ['educationlevel_international'], label: 'Education level' },
+    { fields: ['degree_name'], label: 'Majors / degrees' },
+    { fields: ['degree_institute'], label: 'Colleges / universities' },
+    { fields: ['it_skills'], label: 'IT skills', pills: true },
+    { fields: ['language_skills'], label: 'Language skills', pills: true },
+    { fields: ['professional_skills', 'profskills'], label: 'Professional skills', pills: true },
+    { fields: ['soft_skills'], label: 'Competencies', pills: true },
+    { fields: ['custom_nested_object_1'], label: 'Certifications', pills: true },
+    { fields: ['date_available'], label: 'Date available', date: true },
+    { fields: ['job_submissions'], label: 'Applications' },
+    { fields: ['current_salary'], label: 'Current salary', number: true },
+    { fields: ['salary'], label: 'Desired salary', number: true }
+];
+const PROFILE_LIST_MAX = 12;
 
 /** Chip kinds whose values are words to look for in the CV (not locations, dates or Textkernel-generated parts). */
 const CV_TERM_KINDS = new Set(['title', 'skill', 'certification', 'keyword', 'language', 'shift']);
@@ -191,6 +216,63 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
 
     get contactId() {
         return this._row ? this._row.contactId : null;
+    }
+
+    get isJobs() {
+        return this.tab === 'jobs';
+    }
+
+    matchToJobs() {
+        this.tab = 'jobs';
+    }
+
+    /** Fields expanded with "+N more" (label -> true). */
+    expanded = {};
+
+    /** Textkernel profile (portal layout): one row per field, duplicates removed, matched words in bold. */
+    get tkProfile() {
+        const fields = (this._row && this._row.fields) || {};
+        const out = [];
+        TK_PROFILE.forEach((def) => {
+            const raw = [];
+            def.fields.forEach((f) => [].concat(fields[f] || []).forEach((v) => raw.push(v)));
+            const seen = new Set();
+            const values = [];
+            raw.forEach((v) => {
+                const segs = highlightSegments(v);
+                const text = segs
+                    .map((g) => g.text)
+                    .join('')
+                    .trim();
+                const key = text.toLowerCase();
+                if (!text || seen.has(key)) return;
+                seen.add(key);
+                let shown = segs;
+                if (def.date) shown = [{ key: 's0', text: formatDate(text.substring(0, 10)) || text, cls: 'hl-txt' }];
+                if (def.number && !Number.isNaN(Number(text))) shown = [{ key: 's0', text: Number(text).toLocaleString(), cls: 'hl-txt' }];
+                values.push({ key: `${def.label}-${values.length}`, segs: shown, cls: def.pills ? 'tk-pill' : 'tk-val' });
+            });
+            if (!values.length) return;
+            const open = this.expanded[def.label];
+            const more = values.length - PROFILE_LIST_MAX;
+            out.push({
+                key: def.label,
+                label: def.label,
+                values: open || more <= 0 ? values : values.slice(0, PROFILE_LIST_MAX),
+                moreText: more > 0 ? (open ? 'Show less' : `+${more} more`) : '',
+                listCls: def.pills ? 'tk-values tk-pills' : 'tk-values'
+            });
+        });
+        return out;
+    }
+
+    get hasTkProfile() {
+        return this.tkProfile.length > 0;
+    }
+
+    toggleMore(event) {
+        const label = event.currentTarget.dataset.label;
+        this.expanded = { ...this.expanded, [label]: !this.expanded[label] };
     }
 
     get isActivity() {

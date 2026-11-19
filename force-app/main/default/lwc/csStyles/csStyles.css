@@ -42,7 +42,8 @@
     --amp-hero: #4a89dc;
     --amp-hero-line: #3f78c4;
     --amp-on-hero: #ffffff;
-    --amp-on-hero-muted: rgba(255, 255, 255, 0.86);
+    /* Solid white: small text on #4A89DC needs every bit of contrast */
+    --amp-on-hero-muted: #ffffff;
 
     /* The Search button only: it is the main action, so it keeps the brand gradient */
     --amp-grad-search: linear-gradient(135deg, #0a6fc2 0%, #009bdf 50%, #3cc8f5 100%);

@@ -206,6 +206,24 @@ public with sharing class TkSearchClient {
         return ret == null ? null : ret.getText();
     }
 
+    /**
+     * Reverse match: open jobs for a candidate. searchWithUrl in the job environment with the candidate's indexed
+     * document as the query, the same call as the Textkernel portal's "match" action
+     * (doc://<candidate environment>/candidates/<docId>).
+     */
+    public static Result matchCandidateToJobs(String candidateDocId, Integer pageSize) {
+        CandidateSearchConfig cfg = CandidateSearchConfig.get();
+        Integer size = pageSize == null ? 10 : Math.max(1, Math.min(MAX_PAGE_SIZE, pageSize));
+        String url = 'doc://' + cfg.tkCandidateEnvironment + '/candidates/' + candidateDocId;
+        String body = envelope('searchWithUrl',
+            credentialXml(cfg.tkJobEnvironment)
+            + '<url>' + url.escapeXml() + '</url>'
+            + '<pageSize>' + size + '</pageSize>');
+        Result r = send('searchWithUrl', body);
+        r.pageSize = size;
+        return r;
+    }
+
     public static String getMetadata(String environment) {
         CandidateSearchConfig cfg = CandidateSearchConfig.get();
         String body = envelope('getMetadata', credentialXml(String.isBlank(environment) ? cfg.tkCandidateEnvironment : environment));

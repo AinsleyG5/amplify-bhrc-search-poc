@@ -112,7 +112,7 @@
     </values>
     <values>
         <field>TK_Result_Fields__c</field>
-        <value xsi:type="xsd:string">fullname,jobtitles,recent_jobtitles,city,candidate_status,custom_date_1,owner_id,owner_name,it_skills,profskills</value>
+        <value xsi:type="xsd:string">fullname,jobtitles,recent_jobtitles,city,candidate_status,custom_date_1,owner_id,owner_name,it_skills,profskills,lastjobtitle,workfield,experiencelevel,employers,experience_years,educationlevel_international,degree_name,degree_institute,language_skills,professional_skills,soft_skills,custom_nested_object_1,date_available,documentdate,job_submissions,current_salary,salary</value>
     </values>
     <values>
         <field>TK_Skill_Code_Field__c</field>
