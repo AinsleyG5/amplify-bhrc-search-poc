@@ -1,72 +1,148 @@
 <template>
-    <div class="wrap">
-        <template lwc:if={pickerOpen}>
-            <div class="picker" role="dialog" aria-label={pickerTitle} onkeydown={handlePickerKeydown}>
-                <div class="picker-head">
-                    <div class="picker-title">{pickerTitle}</div>
-                    <button class="btn-icon sm" onclick={closePicker} aria-label="Close"><c-cs-icon name="x" size="14"></c-cs-icon></button>
-                </div>
-                <div class="picker-search">
-                    <c-cs-icon name="search" size="15"></c-cs-icon>
-                    <input
-                        class="picker-input"
-                        type="search"
-                        placeholder={pickerPlaceholder}
-                        value={query}
-                        oninput={handleQuery}
-                        aria-label={pickerPlaceholder}
-                    />
-                    <template lwc:if={searching}><span class="spinner sm"></span></template>
-                </div>
-                <template lwc:if={searchError}><div class="picker-error" role="alert">{searchError}</div></template>
-                <ul class="opts" role="listbox" aria-label={pickerTitle}>
-                    <template for:each={resultItems} for:item="r">
-                        <li key={r.id} role="option" aria-selected={r.selected}>
-                            <button class={r.cls} data-id={r.id} onclick={pick}>
-                                <span class="opt-text">
-                                    <span class="opt-name">{r.name}</span>
-                                    <template lwc:if={r.sub}><span class="opt-sub">{r.sub}</span></template>
-                                </span>
-                                <span class="opt-check"><c-cs-icon name="check" size="14" stroke-width="3"></c-cs-icon></span>
-                            </button>
-                        </li>
-                    </template>
-                </ul>
-                <template lwc:if={showNoResults}><div class="picker-empty">Nothing found</div></template>
-                <div class="picker-actions">
-                    <button class="btn btn-ghost btn-sm" onclick={closePicker}>Cancel</button>
-                    <button class="btn btn-primary btn-sm" data-action="confirm" onclick={confirm} disabled={confirmDisabled}>{confirmLabel}</button>
-                </div>
-            </div>
-        </template>
-
-        <div class="tray" role="region" aria-label="Selected candidates">
-            <div class="t-count"><span class="t-num">{count}</span><span class="t-label">selected</span></div>
-            <div class="t-people">
-                <template for:each={people} for:item="p">
-                    <button key={p.docId} class="person" data-id={p.docId} onclick={handleDeselect} aria-label={p.removeLabel} title={p.removeLabel}>
-                        <span class={p.avatarCls}>{p.initials}</span>
-                        <span class="person-x"><c-cs-icon name="x" size="10" stroke-width="3"></c-cs-icon></span>
-                    </button>
-                </template>
-                <template lwc:if={moreText}><span class="more">{moreText}</span></template>
-            </div>
-            <span class="t-div" aria-hidden="true"></span>
-            <div class="t-actions">
-                <button class="btn btn-sm tray-btn" data-action="compare" onclick={handleCompare} disabled={compareDisabled} title={compareTitle}>
-                    <c-cs-icon name="columns" size="14"></c-cs-icon>Compare
-                </button>
-                <button class={jobBtnCls} data-action="add-job" onclick={showJob} disabled={busy} aria-expanded={pickerOpen}>
-                    <c-cs-icon name="briefcase" size="14"></c-cs-icon>Add to job
-                </button>
-                <button class={poolBtnCls} data-action="add-pool" onclick={showPool} disabled={busy}>
-                    <c-cs-icon name="users" size="14"></c-cs-icon>Add to talent pool
-                </button>
-                <template lwc:if={busy}><span class="spinner sm light"></span></template>
-                <button class="btn-icon sm t-close" data-action="clear" onclick={handleClear} aria-label="Clear the selection" title="Clear the selection">
-                    <c-cs-icon name="x" size="15"></c-cs-icon>
-                </button>
-            </div>
+  <div class="wrap">
+    <template lwc:if={pickerOpen}>
+      <div
+        class="picker"
+        role="dialog"
+        aria-label={pickerTitle}
+        onkeydown={handlePickerKeydown}
+      >
+        <div class="picker-head">
+          <div class="picker-title">{pickerTitle}</div>
+          <button class="btn-icon sm" onclick={closePicker} aria-label="Close">
+            <c-cs-icon name="x" size="14"></c-cs-icon>
+          </button>
         </div>
+        <div class="picker-search">
+          <c-cs-icon name="search" size="15"></c-cs-icon>
+          <input
+            class="picker-input"
+            type="search"
+            placeholder={pickerPlaceholder}
+            value={query}
+            oninput={handleQuery}
+            aria-label={pickerPlaceholder}
+          />
+          <template lwc:if={searching}
+            ><span class="spinner sm"></span
+          ></template>
+        </div>
+        <template lwc:if={searchError}
+          ><div class="picker-error" role="alert">{searchError}</div></template
+        >
+        <ul class="opts" role="listbox" aria-label={pickerTitle}>
+          <template for:each={resultItems} for:item="r">
+            <li key={r.id} role="option" aria-selected={r.selected}>
+              <button class={r.cls} data-id={r.id} onclick={pick}>
+                <span class="opt-text">
+                  <span class="opt-name">{r.name}</span>
+                  <template lwc:if={r.sub}
+                    ><span class="opt-sub">{r.sub}</span></template
+                  >
+                </span>
+                <span class="opt-check"
+                  ><c-cs-icon
+                    name="check"
+                    size="14"
+                    stroke-width="3"
+                  ></c-cs-icon
+                ></span>
+              </button>
+            </li>
+          </template>
+        </ul>
+        <template lwc:if={showNoResults}
+          ><div class="picker-empty">Nothing found</div></template
+        >
+        <div class="picker-actions">
+          <button class="btn btn-ghost btn-sm" onclick={closePicker}>
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary btn-sm"
+            data-action="confirm"
+            onclick={confirm}
+            disabled={confirmDisabled}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <div class="tray" role="region" aria-label="Selected candidates">
+      <div class="t-count">
+        <span class="t-num">{count}</span><span class="t-label">selected</span>
+      </div>
+      <div class="t-people">
+        <template for:each={people} for:item="p">
+          <button
+            key={p.docId}
+            class="person"
+            data-id={p.docId}
+            onclick={handleDeselect}
+            aria-label={p.removeLabel}
+            title={p.removeLabel}
+          >
+            <span class={p.avatarCls}>{p.initials}</span>
+            <span class="person-x"
+              ><c-cs-icon name="x" size="10" stroke-width="3"></c-cs-icon
+            ></span>
+          </button>
+        </template>
+        <template lwc:if={moreText}
+          ><span class="more">{moreText}</span></template
+        >
+      </div>
+      <span class="t-div" aria-hidden="true"></span>
+      <div class="t-actions">
+        <button
+          class="btn btn-sm tray-btn"
+          data-action="compare"
+          onclick={handleCompare}
+          disabled={compareDisabled}
+          title={compareTitle}
+        >
+          <c-cs-icon name="columns" size="14"></c-cs-icon>Compare
+        </button>
+        <button
+          class={jobBtnCls}
+          data-action="add-job"
+          onclick={showJob}
+          disabled={busy}
+          aria-expanded={pickerOpen}
+        >
+          <c-cs-icon name="briefcase" size="14"></c-cs-icon>Add to job
+        </button>
+        <button
+          class={poolBtnCls}
+          data-action="add-pool"
+          onclick={showPool}
+          disabled={busy}
+        >
+          <c-cs-icon name="users" size="14"></c-cs-icon>Add to talent pool
+        </button>
+        <button
+          class="btn btn-sm tray-btn"
+          data-action="email"
+          onclick={handleEmail}
+          disabled={busy}
+        >
+          <c-cs-icon name="mail" size="14"></c-cs-icon>Send email
+        </button>
+        <template lwc:if={busy}
+          ><span class="spinner sm light"></span
+        ></template>
+        <button
+          class="btn-icon sm t-close"
+          data-action="clear"
+          onclick={handleClear}
+          aria-label="Clear the selection"
+          title="Clear the selection"
+        >
+          <c-cs-icon name="x" size="15"></c-cs-icon>
+        </button>
+      </div>
     </div>
+  </div>
 </template>

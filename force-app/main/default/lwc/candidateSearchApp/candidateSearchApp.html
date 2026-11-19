@@ -1,192 +1,260 @@
 <template>
-    <div class="app">
-        <header class={heroCls}>
-            <div class="hero-top">
-                <c-cs-brand logo-url={logoUrl} tone="light"></c-cs-brand>
-                <div class="hero-title">
-                    <h1 class="h1">{heading}</h1>
-                    <p class="hero-sub">Search by role, tickets, location and availability, in your own words.</p>
-                </div>
-                <button class="btn btn-parse" data-action="parse" onclick={openParser} title="Parse a CV into a new candidate">
-                    <c-cs-icon name="file-plus" size="15"></c-cs-icon>Parse a CV
+  <div class="app">
+    <header class={heroCls}>
+      <div class="hero-top">
+        <c-cs-brand logo-url={logoUrl} tone="light"></c-cs-brand>
+        <div class="hero-title">
+          <h1 class="h1">{heading}</h1>
+          <p class="hero-sub">
+            Search by role, tickets, location and availability, in your own
+            words.
+          </p>
+        </div>
+        <button
+          class="btn btn-parse"
+          data-action="parse"
+          onclick={openParser}
+          title="Parse a CV into a new candidate"
+        >
+          <c-cs-icon name="file-plus" size="15"></c-cs-icon>Parse a CV
+        </button>
+      </div>
+      <div class="search-card">
+        <c-cs-search-bar
+          criteria={criteria}
+          initial-text={initialText}
+          loading={loading}
+          has-results={hasResults}
+          active={started}
+          onsearch={handleSearch}
+          oncriteriachange={handleCriteriaChange}
+          onsave={handleSave}
+          onclear={handleClear}
+        ></c-cs-search-bar>
+      </div>
+    </header>
+
+    <template lwc:if={showHome}>
+      <div class="home-wrap">
+        <c-cs-home-panels
+          data={homeData}
+          loading={homeLoading}
+          error={homeError}
+          onrunsearch={handleRunSaved}
+          onfavourite={handleFavourite}
+          onrunexample={handleRunExample}
+        ></c-cs-home-panels>
+      </div>
+    </template>
+    <template lwc:else>
+      <div class={workspaceCls}>
+        <div class="main">
+          <div class="toolbar">
+            <div class="toolbar-title">{resultTitle}</div>
+            <div class="toolbar-actions">
+              <template lwc:if={canUndo}>
+                <button
+                  class="btn btn-sm btn-ghost"
+                  data-action="undo"
+                  onclick={handleUndo}
+                  disabled={busy}
+                  title="Undo the last change"
+                >
+                  <c-cs-icon name="undo" size="14"></c-cs-icon>Undo
                 </button>
+                <button
+                  class="btn btn-sm"
+                  data-action="reset"
+                  onclick={handleReset}
+                  disabled={busy}
+                  title="Go back to the search as it was first run, before any edits or refine turns"
+                >
+                  <c-cs-icon name="reset" size="14"></c-cs-icon>Reset changes
+                </button>
+              </template>
+              <template lwc:if={showChatToggle}>
+                <button
+                  class="btn btn-sm btn-ai"
+                  data-action="open-chat"
+                  onclick={openChat}
+                >
+                  <c-cs-icon name="message" size="14"></c-cs-icon>Refine
+                </button>
+              </template>
             </div>
-            <div class="search-card">
-                <c-cs-search-bar
-                    criteria={criteria}
-                    initial-text={initialText}
-                    loading={loading}
-                    has-results={hasResults}
-                    active={started}
-                    onsearch={handleSearch}
-                    oncriteriachange={handleCriteriaChange}
-                    onsave={handleSave}
-                    onclear={handleClear}
-                ></c-cs-search-bar>
-            </div>
-        </header>
+          </div>
+          <div class="list-wrap">
+            <c-cs-result-list
+              rows={rows}
+              criteria={criteria}
+              explanations={explanations}
+              selected-ids={selectedIds}
+              active-doc-id={panelDocId}
+              prev-ranks={prevRanks}
+              removed-count={removedCount}
+              total={total}
+              has-more={hasMore}
+              loading={loading}
+              loading-more={loadingMore}
+              hidden-count={hiddenCount}
+              facets={facets}
+              notices={notices}
+              request-xml={requestXml}
+              error={error}
+              onloadmore={handleLoadMore}
+              onrowopen={handleRowOpen}
+              onrowselect={handleRowSelect}
+              onselectpage={handleSelectPage}
+              onexplain={handleExplainRow}
+              onfacetchange={handleFacetChange}
+              onshowhidden={handleShowHidden}
+            ></c-cs-result-list>
+          </div>
 
-        <template lwc:if={showHome}>
-            <div class="home-wrap">
-                <c-cs-home-panels
-                    data={homeData}
-                    loading={homeLoading}
-                    error={homeError}
-                    onrunsearch={handleRunSaved}
-                    onfavourite={handleFavourite}
-                    onrunexample={handleRunExample}
-                ></c-cs-home-panels>
+          <template lwc:if={panelRow}>
+            <div class="panel-wrap">
+              <c-cs-candidate-panel
+                row={panelRow}
+                criteria={criteria}
+                explanation={panelExplanation}
+                audit-id={auditId}
+                can-shortlist={canShortlist}
+                position={panelPosition}
+                onclose={closePanel}
+                onnavigate={handlePanelNavigate}
+                onexplain={handleExplainRow}
+                onshortlist={handlePanelShortlist}
+                ondismiss={handlePanelDismiss}
+              ></c-cs-candidate-panel>
             </div>
+          </template>
+        </div>
+
+        <template lwc:if={chatOpen}>
+          <div class="chat-wrap">
+            <c-cs-refine-chat
+              turns={chatTurns}
+              busy={busy}
+              can-undo={canUndo}
+              onrefine={handleRefine}
+              onundo={handleUndo}
+              onclose={closeChat}
+            ></c-cs-refine-chat>
+          </div>
         </template>
-        <template lwc:else>
-            <div class={workspaceCls}>
-                <div class="main">
-                    <div class="toolbar">
-                        <div class="toolbar-title">{resultTitle}</div>
-                        <div class="toolbar-actions">
-                            <template lwc:if={canUndo}>
-                                <button class="btn btn-sm btn-ghost" data-action="undo" onclick={handleUndo} disabled={busy} title="Undo the last change">
-                                    <c-cs-icon name="undo" size="14"></c-cs-icon>Undo
-                                </button>
-                                <button
-                                    class="btn btn-sm"
-                                    data-action="reset"
-                                    onclick={handleReset}
-                                    disabled={busy}
-                                    title="Go back to the search as it was first run, before any edits or refine turns"
-                                >
-                                    <c-cs-icon name="reset" size="14"></c-cs-icon>Reset changes
-                                </button>
-                            </template>
-                            <template lwc:if={showChatToggle}>
-                                <button class="btn btn-sm btn-ai" data-action="open-chat" onclick={openChat}>
-                                    <c-cs-icon name="message" size="14"></c-cs-icon>Refine
-                                </button>
-                            </template>
-                        </div>
-                    </div>
-                    <div class="list-wrap">
-                        <c-cs-result-list
-                            rows={rows}
-                            criteria={criteria}
-                            explanations={explanations}
-                            selected-ids={selectedIds}
-                            active-doc-id={panelDocId}
-                            prev-ranks={prevRanks}
-                            removed-count={removedCount}
-                            total={total}
-                            has-more={hasMore}
-                            loading={loading}
-                            loading-more={loadingMore}
-                            hidden-count={hiddenCount}
-                            facets={facets}
-                            notices={notices}
-                            request-xml={requestXml}
-                            error={error}
-                            onloadmore={handleLoadMore}
-                            onrowopen={handleRowOpen}
-                            onrowselect={handleRowSelect}
-                            onselectpage={handleSelectPage}
-                            onexplain={handleExplainRow}
-                            onfacetchange={handleFacetChange}
-                            onshowhidden={handleShowHidden}
-                        ></c-cs-result-list>
-                    </div>
+      </div>
+    </template>
 
-                    <template lwc:if={panelRow}>
-                        <div class="panel-wrap">
-                            <c-cs-candidate-panel
-                                row={panelRow}
-                                criteria={criteria}
-                                explanation={panelExplanation}
-                                audit-id={auditId}
-                                can-shortlist={canShortlist}
-                                position={panelPosition}
-                                onclose={closePanel}
-                                onnavigate={handlePanelNavigate}
-                                onexplain={handleExplainRow}
-                                onshortlist={handlePanelShortlist}
-                                ondismiss={handlePanelDismiss}
-                            ></c-cs-candidate-panel>
-                        </div>
-                    </template>
-                </div>
+    <template lwc:if={hasSelection}>
+      <div class="tray-wrap">
+        <c-cs-selection-tray
+          selected={selectedList}
+          job-id={jobId}
+          busy={bulkBusy}
+          oncompare={handleCompare}
+          onaddtojob={handleAddToJob}
+          onaddtopool={handleAddToPool}
+          onemail={openEmail}
+          ondeselect={handleTrayDeselect}
+          onclear={clearSelection}
+        ></c-cs-selection-tray>
+      </div>
+    </template>
 
-                <template lwc:if={chatOpen}>
-                    <div class="chat-wrap">
-                        <c-cs-refine-chat
-                            turns={chatTurns}
-                            busy={busy}
-                            can-undo={canUndo}
-                            onrefine={handleRefine}
-                            onundo={handleUndo}
-                            onclose={closeChat}
-                        ></c-cs-refine-chat>
-                    </div>
-                </template>
+    <template lwc:if={compareOpen}>
+      <div class="backdrop" onclick={closeCompare}>
+        <div class="modal" onclick={stopBackdrop}>
+          <c-cs-compare
+            data={compareData}
+            loading={compareLoading}
+            error={compareError}
+            onclose={closeCompare}
+            onremove={handleCompareRemove}
+          ></c-cs-compare>
+        </div>
+      </div>
+    </template>
+
+    <template lwc:if={parserOpen}>
+      <div class="backdrop">
+        <section
+          class="parser-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Parse a new candidate"
+          onkeydown={parserKeydown}
+        >
+          <header class="parser-head">
+            <h2>Parse a new candidate</h2>
+            <button
+              class="btn-icon parser-close"
+              onclick={closeParser}
+              aria-label="Close"
+              title="Close"
+            >
+              <c-cs-icon name="x" size="18"></c-cs-icon>
+            </button>
+          </header>
+          <div class="parser-body">
+            <c-tx-resume-parser></c-tx-resume-parser>
+          </div>
+        </section>
+      </div>
+    </template>
+
+    <template lwc:if={emailOpen}>
+      <div class="backdrop">
+        <section
+          class="parser-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={emailTitle}
+          onkeydown={emailKeydown}
+        >
+          <header class="parser-head">
+            <h2>{emailTitle}</h2>
+            <button
+              class="btn-icon email-close"
+              onclick={closeEmail}
+              aria-label="Close"
+              title="Close"
+            >
+              <c-cs-icon name="x" size="18"></c-cs-icon>
+            </button>
+          </header>
+          <div class="parser-body">
+            <lightning-flow
+              flow-api-name={emailFlowApiName}
+              flow-input-variables={emailFlowInputs}
+              onstatuschange={handleEmailStatus}
+            ></lightning-flow>
+          </div>
+        </section>
+      </div>
+    </template>
+
+    <template lwc:if={hasToasts}>
+      <div class="toasts" role="status" aria-live="polite">
+        <template for:each={toasts} for:item="t">
+          <div key={t.id} class={t.cls}>
+            <span class="toast-icon"
+              ><c-cs-icon name={t.icon} size="15" stroke-width="2.5"></c-cs-icon
+            ></span>
+            <div class="toast-text">
+              <div class="toast-title">{t.title}</div>
+              <div class="toast-msg">{t.message}</div>
             </div>
+            <button
+              class="btn-icon sm toast-x"
+              data-id={t.id}
+              onclick={dismissToast}
+              aria-label="Dismiss"
+            >
+              <c-cs-icon name="x" size="13"></c-cs-icon>
+            </button>
+          </div>
         </template>
-
-        <template lwc:if={hasSelection}>
-            <div class="tray-wrap">
-                <c-cs-selection-tray
-                    selected={selectedList}
-                    job-id={jobId}
-                    busy={bulkBusy}
-                    oncompare={handleCompare}
-                    onaddtojob={handleAddToJob}
-                    onaddtopool={handleAddToPool}
-                    ondeselect={handleTrayDeselect}
-                    onclear={clearSelection}
-                ></c-cs-selection-tray>
-            </div>
-        </template>
-
-        <template lwc:if={compareOpen}>
-            <div class="backdrop" onclick={closeCompare}>
-                <div class="modal" onclick={stopBackdrop}>
-                    <c-cs-compare
-                        data={compareData}
-                        loading={compareLoading}
-                        error={compareError}
-                        onclose={closeCompare}
-                        onremove={handleCompareRemove}
-                    ></c-cs-compare>
-                </div>
-            </div>
-        </template>
-
-        <template lwc:if={parserOpen}>
-            <div class="backdrop">
-                <section class="parser-modal" role="dialog" aria-modal="true" aria-label="Parse a new candidate" onkeydown={parserKeydown}>
-                    <header class="parser-head">
-                        <h2>Parse a new candidate</h2>
-                        <button class="btn-icon parser-close" onclick={closeParser} aria-label="Close" title="Close">
-                            <c-cs-icon name="x" size="18"></c-cs-icon>
-                        </button>
-                    </header>
-                    <div class="parser-body">
-                        <c-tx-resume-parser></c-tx-resume-parser>
-                    </div>
-                </section>
-            </div>
-        </template>
-
-        <template lwc:if={hasToasts}>
-            <div class="toasts" role="status" aria-live="polite">
-                <template for:each={toasts} for:item="t">
-                    <div key={t.id} class={t.cls}>
-                        <span class="toast-icon"><c-cs-icon name={t.icon} size="15" stroke-width="2.5"></c-cs-icon></span>
-                        <div class="toast-text">
-                            <div class="toast-title">{t.title}</div>
-                            <div class="toast-msg">{t.message}</div>
-                        </div>
-                        <button class="btn-icon sm toast-x" data-id={t.id} onclick={dismissToast} aria-label="Dismiss">
-                            <c-cs-icon name="x" size="13"></c-cs-icon>
-                        </button>
-                    </div>
-                </template>
-            </div>
-        </template>
-    </div>
+      </div>
+    </template>
+  </div>
 </template>
