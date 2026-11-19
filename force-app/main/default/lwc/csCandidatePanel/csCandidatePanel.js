@@ -18,7 +18,6 @@ const TK_PROFILE = [
     { fields: ['recent_jobtitles', 'lastjobtitle'], label: 'Recent positions' },
     { fields: ['jobtitles'], label: 'All positions' },
     { fields: ['workfield'], label: 'Current work field' },
-    { fields: ['experiencelevel'], label: 'Experience level' },
     { fields: ['employers'], label: 'All employers' },
     { fields: ['experience_years'], label: 'Years of experience' },
     { fields: ['educationlevel_international'], label: 'Education level' },

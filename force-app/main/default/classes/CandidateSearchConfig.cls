@@ -26,7 +26,7 @@ public with sharing class CandidateSearchConfig {
      * a Text(255) field and cannot hold them all.
      */
     public static final List<String> PROFILE_RESULT_FIELDS = new List<String>{
-        'lastjobtitle', 'workfield', 'experiencelevel', 'employers', 'experience_years', 'educationlevel_international',
+        'lastjobtitle', 'workfield', 'employers', 'experience_years', 'educationlevel_international',
         'degree_name', 'degree_institute', 'language_skills', 'professional_skills', 'soft_skills', 'custom_nested_object_1',
         'date_available', 'documentdate', 'job_submissions', 'current_salary', 'salary'
     };
