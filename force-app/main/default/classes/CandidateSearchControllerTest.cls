@@ -404,4 +404,21 @@ private class CandidateSearchControllerTest {
         System.assertEquals('cv-new.pdf', CandidateSearchController.pickCv(docs).Name);
         System.assertEquals(null, CandidateSearchController.pickCv(new List<TR1__ContactDocument__c>()));
     }
+
+    @isTest
+    static void professionAndSkillSuggestionsComeFromTheTxOntology() {
+        CandidateSearchTestMocks.install();
+        Test.startTest();
+        List<Object> profs = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.suggestProfessions('forklift'));
+        List<Object> fromProf = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.suggestSkillsForProfession(2357));
+        List<Object> similar = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.suggestSimilarSkills('["KS120076FGP5WGWYMP0F"]'));
+        Test.stopTest();
+        System.assertEquals(2357, ((Map<String, Object>) profs[0]).get('codeId'));
+        System.assertEquals('Forklift Truck Operation', ((Map<String, Object>) fromProf[0]).get('description'));
+        System.assertEquals(2, similar.size());
+        Map<String, Object> sent = (Map<String, Object>) System.JSON.deserializeUntyped(CandidateSearchTestMocks.requests[1].getBody());
+        System.assertEquals(new List<Object>{ 2357 }, sent.get('ProfessionCodeIds'));
+        System.assertEquals('[]', CandidateSearchController.suggestProfessions('f'));
+        System.assertEquals('[]', CandidateSearchController.suggestSimilarSkills('[]'));
+    }
 }

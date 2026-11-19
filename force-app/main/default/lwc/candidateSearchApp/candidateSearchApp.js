@@ -502,6 +502,8 @@ export default class CandidateSearchApp extends LightningElement {
     }
 
     changeCriteria(criteria, summary) {
+        // A chip added from the type-ahead on the home page starts a search
+        if (!this.started) this.resetForNewSearch();
         this.pushHistory();
         const next = clone(criteria);
         next.trace = { searchType: 'Manual', parentAuditId: this.auditId };

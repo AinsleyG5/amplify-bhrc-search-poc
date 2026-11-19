@@ -20,6 +20,7 @@
 
 .nl-input {
     flex: 1;
+    width: 100%;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -64,6 +65,152 @@
 
 .nl-text::placeholder {
     color: var(--amp-subtle);
+}
+
+.nl-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+}
+
+/* Type-ahead dropdown */
+.ta {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    background: var(--amp-surface);
+    border: 1px solid var(--amp-line);
+    border-radius: var(--amp-r);
+    box-shadow: var(--amp-shadow-lg);
+    color: var(--amp-text);
+}
+
+.ta-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: var(--amp-r-sm);
+    cursor: pointer;
+    font-size: 13.5px;
+}
+
+.ta-active {
+    background: var(--amp-blue-50);
+}
+
+.ta-icon {
+    display: inline-flex;
+    color: var(--amp-subtle);
+}
+
+.ta-ai .ta-icon {
+    color: var(--amp-blue-600);
+}
+
+.ta-label {
+    font-weight: 600;
+    color: var(--amp-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ta-sub {
+    font-size: 12px;
+    color: var(--amp-subtle);
+    white-space: nowrap;
+}
+
+.ta-status {
+    cursor: default;
+    color: var(--amp-muted);
+}
+
+.ta-status .ta-label {
+    font-weight: 500;
+    color: var(--amp-muted);
+}
+
+/* Suggested skills strip */
+.strip {
+    padding: 12px 14px;
+    background: var(--amp-surface);
+    border: 1px solid var(--amp-hero-line);
+    border-radius: var(--amp-r);
+    color: var(--amp-text);
+}
+
+.strip-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.strip-title {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--amp-ink);
+}
+
+.strip-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--amp-muted);
+}
+
+.strip-error {
+    color: var(--amp-red);
+}
+
+.strip-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.sugg {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 11px 0 9px;
+    border: 1px dashed #9cc4e0;
+    border-radius: var(--amp-r-pill);
+    background: var(--amp-blue-50);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--amp-blue-600);
+    cursor: pointer;
+}
+
+.sugg:hover {
+    border-style: solid;
+    border-color: var(--amp-blue-600);
+}
+
+.sugg:focus-visible {
+    outline: 0;
+    box-shadow: var(--amp-ring);
+}
+
+.sugg-added {
+    border-style: solid;
+    border-color: #bfe6d1;
+    background: var(--amp-green-50);
+    color: var(--amp-green);
+    cursor: default;
 }
 
 .nl-actions {

@@ -64,7 +64,13 @@ public class CandidateSearchTestMocks implements HttpCalloutMock {
             res.setBody(envelope('viewDocumentResponse', '<return>' + viewDocumentHtml.escapeXml() + '</return>'));
         } else if (endpoint.startsWith('callout:Tx_Skills_API')) {
             res.setStatusCode(skillsStatus);
-            res.setBody(skillsBody);
+            if (endpoint.contains('/professions/autocomplete')) {
+                res.setBody('{"Value":{"Professions":[{"CodeId":2357,"Description":"Forklift Operator"}]}}');
+            } else if (endpoint.contains('/ontology/')) {
+                res.setBody('{"Value":{"SuggestedSkills":[{"Id":"KS120076FGP5WGWYMP0F","Description":"Forklift Truck Operation","Score":0.92},{"Id":"KS440W865GC4VRBW6LJP","Description":"Reach Truck","Score":0.81}]}}');
+            } else {
+                res.setBody(skillsBody);
+            }
         } else if (endpoint.startsWith('callout:Anthropic_API')) {
             res.setStatusCode(anthropicStatus);
             if (anthropicStatus != 200) {

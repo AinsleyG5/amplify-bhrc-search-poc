@@ -17,6 +17,9 @@ import saveSearch from '@salesforce/apex/CandidateSearchController.saveSearch';
 import searchRecords from '@salesforce/apex/CandidateSearchController.searchRecords';
 import getCandidateCv from '@salesforce/apex/CandidateSearchController.getCandidateCv';
 import getCandidateCvLink from '@salesforce/apex/CandidateSearchController.getCandidateCvLink';
+import suggestProfessions from '@salesforce/apex/CandidateSearchController.suggestProfessions';
+import suggestSkillsForProfession from '@salesforce/apex/CandidateSearchController.suggestSkillsForProfession';
+import autocompleteSkills from '@salesforce/apex/CandidateSearchController.autocompleteSkills';
 
 jest.mock('@salesforce/apex/CandidateSearchController.parseQuery', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.startJobMatch', () => ({ default: jest.fn() }), { virtual: true });
@@ -35,6 +38,9 @@ jest.mock('@salesforce/apex/CandidateSearchController.autocompleteSkills', () =>
 jest.mock('@salesforce/apex/CandidateSearchController.searchRecords', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.getCandidateCv', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.getCandidateCvLink', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/CandidateSearchController.suggestProfessions', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/CandidateSearchController.suggestSkillsForProfession', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/CandidateSearchController.suggestSimilarSkills', () => ({ default: jest.fn() }), { virtual: true });
 
 const CRITERIA = {
     version: 1,
@@ -525,5 +531,48 @@ describe('c-candidate-search-app', () => {
         await flush(6);
         expect(getCandidateCvLink).toHaveBeenCalledWith({ contactId: row(0).contactId });
         expect(window.open).toHaveBeenCalledWith('https://files.example.com/cv.pdf?sig=1', '_blank', 'noopener');
+    });
+
+    it('type-ahead: picking a job title adds a title chip, searches, and suggests skills to add', async () => {
+        jest.useFakeTimers();
+        suggestProfessions.mockResolvedValue(JSON.stringify([{ codeId: 2357, description: 'Forklift Operator' }]));
+        autocompleteSkills.mockResolvedValue(JSON.stringify([{ id: 'KS1', description: 'Forklift Truck Operation', category: 'Logistics' }]));
+        suggestSkillsForProfession.mockResolvedValue(
+            JSON.stringify([
+                { id: 'KS1', description: 'Forklift Truck Operation', score: 0.9 },
+                { id: 'KS2', description: 'Reach Truck', score: 0.8 }
+            ])
+        );
+        runSearch.mockImplementation(({ criteriaJson }) => {
+            const { trace, ...criteria } = JSON.parse(criteriaJson); // eslint-disable-line no-unused-vars
+            return Promise.resolve(response([row(0)], { criteria }));
+        });
+        await flush();
+        const bar = shadow(element, 'c-cs-search-bar');
+        const box = bar.shadowRoot.querySelector('.nl-text');
+        box.value = 'forklift op';
+        box.dispatchEvent(new CustomEvent('input'));
+        await flush();
+        expect(bar.shadowRoot.querySelectorAll('.ta-row').length).toBeGreaterThanOrEqual(1);
+        jest.advanceTimersByTime(350);
+        jest.useRealTimers();
+        await flush(8);
+        expect(suggestProfessions).toHaveBeenCalledWith({ prefix: 'forklift op' });
+        const labels = [...bar.shadowRoot.querySelectorAll('.ta-row .ta-label')].map((l) => l.textContent);
+        expect(labels).toEqual(['forklift op', 'Forklift Operator', 'Forklift Truck Operation']);
+
+        bar.shadowRoot.querySelector('.ta-profession').click();
+        await flush(12);
+        const sent = JSON.parse(runSearch.mock.calls[0][0].criteriaJson);
+        expect(sent.items[0]).toEqual(expect.objectContaining({ kind: 'title', value: 'Forklift Operator', professionCode: 2357, weight: 'required' }));
+        expect(shadow(element, 'c-cs-result-list')).not.toBeNull();
+        expect(suggestSkillsForProfession).toHaveBeenCalledWith({ professionCodeId: 2357 });
+        expect(bar.shadowRoot.querySelector('.strip-title').textContent).toBe('Suggested skills for Forklift Operator');
+
+        bar.shadowRoot.querySelector('.strip-all').click();
+        await flush(12);
+        const second = JSON.parse(runSearch.mock.calls[1][0].criteriaJson);
+        expect(second.items.map((i) => i.code).filter(Boolean)).toEqual(['KS1', 'KS2']);
+        expect(bar.shadowRoot.querySelectorAll('.sugg-added').length).toBe(2);
     });
 });

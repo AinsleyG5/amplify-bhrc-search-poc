@@ -53,6 +53,112 @@ public with sharing class TkSkillsClient {
         return parse(res.getBody());
     }
 
+    // ═════════════════════════════════════════════════════════════
+    // Professions and ontology (Tx Platform v10, same account and key)
+    // ═════════════════════════════════════════════════════════════
+
+    public class Profession {
+        public Integer codeId;
+        public String description;
+    }
+
+    public class SuggestedSkill {
+        public String id;          // KS code
+        public String description;
+        public Decimal score;      // 0-1
+    }
+
+    /** Job titles from the Professions taxonomy that complete the prefix (POST /v10/professions/autocomplete). */
+    public static List<Profession> autocompleteProfessions(String prefix, Integer limitCount) {
+        List<Profession> out = new List<Profession>();
+        if (String.isBlank(prefix) || prefix.trim().length() < 2) return out;
+        CandidateSearchConfig cfg = CandidateSearchConfig.get();
+        Map<String, Object> value = post('/v10/professions/autocomplete', new Map<String, Object>{
+            'Prefix' => prefix.trim(),
+            'Languages' => cfg.autocompleteLanguages,
+            'Limit' => limitCount == null ? 5 : Math.min(limitCount, 20),
+            'OutputLanguage' => 'en'
+        });
+        for (Object o : listOf(value, 'Professions')) {
+            Map<String, Object> m = (Map<String, Object>) o;
+            Profession p = new Profession();
+            p.codeId = m.get('CodeId') == null ? null : Integer.valueOf(String.valueOf(m.get('CodeId')));
+            p.description = (String) m.get('Description');
+            if (p.codeId != null && String.isNotBlank(p.description)) out.add(p);
+        }
+        return out;
+    }
+
+    /** Salient skills and certifications for professions (POST /v10/ontology/v2/suggest-skills-from-professions). */
+    public static List<SuggestedSkill> suggestSkillsFromProfessions(List<Integer> professionCodeIds, Integer limitCount) {
+        if (professionCodeIds == null || professionCodeIds.isEmpty()) return new List<SuggestedSkill>();
+        return suggested(post('/v10/ontology/v2/suggest-skills-from-professions', new Map<String, Object>{
+            'ProfessionCodeIds' => professionCodeIds,
+            'Limit' => limitCount == null ? 12 : Math.min(limitCount, 25),
+            'OutputLanguage' => 'en',
+            'Types' => new List<String>{ 'Professional', 'Certification', 'IT' }
+        }));
+    }
+
+    /** Skills closely related to the given skills (POST /v10/ontology/v2/suggest-skills-from-skills). */
+    public static List<SuggestedSkill> suggestSkillsFromSkills(List<String> skillIds, Integer limitCount) {
+        List<Object> skills = new List<Object>();
+        for (String id : skillIds == null ? new List<String>() : skillIds) {
+            if (String.isNotBlank(id)) skills.add(new Map<String, Object>{ 'Id' => id, 'Score' => 1 });
+        }
+        if (skills.isEmpty()) return new List<SuggestedSkill>();
+        return suggested(post('/v10/ontology/v2/suggest-skills-from-skills', new Map<String, Object>{
+            'Skills' => skills,
+            'Limit' => limitCount == null ? 12 : Math.min(limitCount, 25),
+            'OutputLanguage' => 'en',
+            'Types' => new List<String>{ 'Professional', 'Certification', 'IT' }
+        }));
+    }
+
+    private static List<SuggestedSkill> suggested(Map<String, Object> value) {
+        List<SuggestedSkill> out = new List<SuggestedSkill>();
+        for (Object o : listOf(value, 'SuggestedSkills')) {
+            Map<String, Object> m = (Map<String, Object>) o;
+            SuggestedSkill sk = new SuggestedSkill();
+            sk.id = (String) m.get('Id');
+            sk.description = (String) m.get('Description');
+            sk.score = m.get('Score') == null ? null : Decimal.valueOf(String.valueOf(m.get('Score')));
+            if (String.isNotBlank(sk.id) && String.isNotBlank(sk.description)) out.add(sk);
+        }
+        return out;
+    }
+
+    private static List<Object> listOf(Map<String, Object> value, String key) {
+        Object v = value == null ? null : value.get(key);
+        return v instanceof List<Object> ? (List<Object>) v : new List<Object>();
+    }
+
+    /** POSTs JSON to a Tx Platform path and returns the response's Value object. Not cached (Textkernel terms). */
+    private static Map<String, Object> post(String path, Map<String, Object> payload) {
+        CandidateSearchConfig cfg = CandidateSearchConfig.get();
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint('callout:' + cfg.skillsNamedCredential + path);
+        req.setMethod('POST');
+        req.setHeader('Content-Type', 'application/json');
+        req.setHeader('Accept', 'application/json');
+        req.setHeader('Tx-AccountId', cfg.txAccountId);
+        req.setTimeout(10000);
+        req.setBody(System.JSON.serialize(payload));
+        HttpResponse res;
+        try {
+            res = new Http().send(req);
+        } catch (CalloutException e) {
+            throw new SkillsException('The Textkernel ontology service did not answer: ' + e.getMessage());
+        }
+        if (res.getStatusCode() == 429) throw new SkillsException('The Textkernel ontology service is busy (rate limit). Try again in a moment.');
+        if (res.getStatusCode() < 200 || res.getStatusCode() > 299) {
+            throw new SkillsException('The Textkernel ontology service returned HTTP ' + res.getStatusCode() + ' for ' + path + ': ' + String.valueOf(res.getBody()).abbreviate(300));
+        }
+        Object root = System.JSON.deserializeUntyped(res.getBody());
+        Object value = root instanceof Map<String, Object> ? ((Map<String, Object>) root).get('Value') : null;
+        return value instanceof Map<String, Object> ? (Map<String, Object>) value : new Map<String, Object>();
+    }
+
     @TestVisible
     private static List<Skill> parse(String body) {
         List<Skill> out = new List<Skill>();

@@ -386,6 +386,45 @@ public with sharing class CandidateSearchController {
         }
     }
 
+    /** Type-ahead: Textkernel professions (job titles) for the typed text. Returns [{ codeId, description }]. */
+    @AuraEnabled
+    public static String suggestProfessions(String prefix) {
+        if (String.isBlank(prefix) || prefix.trim().length() < 2) return '[]';
+        try {
+            return System.JSON.serialize(TkSkillsClient.autocompleteProfessions(prefix, 5));
+        } catch (Exception e) {
+            throw fail(e.getMessage());
+        }
+    }
+
+    /** Skills and certifications Textkernel associates with a profession. Returns [{ id, description, score }]. */
+    @AuraEnabled
+    public static String suggestSkillsForProfession(Integer professionCodeId) {
+        if (professionCodeId == null) return '[]';
+        try {
+            return System.JSON.serialize(TkSkillsClient.suggestSkillsFromProfessions(new List<Integer>{ professionCodeId }, 12));
+        } catch (Exception e) {
+            throw fail(e.getMessage());
+        }
+    }
+
+    /** Skills related to the given skill codes (KS ids, JSON list). Returns [{ id, description, score }]. */
+    @AuraEnabled
+    public static String suggestSimilarSkills(String skillIdsJson) {
+        List<String> ids;
+        try {
+            ids = (List<String>) System.JSON.deserialize(String.isBlank(skillIdsJson) ? '[]' : skillIdsJson, List<String>.class);
+        } catch (Exception e) {
+            throw fail('skillIdsJson must be a JSON list of skill ids.');
+        }
+        if (ids.isEmpty()) return '[]';
+        try {
+            return System.JSON.serialize(TkSkillsClient.suggestSkillsFromSkills(ids, 12));
+        } catch (Exception e) {
+            throw fail(e.getMessage());
+        }
+    }
+
     @AuraEnabled
     public static String getRecentAndSaved() {
         Id me = UserInfo.getUserId();
