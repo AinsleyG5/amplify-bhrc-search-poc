@@ -3,32 +3,15 @@
     <apiVersion>62.0</apiVersion>
     <isExposed>true</isExposed>
     <masterLabel>Bullhorn - Candidate Search</masterLabel>
-    <description
-  >Natural-language candidate search with Textkernel, job match, refine chat, explanations, compare and bulk actions. Reads c__jobId and c__q from the page state.</description>
+    <description>Natural-language candidate search with Textkernel, job match, refine chat, explanations, compare and bulk actions. Reads c__jobId and c__q from the page state.</description>
     <targets>
         <target>lightning__AppPage</target>
     </targets>
     <targetConfigs>
         <targetConfig targets="lightning__AppPage">
-            <property
-        name="heading"
-        type="String"
-        label="Page title"
-        default="Candidate Search"
-      />
-            <property
-        name="logoUrl"
-        type="String"
-        label="Logo URL (optional)"
-        description="Image URL for the Amplify logo, for example /resource/AmplifyLogo. Blank shows the Amplify wordmark."
-      />
-            <property
-        name="emailFlowApiName"
-        type="String"
-        label="Send email flow"
-        default="TR1__AEF_Send_Email"
-        description="API name of the packaged screen flow that sends email to the selected candidates (input recipientIds)."
-      />
+            <property name="heading" type="String" label="Page title" default="Candidate Search" />
+            <property name="logoUrl" type="String" label="Logo URL (optional)" description="Image URL for the Amplify logo, for example /resource/AmplifyLogo. Blank shows the Amplify wordmark." />
+            <property name="emailFlowApiName" type="String" label="Send email flow" default="TR1__AEF_Send_Email" description="API name of the packaged screen flow that sends email to the selected candidates (input recipientIds)." />
         </targetConfig>
     </targetConfigs>
 </LightningComponentBundle>
