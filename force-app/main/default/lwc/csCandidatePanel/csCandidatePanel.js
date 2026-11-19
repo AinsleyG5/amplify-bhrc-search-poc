@@ -1,6 +1,7 @@
 import { LightningElement, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import getCandidateDetail from '@salesforce/apex/CandidateSearchController.getCandidateDetail';
+import describeSkills from '@salesforce/apex/CandidateSearchController.describeSkills';
 import { metAndNotMet, kindLabel, weightLabel, formatDate, highlightSegments, initials, avatarClass, ring, normalizeError, READ_ONLY_KINDS } from 'c/csUtils';
 
 const TABS = [
@@ -34,6 +35,14 @@ const TK_PROFILE = [
     { fields: ['salary'], label: 'Desired salary', number: true }
 ];
 const PROFILE_LIST_MAX = 12;
+
+/** Textkernel skill codes (KS...) are shown by name, never as codes. */
+const SKILL_CODE = /^KS[0-9A-Z]{6,}$/;
+/** Internal values that are never shown (nested-object keys, flags). */
+const JUNK = /^(custom_(text|date|numeric)_\d+|true|false)$/i;
+const SKILL_FIELDS = ['it_skills', 'language_skills', 'professional_skills', 'profskills', 'soft_skills', 'custom_nested_object_1'];
+/** Session cache of skill names (Textkernel's terms require lookups to be cached). */
+const SKILL_NAMES = new Map();
 
 /** Chip kinds whose values are words to look for in the CV (not locations, dates or Textkernel-generated parts). */
 const CV_TERM_KINDS = new Set(['title', 'skill', 'certification', 'keyword', 'language', 'shift']);
@@ -72,6 +81,7 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
             this.detailError = null;
             // After this render's other @api values (auditId) are set
             if (value && value.contactId) Promise.resolve().then(() => this.loadDetail(value.contactId));
+            if (this.tab === 'profile') Promise.resolve().then(() => this.loadSkillNames());
         }
     }
 
@@ -238,11 +248,18 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
             const seen = new Set();
             const values = [];
             raw.forEach((v) => {
-                const segs = highlightSegments(v);
-                const text = segs
+                let segs = highlightSegments(v);
+                let text = segs
                     .map((g) => g.text)
                     .join('')
                     .trim();
+                if (JUNK.test(text)) return;
+                if (SKILL_CODE.test(text)) {
+                    const name = this.skillNames[text];
+                    if (!name) return;
+                    text = name;
+                    segs = [{ key: 's0', text: name, cls: 'hl-txt' }];
+                }
                 const key = text.toLowerCase();
                 if (!text || seen.has(key)) return;
                 seen.add(key);
@@ -280,6 +297,32 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
 
     selectTab(event) {
         this.tab = event.currentTarget.dataset.tab;
+        if (this.tab === 'profile') this.loadSkillNames();
+    }
+
+    /** id -> name, copied from the session cache so the profile re-renders when names arrive. */
+    skillNames = {};
+
+    async loadSkillNames() {
+        const fields = (this._row && this._row.fields) || {};
+        const codes = new Set();
+        SKILL_FIELDS.forEach((f) =>
+            [].concat(fields[f] || []).forEach((v) => {
+                const t = String(v)
+                    .replace(/<\/?b>/gi, '')
+                    .trim();
+                if (SKILL_CODE.test(t) && !SKILL_NAMES.has(t)) codes.add(t);
+            })
+        );
+        if (codes.size) {
+            try {
+                const names = JSON.parse(await describeSkills({ skillIdsJson: JSON.stringify([...codes].slice(0, 100)) }));
+                Object.keys(names || {}).forEach((k) => SKILL_NAMES.set(k, names[k]));
+            } catch {
+                // Lookup unavailable (a Textkernel add-on): codes stay hidden rather than shown raw
+            }
+        }
+        this.skillNames = Object.fromEntries(SKILL_NAMES);
     }
 
     handleTabKeydown(event) {

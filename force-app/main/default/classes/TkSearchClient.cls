@@ -496,7 +496,7 @@ public with sharing class TkSearchClient {
             if (key == null) continue;
             List<String> raw = new List<String>();
             for (Dom.XmlNode c : entry.getChildElements()) {
-                if (c.getName() == 'value') collectLeaves(c, raw);
+                if (c.getName() == 'value') collectItems(c, raw);
             }
             List<String> plain = new List<String>();
             for (String v : raw) {
@@ -520,6 +520,47 @@ public with sharing class TkSearchClient {
             if (name == 'field' || name == 'name' || name == 'fieldName') continue;
             collectLeaves(c, target.get(field));
         }
+    }
+
+    /** Keys that name a nested object (certifications: custom_text_1 is the name in the connector mapping). */
+    private static final List<String> NESTED_NAME_KEYS = new List<String>{ 'description', 'name', 'label', 'custom_text_1', 'text', 'value' };
+
+    /**
+     * Values of one field. A plain <item><value>x</value></item> gives x; a nested object
+     * (<item><value><entry><key>custom_text_1</key><value>...</value></entry>...</value></item>) gives only its name,
+     * so keys such as custom_text_9 or flags such as false never reach the UI.
+     */
+    private static void collectItems(Dom.XmlNode valueNode, List<String> out) {
+        if (descendants(valueNode, 'entry').isEmpty()) {
+            collectLeaves(valueNode, out);
+            return;
+        }
+        // Group entries per item so each nested object yields one name
+        for (Dom.XmlNode item : descendants(valueNode, 'item')) {
+            Map<String, String> m = new Map<String, String>();
+            for (Dom.XmlNode e : descendants(item, 'entry')) {
+                String k = firstText(e, new List<String>{ 'key' });
+                List<String> vals = new List<String>();
+                for (Dom.XmlNode c : e.getChildElements()) if (c.getName() == 'value') collectLeaves(c, vals);
+                if (k != null && !vals.isEmpty() && !m.containsKey(k.toLowerCase())) m.put(k.toLowerCase(), vals[0]);
+            }
+            if (m.isEmpty()) continue;
+            for (String nk : NESTED_NAME_KEYS) {
+                if (String.isNotBlank(m.get(nk))) {
+                    out.add(m.get(nk));
+                    break;
+                }
+            }
+        }
+    }
+
+    private static List<Dom.XmlNode> descendants(Dom.XmlNode n, String name) {
+        List<Dom.XmlNode> out = new List<Dom.XmlNode>();
+        for (Dom.XmlNode c : n.getChildElements()) {
+            if (c.getName() == name) out.add(c);
+            else out.addAll(descendants(c, name));
+        }
+        return out;
     }
 
     private static void collectLeaves(Dom.XmlNode n, List<String> out) {

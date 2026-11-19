@@ -41,6 +41,8 @@ jest.mock('@salesforce/apex/CandidateSearchController.getCandidateCvLink', () =>
 jest.mock('@salesforce/apex/CandidateSearchController.suggestProfessions', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.suggestSkillsForProfession', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.suggestSimilarSkills', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/CandidateSearchController.describeSkills', () => ({ default: jest.fn(() => Promise.resolve('{}')) }), { virtual: true });
+jest.mock('@salesforce/apex/CandidateSearchController.matchCandidateToJobs', () => ({ default: jest.fn() }), { virtual: true });
 
 const CRITERIA = {
     version: 1,

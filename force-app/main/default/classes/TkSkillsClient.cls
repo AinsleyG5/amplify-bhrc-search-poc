@@ -115,6 +115,32 @@ public with sharing class TkSkillsClient {
         }));
     }
 
+    /**
+     * Skill names for KS codes (POST /v10/skills/v2/lookup, up to 100 ids). Textkernel's terms require the response
+     * to be cached: the controller method is cacheable and the LWC keeps a session cache. Returns id -> description.
+     */
+    public static Map<String, String> lookupSkills(List<String> skillIds) {
+        Map<String, String> out = new Map<String, String>();
+        List<String> ids = new List<String>();
+        for (String id : skillIds == null ? new List<String>() : skillIds) {
+            if (String.isNotBlank(id) && ids.size() < 100 && !ids.contains(id)) ids.add(id);
+        }
+        if (ids.isEmpty()) return out;
+        Map<String, Object> value = post('/v10/skills/v2/lookup', new Map<String, Object>{ 'SkillIds' => ids, 'OutputLanguage' => 'en' });
+        List<Object> items = listOf(value, 'Skills');
+        if (items.isEmpty()) {
+            for (Object v : value.values()) if (v instanceof List<Object> && items.isEmpty()) items = (List<Object>) v;
+        }
+        for (Object o : items) {
+            if (!(o instanceof Map<String, Object>)) continue;
+            Map<String, Object> m = (Map<String, Object>) o;
+            String id = (String) m.get('Id');
+            String d = (String) m.get('Description');
+            if (String.isNotBlank(id) && String.isNotBlank(d)) out.put(id, d);
+        }
+        return out;
+    }
+
     private static List<SuggestedSkill> suggested(Map<String, Object> value) {
         List<SuggestedSkill> out = new List<SuggestedSkill>();
         for (Object o : listOf(value, 'SuggestedSkills')) {

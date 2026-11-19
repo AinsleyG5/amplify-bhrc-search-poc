@@ -397,6 +397,22 @@ public with sharing class CandidateSearchController {
         }
     }
 
+    /** Names for Textkernel skill codes (KS ids, JSON list), for the Profile tab. Cacheable per Textkernel's terms. */
+    @AuraEnabled(cacheable=true)
+    public static String describeSkills(String skillIdsJson) {
+        List<String> ids;
+        try {
+            ids = (List<String>) System.JSON.deserialize(String.isBlank(skillIdsJson) ? '[]' : skillIdsJson, List<String>.class);
+        } catch (Exception e) {
+            throw fail('skillIdsJson must be a JSON list of skill ids.');
+        }
+        try {
+            return System.JSON.serialize(TkSkillsClient.lookupSkills(ids));
+        } catch (Exception e) {
+            throw fail(e.getMessage());
+        }
+    }
+
     /** Skills and certifications Textkernel associates with a profession. Returns [{ id, description, score }]. */
     @AuraEnabled
     public static String suggestSkillsForProfession(Integer professionCodeId) {
