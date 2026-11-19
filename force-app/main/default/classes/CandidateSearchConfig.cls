@@ -16,11 +16,29 @@ public with sharing class CandidateSearchConfig {
     public String tkNamedCredential = 'TK_Candidate_Search';
     public String tkExternalCredential = 'TK_Search_Service_Account';
     public String tkAccessRoles = 'all';
-    public String tkExcludeCondition = 'EXCLUDED';
+    /**
+     * Only used to read TK-generated parts back. Exclusions are sent as -field:value in the query string:
+     * no condition spelling excludes (tkExclude.apex), they all behave as REQUIRED.
+     */
+    public String tkExcludeCondition;
+    /**
+     * Textkernel profile fields for the panel's Profile tab. Always requested on top of TK_Result_Fields__c, which is
+     * a Text(255) field and cannot hold them all.
+     */
+    public static final List<String> PROFILE_RESULT_FIELDS = new List<String>{
+        'lastjobtitle', 'workfield', 'employers', 'experience_years', 'educationlevel_international',
+        'degree_name', 'degree_institute', 'language_skills', 'professional_skills', 'soft_skills', 'custom_nested_object_1',
+        'date_available', 'documentdate', 'job_submissions', 'current_salary', 'salary'
+    };
+
     public List<String> tkResultFields = new List<String>{
         'fullname', 'jobtitles', 'recent_jobtitles', 'city', 'candidate_status',
         'custom_date_1', 'owner_id', 'owner_name', 'it_skills', 'profskills'
     };
+
+    {
+        tkResultFields.addAll(PROFILE_RESULT_FIELDS);
+    }
     public String tkTitleField = 'FULLTEXT';
     public String tkSkillCodeField = 'it_skills';
     public String tkCertificationCodeField;
@@ -86,9 +104,10 @@ public with sharing class CandidateSearchConfig {
         cfg.tkNamedCredential = text(rec.TK_Named_Credential__c, cfg.tkNamedCredential);
         cfg.tkExternalCredential = text(rec.TK_External_Credential__c, cfg.tkExternalCredential);
         cfg.tkAccessRoles = text(rec.TK_Access_Roles__c, cfg.tkAccessRoles);
-        cfg.tkExcludeCondition = text(rec.TK_Exclude_Condition__c, cfg.tkExcludeCondition);
+        cfg.tkExcludeCondition = text(rec.TK_Exclude_Condition__c, null);
         if (String.isNotBlank(rec.TK_Result_Fields__c)) {
             cfg.tkResultFields = splitList(rec.TK_Result_Fields__c);
+            for (String f : PROFILE_RESULT_FIELDS) if (!cfg.tkResultFields.contains(f)) cfg.tkResultFields.add(f);
         }
         cfg.tkTitleField = text(rec.TK_Title_Field__c, cfg.tkTitleField);
         cfg.tkSkillCodeField = text(rec.TK_Skill_Code_Field__c, cfg.tkSkillCodeField);
@@ -133,6 +152,8 @@ public with sharing class CandidateSearchConfig {
         public String toolDescription;
         public String toolSchemaJson;
         public String templateName;
+        /** output_config.effort: low, medium, high, xhigh, max. Null = model default. */
+        public String effort;
     }
 
     @TestVisible
@@ -143,7 +164,16 @@ public with sharing class CandidateSearchConfig {
         if (promptOverrides.containsKey(name)) {
             return promptOverrides.get(name);
         }
-        Candidate_Search_Prompt__mdt rec = Candidate_Search_Prompt__mdt.getInstance(name);
+        // SOQL, not getInstance(): getInstance() cuts long text area fields to 255 characters,
+        // which truncates the system prompt and the tool schema
+        List<Candidate_Search_Prompt__mdt> recs = [
+            SELECT DeveloperName, System_Prompt__c, Model__c, Max_Tokens__c, Timeout_Seconds__c,
+                   Tool_Name__c, Tool_Description__c, Tool_Schema_JSON__c, Prompt_Template_Name__c, Effort__c
+            FROM Candidate_Search_Prompt__mdt
+            WHERE DeveloperName = :name
+            LIMIT 1
+        ];
+        Candidate_Search_Prompt__mdt rec = recs.isEmpty() ? null : recs[0];
         if (rec == null) {
             throw new CandidateSearchException('Prompt ' + name + ' is missing from Candidate Search Prompt custom metadata.');
         }
@@ -157,6 +187,7 @@ public with sharing class CandidateSearchConfig {
         p.toolDescription = rec.Tool_Description__c;
         p.toolSchemaJson = rec.Tool_Schema_JSON__c;
         p.templateName = text(rec.Prompt_Template_Name__c, name);
+        p.effort = text(rec.Effort__c, null);
         return p;
     }
 

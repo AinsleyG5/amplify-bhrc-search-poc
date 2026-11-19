@@ -1,0 +1,257 @@
+@import 'c/csStyles';
+
+:host {
+    display: block;
+    height: 100%;
+}
+
+.chat {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--amp-surface);
+    border: 1px solid var(--amp-line);
+    border-radius: var(--amp-r-lg);
+    font-size: 13px;
+    overflow: hidden;
+}
+
+.c-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 12px 14px 18px;
+    border-bottom: 1px solid var(--amp-line);
+}
+
+.c-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--amp-ink);
+}
+
+.c-sub {
+    font-size: 12px;
+    color: var(--amp-muted);
+    margin-top: 2px;
+}
+
+.c-actions {
+    display: flex;
+    gap: 2px;
+}
+
+.log {
+    flex: 1;
+    overflow: auto;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.intro {
+    color: var(--amp-muted);
+    line-height: 1.5;
+}
+
+.intro p {
+    margin: 0 0 6px;
+}
+
+/* Suggestions: a plain list with hairlines, not cards */
+.sugs {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--amp-line-soft);
+}
+
+.sug {
+    text-align: left;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    border: 0;
+    border-bottom: 1px solid var(--amp-line-soft);
+    background: none;
+    padding: 10px 0;
+    cursor: pointer;
+    color: var(--amp-blue-600);
+}
+
+.sug:hover {
+    color: var(--amp-ink);
+}
+
+.sug:focus-visible {
+    outline: 0;
+    box-shadow: inset 0 0 0 2px var(--amp-blue);
+}
+
+.turn {
+    display: flex;
+    flex-direction: column;
+    max-width: 88%;
+}
+
+.turn-user {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+
+.turn-assistant {
+    align-self: flex-start;
+}
+
+.bubble {
+    border-radius: 14px;
+    padding: 9px 13px;
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+.turn-user .bubble {
+    background: var(--amp-blue-600);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+}
+
+.turn-assistant .bubble {
+    background: var(--amp-bg);
+    color: var(--amp-text);
+    border-bottom-left-radius: 4px;
+}
+
+/* System lines (result counts, undo) read as quiet captions */
+.turn-system {
+    align-self: stretch;
+    max-width: 100%;
+}
+
+.turn-system .bubble {
+    padding: 0;
+    border-radius: 0;
+    font-size: 12px;
+    color: var(--amp-muted);
+}
+
+.turn-undone .bubble,
+.turn-undone .diffs {
+    opacity: 0.5;
+}
+
+/* What changed: a plain list, one line each */
+.diffs {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    font-size: 12.5px;
+    color: var(--amp-text);
+}
+
+.diff {
+    position: relative;
+    padding: 2px 0 2px 14px;
+}
+
+.diff::before {
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+}
+
+.diff-add::before {
+    content: '+';
+    color: var(--amp-green);
+}
+
+.diff-remove::before {
+    content: '−';
+    color: var(--amp-red);
+}
+
+.diff-change::before {
+    content: '~';
+    color: var(--amp-blue-600);
+}
+
+.undone {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--amp-subtle);
+    margin-top: 4px;
+}
+
+.working {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--amp-muted);
+}
+
+.compose {
+    padding: 12px;
+    border-top: 1px solid var(--amp-line);
+}
+
+.compose-box {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 6px 6px 6px 14px;
+    border: 1px solid var(--amp-line);
+    border-radius: 22px;
+    background: var(--amp-surface);
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
+}
+
+.compose-box:focus-within {
+    border-color: var(--amp-blue);
+    box-shadow: var(--amp-ring);
+}
+
+.msg {
+    flex: 1;
+    resize: none;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+    border: 0;
+    outline: 0;
+    padding: 6px 0;
+    max-height: 120px;
+    background: transparent;
+    color: var(--amp-text);
+}
+
+.send {
+    flex: none;
+    display: inline-grid;
+    place-content: center;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 50%;
+    color: #fff;
+    background: var(--amp-blue-600);
+    cursor: pointer;
+}
+
+.send:hover {
+    background: #00669a;
+}
+
+.send:focus-visible {
+    outline: 0;
+    box-shadow: var(--amp-ring);
+}
+
+.send[disabled] {
+    opacity: 0.35;
+    cursor: not-allowed;
+}

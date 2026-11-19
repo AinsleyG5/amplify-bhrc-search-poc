@@ -11,9 +11,9 @@
  * Errors reach the LWC as AuraHandledException with a readable message. A Textkernel failure on runSearch is
  * returned in the response's "error" instead of thrown, so the failed search can still be audited.
  *
- * Built Wednesday: parseQuery, startJobMatch, runSearch, refine, explainResults, autocompleteSkills,
- * getRecentAndSaved, saveSearch, setFavourite, logAction. getCompareData and the bulk actions come with the
- * Thursday front end.
+ * All of spec 6.1: parseQuery, startJobMatch, runSearch, refine, explainResults, autocompleteSkills,
+ * getRecentAndSaved, saveSearch, setFavourite, logAction, getCompareData, bulkAddToJob, bulkAddToTalentPool.
+ * Added for the candidate panel: getCandidateDetail.
  */
 public with sharing class CandidateSearchController {
 
@@ -69,14 +69,16 @@ public with sharing class CandidateSearchController {
         }
 
         CriteriaService.BuildResult built = CriteriaService.toQueryParts(criteria);
-        if (built.parts.isEmpty()) throw fail('None of the criteria can be sent to Textkernel yet. Add a title, skill or keyword.');
+        if (built.isEmpty()) throw fail('None of the criteria can be sent to Textkernel yet. Add a title, skill or keyword.');
 
-        TkSearchClient.SearchOptions opts = new TkSearchClient.SearchOptions();
+        TkSearchClient.SearchOptions opts = built.options();
         opts.offset = offset == null ? 0 : offset;
         SearchRun run = new SearchRun();
         run.criteria = criteria;
         run.trace = trace;
         run.criteriaIds = built.criteriaIds;
+        run.queryCriteriaIds = built.queryCriteriaIds;
+        run.excludedCriteriaIds = built.excludedCriteriaIds;
         run.notices.addAll(built.notices);
         run.auditId = auditId;
         if (trace.get('aiError') != null) run.notices.add(String.valueOf(trace.get('aiError')));
@@ -128,13 +130,17 @@ public with sharing class CandidateSearchController {
                 if (changed) {
                     run.notices.add('Adjusted the generated query (location, skill cap or softer title) and searched again.');
                     run.criteriaIds = built.criteriaIds;
+                    run.queryCriteriaIds = built.queryCriteriaIds;
+        run.excludedCriteriaIds = built.excludedCriteriaIds;
                     try {
-                        run.result = TkSearchClient.search(built.parts, new TkSearchClient.SearchOptions());
+                        run.result = TkSearchClient.search(built.parts, built.options());
                     } catch (TkSearchClient.TkException e) {
                         // The indexed result is still good: show it rather than fail the match
                         run.notices.add('The adjusted search failed (' + e.getMessage() + '), so these are the unadjusted results.');
                         run.result = indexed;
                         run.criteriaIds = idsInOrder(criteria);
+                        run.queryCriteriaIds = new List<String>();
+                        run.excludedCriteriaIds = new List<String>();
                     }
                     if (run.result !== indexed) {
                         run.result.requestXml = indexed.requestXml + '\n\n' + run.result.requestXml;
@@ -158,10 +164,12 @@ public with sharing class CandidateSearchController {
             }
             CriteriaService.BuildResult built = CriteriaService.toQueryParts(run.criteria);
             run.criteriaIds = built.criteriaIds;
+            run.queryCriteriaIds = built.queryCriteriaIds;
+        run.excludedCriteriaIds = built.excludedCriteriaIds;
             run.notices.addAll(built.notices);
             run.notices.add('Could not use the Textkernel job document (' + indexError + '). Built the search from the job record for ' + jobLabel + ' instead.');
             try {
-                run.result = TkSearchClient.search(built.parts, new TkSearchClient.SearchOptions());
+                run.result = TkSearchClient.search(built.parts, built.options());
             } catch (TkSearchClient.TkException e) {
                 return searchFailed(run, e.getMessage());
             }
@@ -350,9 +358,11 @@ public with sharing class CandidateSearchController {
         if (contactIds.isEmpty()) return out;
         for (Task t : [
             SELECT WhoId, Subject, Description, ActivityDate, CreatedDate FROM Task
-            WHERE WhoId IN :contactIds AND Description != null
+            WHERE WhoId IN :contactIds
             ORDER BY CreatedDate DESC LIMIT 200
         ]) {
+            // Description is a long text field, so it cannot be filtered in SOQL: skip blank notes here
+            if (String.isBlank(t.Description)) continue;
             if (!out.containsKey(t.WhoId)) out.put(t.WhoId, new List<String>());
             List<String> l = out.get(t.WhoId);
             if (l.size() >= 3) continue;
@@ -371,6 +381,61 @@ public with sharing class CandidateSearchController {
         if (String.isBlank(prefix) || prefix.trim().length() < 2) return '[]';
         try {
             return System.JSON.serialize(TkSkillsClient.autocomplete(prefix, null, 10));
+        } catch (Exception e) {
+            throw fail(e.getMessage());
+        }
+    }
+
+    /** Type-ahead: Textkernel professions (job titles) for the typed text. Returns [{ codeId, description }]. */
+    @AuraEnabled
+    public static String suggestProfessions(String prefix) {
+        if (String.isBlank(prefix) || prefix.trim().length() < 2) return '[]';
+        try {
+            return System.JSON.serialize(TkSkillsClient.autocompleteProfessions(prefix, 5));
+        } catch (Exception e) {
+            throw fail(e.getMessage());
+        }
+    }
+
+    /** Names for Textkernel skill codes (KS ids, JSON list), for the Profile tab. Cacheable per Textkernel's terms. */
+    @AuraEnabled(cacheable=true)
+    public static String describeSkills(String skillIdsJson) {
+        List<String> ids;
+        try {
+            ids = (List<String>) System.JSON.deserialize(String.isBlank(skillIdsJson) ? '[]' : skillIdsJson, List<String>.class);
+        } catch (Exception e) {
+            throw fail('skillIdsJson must be a JSON list of skill ids.');
+        }
+        try {
+            return System.JSON.serialize(TkSkillsClient.lookupSkills(ids));
+        } catch (Exception e) {
+            throw fail(e.getMessage());
+        }
+    }
+
+    /** Skills and certifications Textkernel associates with a profession. Returns [{ id, description, score }]. */
+    @AuraEnabled
+    public static String suggestSkillsForProfession(Integer professionCodeId) {
+        if (professionCodeId == null) return '[]';
+        try {
+            return System.JSON.serialize(TkSkillsClient.suggestSkillsFromProfessions(new List<Integer>{ professionCodeId }, 12));
+        } catch (Exception e) {
+            throw fail(e.getMessage());
+        }
+    }
+
+    /** Skills related to the given skill codes (KS ids, JSON list). Returns [{ id, description, score }]. */
+    @AuraEnabled
+    public static String suggestSimilarSkills(String skillIdsJson) {
+        List<String> ids;
+        try {
+            ids = (List<String>) System.JSON.deserialize(String.isBlank(skillIdsJson) ? '[]' : skillIdsJson, List<String>.class);
+        } catch (Exception e) {
+            throw fail('skillIdsJson must be a JSON list of skill ids.');
+        }
+        if (ids.isEmpty()) return '[]';
+        try {
+            return System.JSON.serialize(TkSkillsClient.suggestSkillsFromSkills(ids, 12));
         } catch (Exception e) {
             throw fail(e.getMessage());
         }
@@ -453,6 +518,585 @@ public with sharing class CandidateSearchController {
     }
 
     // ═════════════════════════════════════════════════════════════
+    // Compare and bulk actions
+    // ═════════════════════════════════════════════════════════════
+
+    @TestVisible private static final Integer COMPARE_MIN = 2;
+    @TestVisible private static final Integer COMPARE_MAX = 4;
+    @TestVisible private static final Integer BULK_MAX = 200;
+
+    /** Optional Contact fields for compare: selected only when they exist in the org. */
+    private static final List<String> COMPARE_FIELDS = new List<String>{
+        'TR1__Candidate_Status__c', 'Date_Available__c', 'TR1__Date_Available__c', 'TR1__Last_Placement_Date__c',
+        'TR1__Candidate_Summary__c'
+    };
+
+    /**
+     * 2 to 4 candidates side by side (screen 4). Returns
+     * { auditId, jobId, criteria: [{id, label, kind, weight}], candidates: [...], notices }.
+     * Each candidate carries the TK score and met/not met per chip from the audit row, the AI summary and evidence
+     * (when explained), skills, recent notes, pipeline flags for the audit's job and the profile fields that exist.
+     * Without an auditId (or for a candidate not in it) the TK and AI parts are empty. Logs "Compared" on the audit.
+     */
+    @AuraEnabled
+    public static String getCompareData(String contactIdsJson, Id auditId) {
+        List<Id> ids = contactIdList(contactIdsJson, COMPARE_MAX);
+        if (ids.size() < COMPARE_MIN) throw fail('Pick ' + COMPARE_MIN + ' to ' + COMPARE_MAX + ' candidates to compare.');
+        return System.JSON.serialize(candidateData(ids, auditId, 'compared'));
+    }
+
+    /**
+     * One candidate for the candidate panel (Profile, Skills, Activity tabs): the same shape as one getCompareData
+     * candidate, as { auditId, jobId, criteria, candidate, notices }. Logs "Opened" on the audit.
+     */
+    @AuraEnabled
+    public static String getCandidateDetail(Id contactId, Id auditId) {
+        if (contactId == null || contactId.getSObjectType() != Contact.SObjectType) throw fail('This result has no Salesforce candidate record.');
+        Map<String, Object> data = candidateData(new List<Id>{ contactId }, auditId, 'opened');
+        List<Object> candidates = (List<Object>) data.remove('candidates');
+        if (candidates.isEmpty()) throw fail('That candidate could not be found, or you do not have access to it.');
+        data.put('candidate', candidates[0]);
+        return System.JSON.serialize(data);
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // Match to jobs (reverse match)
+    // ═════════════════════════════════════════════════════════════
+
+    /** Optional job fields shown in the list: selected only when they exist in the org. */
+    private static final List<String> JOB_FIELDS = new List<String>{
+        'TR1__Job_Title__c', 'TR1__Status__c', 'TR1__City__c', 'TR1__Account__r.Name'
+    };
+
+    /**
+     * Jobs that match a candidate, ranked by Textkernel (searchWithUrl in the job environment with the candidate's
+     * document). Returns { jobs: [{ jobId, name, title, status, city, account, scorePct, rank }], total }.
+     * Jobs from another org or not visible to the user are left out.
+     */
+    @AuraEnabled
+    public static String matchCandidateToJobs(String docId) {
+        if (String.isBlank(docId)) throw fail('This result has no Textkernel document.');
+        TkSearchClient.Result r;
+        try {
+            r = TkSearchClient.matchCandidateToJobs(docId, 25);
+        } catch (TkSearchClient.TkException e) {
+            throw fail('Matching jobs failed. ' + e.getMessage());
+        }
+        String org15 = UserInfo.getOrganizationId().left(15);
+        Map<Id, TkSearchClient.Hit> byJob = new Map<Id, TkSearchClient.Hit>();
+        List<Id> order = new List<Id>();
+        for (TkSearchClient.Hit h : r.hits) {
+            if (String.isBlank(h.docId) || !h.docId.contains('_') || !h.docId.startsWith(org15)) continue;
+            Id jobId = idOrNull(h.docId.substringAfterLast('_'));
+            if (jobId == null || byJob.containsKey(jobId)) continue;
+            byJob.put(jobId, h);
+            order.add(jobId);
+        }
+        List<Object> jobs = new List<Object>();
+        if (!order.isEmpty()) {
+            Map<String, Schema.SObjectField> fm = Schema.SObjectType.TR1__Job__c.fields.getMap();
+            List<String> fields = new List<String>{ 'Id', 'Name' };
+            for (String f : JOB_FIELDS) {
+                String base = f.contains('.') ? f.substringBefore('.').replace('__r', '__c') : f;
+                if (fm.containsKey(base.toLowerCase())) fields.add(f);
+            }
+            Set<Id> ids = byJob.keySet();
+            Map<Id, SObject> recs = new Map<Id, SObject>(Database.query('SELECT ' + String.join(fields, ', ') + ' FROM TR1__Job__c WHERE Id IN :ids'));
+            Integer rank = 0;
+            for (Id jobId : order) {
+                SObject j = recs.get(jobId);
+                if (j == null) continue;
+                rank++;
+                TkSearchClient.Hit h = byJob.get(jobId);
+                SObject acct = fields.contains('TR1__Account__r.Name') ? j.getSObject('TR1__Account__r') : null;
+                jobs.add(new Map<String, Object>{
+                    'jobId' => jobId,
+                    'name' => j.get('Name'),
+                    'title' => fields.contains('TR1__Job_Title__c') ? j.get('TR1__Job_Title__c') : null,
+                    'status' => fields.contains('TR1__Status__c') ? j.get('TR1__Status__c') : null,
+                    'city' => fields.contains('TR1__City__c') ? j.get('TR1__City__c') : null,
+                    'account' => acct == null ? null : acct.get('Name'),
+                    'scorePct' => h.scorePct,
+                    'rank' => rank
+                });
+            }
+        }
+        return System.JSON.serialize(new Map<String, Object>{ 'jobs' => jobs, 'total' => r.total });
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // CV tab
+    // ═════════════════════════════════════════════════════════════
+
+    /**
+     * The candidate's CV as HTML from the Textkernel index (View Document Service). The LWC sanitises it and
+     * highlights the search terms. Returns { docId, html }.
+     */
+    @AuraEnabled
+    public static String getCandidateCv(String docId) {
+        if (String.isBlank(docId)) throw fail('This result has no Textkernel document.');
+        String html;
+        try {
+            html = TkSearchClient.viewDocument(docId);
+        } catch (TkSearchClient.TkException e) {
+            throw fail('The CV could not be loaded. ' + e.getMessage());
+        }
+        if (String.isBlank(html)) throw fail('Textkernel has no CV text for this candidate.');
+        return System.JSON.serialize(new Map<String, Object>{ 'docId' => docId, 'html' => html });
+    }
+
+    /**
+     * "Open original": a presigned link (15 minutes by default) to the candidate's CV file, from the BH4SF package
+     * endpoint /TR1/api/v1/contact-documents/{id}/public-url. Its handler classes are public, so this calls the global
+     * REST entry point TR1.RestApiEndpoint.doGet() with a request built here. Picks the default resume, else the
+     * newest resume, else the newest document. Returns { url, name, extension, documentId }.
+     */
+    @AuraEnabled
+    public static String getCandidateCvLink(Id contactId) {
+        if (contactId == null) throw fail('This result has no Salesforce candidate record.');
+        List<TR1__ContactDocument__c> docs = [
+            SELECT Id, Name, TR1__Type__c, TR1__isDefault__c, CreatedDate
+            FROM TR1__ContactDocument__c
+            WHERE TR1__Contact__c = :contactId
+            WITH USER_MODE
+            ORDER BY CreatedDate DESC
+            LIMIT 50
+        ];
+        TR1__ContactDocument__c pick = pickCv(docs);
+        if (pick == null) throw fail('This candidate has no CV file.');
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/TR1/api/v1/contact-documents/' + pick.Id + '/public-url';
+        req.httpMethod = 'GET';
+        RestContext.request = req;
+        RestContext.response = new RestResponse();
+        try {
+            TR1.RestApiEndpoint.doGet();
+        } catch (Exception e) {
+            throw fail('The CV file link could not be created: ' + e.getMessage());
+        }
+        Integer status = RestContext.response.statusCode;
+        String body = RestContext.response.responseBody == null ? '' : RestContext.response.responseBody.toString().trim();
+        if (status != null && status != 200) {
+            String msg = null;
+            try {
+                Object parsed = System.JSON.deserializeUntyped(body);
+                if (parsed instanceof Map<String, Object>) msg = (String) ((Map<String, Object>) parsed).get('message');
+            } catch (Exception e) {
+                msg = null;
+            }
+            throw fail('The CV file link could not be created (HTTP ' + status + ')' + (String.isBlank(msg) ? '.' : ': ' + msg));
+        }
+        // The package writes the link as the raw body, not JSON
+        String url = body.removeStart('"').removeEnd('"');
+        if (!url.startsWithIgnoreCase('http')) throw fail('The CV file link was not returned.');
+        return System.JSON.serialize(new Map<String, Object>{
+            'url' => url,
+            'name' => pick.Name,
+            'extension' => pick.Name == null ? null : pick.Name.substringAfterLast('.').toLowerCase(),
+            'documentId' => pick.Id
+        });
+    }
+
+    /** Default resume, else the newest resume, else the newest document (docs are newest first). */
+    @TestVisible
+    private static TR1__ContactDocument__c pickCv(List<TR1__ContactDocument__c> docs) {
+        if (docs == null || docs.isEmpty()) return null;
+        TR1__ContactDocument__c newestResume = null;
+        for (TR1__ContactDocument__c d : docs) {
+            Boolean resume = d.TR1__Type__c != null && d.TR1__Type__c.containsIgnoreCase('resume');
+            if (resume && d.TR1__isDefault__c == true) return d;
+            if (resume && newestResume == null) newestResume = d;
+        }
+        return newestResume != null ? newestResume : docs[0];
+    }
+
+    /** Shared by compare and the candidate panel. action is logged on the audit for each candidate found. */
+    private static Map<String, Object> candidateData(List<Id> ids, Id auditId, String action) {
+        Set<Id> idSet = new Set<Id>(ids);
+        List<String> notices = new List<String>();
+
+        Map<String, Object> criteria = null;
+        Id jobId = null;
+        Map<Id, Search_Audit_Result__c> rowByContact = new Map<Id, Search_Audit_Result__c>();
+        if (auditId != null) {
+            List<Search_Audit__c> audits = [SELECT Id, Criteria_JSON__c, Job__c FROM Search_Audit__c WHERE Id = :auditId LIMIT 1];
+            if (audits.isEmpty()) throw fail('That search is no longer available.');
+            jobId = audits[0].Job__c;
+            try {
+                criteria = CriteriaService.parse(audits[0].Criteria_JSON__c);
+            } catch (Exception e) {
+                notices.add('The criteria for this search could not be read, so met and not met are not shown.');
+            }
+            for (Search_Audit_Result__c r : [
+                SELECT Contact__c, TK_Doc_Id__c, Rank__c, TK_Score__c, TK_Score_Pct__c, TK_Query_Part_Scores__c,
+                       TK_Criteria_Map__c, AI_Explanation__c, AI_Evidence_JSON__c, Pipeline_Flags__c, User_Action__c
+                FROM Search_Audit_Result__c
+                WHERE Search_Audit__c = :auditId AND Contact__c IN :idSet
+                ORDER BY Rank__c ASC
+            ]) {
+                if (!rowByContact.containsKey(r.Contact__c)) rowByContact.put(r.Contact__c, r);
+            }
+        }
+
+        Map<Id, SObject> contacts = compareContacts(idSet);
+        Map<Id, List<String>> skills = skillsFor(idSet);
+        Map<Id, List<String>> notes = notesFor(idSet);
+        Map<Id, PipelineStatusService.Flags> flags = PipelineStatusService.flagsFor(jobId, idSet);
+        notices.addAll(PipelineStatusService.warnings);
+
+        List<Object> candidates = new List<Object>();
+        Set<String> comparedDocIds = new Set<String>();
+        for (Id cid : ids) {
+            SObject c = contacts.get(cid);
+            if (c == null) {
+                notices.add('A candidate could not be found or you do not have access to it (' + cid + ').');
+                continue;
+            }
+            Search_Audit_Result__c r = rowByContact.get(cid);
+            String docId = r != null && String.isNotBlank(r.TK_Doc_Id__c) ? r.TK_Doc_Id__c : candidateDocId(cid);
+            comparedDocIds.add(docId);
+
+            Map<String, Object> cand = new Map<String, Object>{
+                'contactId' => cid,
+                'docId' => docId,
+                'name' => c.get('Name'),
+                'title' => c.get('Title'),
+                'city' => c.get('MailingCity'),
+                'owner' => c.getSObject('Owner') == null ? null : c.getSObject('Owner').get('Name'),
+                'skills' => skills.containsKey(cid) ? skills.get(cid) : new List<String>(),
+                'recentNotes' => notes.containsKey(cid) ? notes.get(cid) : new List<String>(),
+                'inSearch' => r != null
+            };
+            Map<String, Object> profile = new Map<String, Object>();
+            for (String f : comparePresent) {
+                Object v = c.get(f);
+                profile.put(f, v instanceof String ? (Object) ((String) v).abbreviate(1000) : v);
+            }
+            cand.put('profile', profile);
+
+            if (r != null) {
+                Map<String, List<String>> m = SearchAuditService.metAndNotMet(r.TK_Query_Part_Scores__c, r.TK_Criteria_Map__c);
+                cand.put('rank', r.Rank__c);
+                cand.put('score', r.TK_Score__c);
+                cand.put('scorePct', r.TK_Score_Pct__c);
+                cand.put('met', m.get('met'));
+                cand.put('notMet', m.get('notMet'));
+                cand.put('summary', r.AI_Explanation__c);
+                cand.put('evidence', evidenceById(r.AI_Evidence_JSON__c));
+                cand.put('userActions', String.isBlank(r.User_Action__c) ? new List<String>() : r.User_Action__c.split(';'));
+            }
+
+            PipelineStatusService.Flags f = flags.get(cid);
+            cand.put('pipeline', new Map<String, Object>{
+                'applied' => f != null && f.applied,
+                'stage' => f == null ? null : f.stage,
+                'shortlisted' => f != null && f.shortlisted,
+                'placed' => f != null && f.placed,
+                'placedDate' => f == null ? null : f.placedDate,
+                'label' => f == null ? null : f.label()
+            });
+            candidates.add(cand);
+        }
+
+        if (auditId != null && !comparedDocIds.isEmpty()) {
+            try {
+                SearchAuditService.logActions(auditId, comparedDocIds, action);
+            } catch (Exception e) {
+                System.debug(LoggingLevel.WARN, 'Action "' + action + '" not logged: ' + e.getMessage());
+            }
+        }
+
+        return new Map<String, Object>{
+            'auditId' => auditId,
+            'jobId' => jobId,
+            'criteria' => compareCriteria(criteria),
+            'candidates' => candidates,
+            'notices' => notices
+        };
+    }
+
+    /**
+     * Shortlists the candidates on the job: a TR1__Application_V2__c at stage "Application" (API value; the label
+     * users see is "Shortlisted"). Candidates already applied, shortlisted or placed on the job are skipped. Partial success:
+     * one bad record never blocks the rest. Logs "Shortlisted" on the audit for each one added.
+     * Returns { added, addedIds, skipped: [{contactId, name, reason}], failed: [{contactId, name, error}], message }.
+     */
+    @AuraEnabled
+    public static String bulkAddToJob(Id jobId, String contactIdsJson, Id auditId) {
+        if (jobId == null) throw fail('Pick a job first.');
+        List<Id> ids = contactIdList(contactIdsJson, BULK_MAX);
+        if (ids.isEmpty()) throw fail('Select at least one candidate.');
+
+        List<TR1__Job__c> jobs = [SELECT Id, Name FROM TR1__Job__c WHERE Id = :jobId LIMIT 1];
+        if (jobs.isEmpty()) throw fail('That job could not be found, or you do not have access to it.');
+
+        Map<Id, Contact> names = new Map<Id, Contact>([SELECT Id, Name FROM Contact WHERE Id IN :ids]);
+        Map<Id, PipelineStatusService.Flags> flags = PipelineStatusService.flagsFor(jobId, new Set<Id>(ids));
+
+        BulkOutcome out = new BulkOutcome(names);
+        List<Id> toAdd = new List<Id>();
+        List<SObject> records = new List<SObject>();
+        for (Id cid : ids) {
+            if (!names.containsKey(cid)) {
+                out.skip(cid, 'Not found, or you do not have access to this candidate.');
+                continue;
+            }
+            PipelineStatusService.Flags f = flags.get(cid);
+            if (f != null && f.hasAny()) {
+                out.skip(cid, 'Already on this job: ' + f.label() + '.');
+                continue;
+            }
+            toAdd.add(cid);
+            records.add(shortlistRecord(jobId, cid));
+        }
+        out.insertAll(toAdd, records);
+        out.logTo(auditId, 'shortlisted');
+        return out.toJson('Added', 'to ' + jobs[0].Name, 'already on the job');
+    }
+
+    /**
+     * Adds the candidates to a talent pool (TR1__Call_List_Member__c on TR1__Call_List__c, as callListMatchViewer
+     * does). Existing members are skipped. Partial success, and "Added to pool" logged on the audit.
+     * Returns the same shape as bulkAddToJob.
+     */
+    @AuraEnabled
+    public static String bulkAddToTalentPool(Id poolId, String contactIdsJson, Id auditId) {
+        if (poolId == null) throw fail('Pick a talent pool first.');
+        List<Id> ids = contactIdList(contactIdsJson, BULK_MAX);
+        if (ids.isEmpty()) throw fail('Select at least one candidate.');
+
+        List<TR1__Call_List__c> pools = [SELECT Id, Name FROM TR1__Call_List__c WHERE Id = :poolId LIMIT 1];
+        if (pools.isEmpty()) throw fail('That talent pool could not be found, or you do not have access to it.');
+
+        Map<Id, Contact> names = new Map<Id, Contact>([SELECT Id, Name FROM Contact WHERE Id IN :ids]);
+        Set<Id> members = new Set<Id>();
+        for (TR1__Call_List_Member__c m : [
+            SELECT TR1__Contact__c FROM TR1__Call_List_Member__c WHERE TR1__Call_List__c = :poolId AND TR1__Contact__c IN :ids
+        ]) {
+            members.add(m.TR1__Contact__c);
+        }
+
+        BulkOutcome out = new BulkOutcome(names);
+        List<Id> toAdd = new List<Id>();
+        List<SObject> records = new List<SObject>();
+        for (Id cid : ids) {
+            if (!names.containsKey(cid)) {
+                out.skip(cid, 'Not found, or you do not have access to this candidate.');
+            } else if (members.contains(cid)) {
+                out.skip(cid, 'Already in this talent pool.');
+            } else {
+                toAdd.add(cid);
+                records.add(new TR1__Call_List_Member__c(TR1__Call_List__c = poolId, TR1__Contact__c = cid));
+            }
+        }
+        out.insertAll(toAdd, records);
+        out.logTo(auditId, 'added to pool');
+        return out.toJson('Added', 'to ' + pools[0].Name, 'already in the pool');
+    }
+
+    /** Objects the tray's job and talent pool pickers may search, with the extra field shown under the name. */
+    private static final Map<String, String> PICKABLE = new Map<String, String>{
+        'TR1__Job__c' => 'TR1__Job_Title__c',
+        'TR1__Call_List__c' => null
+    };
+
+    /**
+     * Record search for the tray pickers (replaces lightning-record-picker): up to 8 jobs or talent pools whose
+     * Name (or job title) contains the term, most recently changed first. A blank term returns the most recent.
+     * A record Id as the term returns that record (to label a preselected job). Returns [{id, name, sub}].
+     */
+    @AuraEnabled
+    public static String searchRecords(String objectApiName, String term) {
+        if (!PICKABLE.containsKey(objectApiName)) throw fail('Search is not available for ' + objectApiName + '.');
+        Schema.SObjectType t = Schema.getGlobalDescribe().get(objectApiName);
+        if (t == null) throw fail(objectApiName + ' is not in this org.');
+        Map<String, Schema.SObjectField> fm = t.getDescribe().fields.getMap();
+        String subField = PICKABLE.get(objectApiName);
+        if (subField != null && !fm.containsKey(subField.toLowerCase())) subField = null;
+        Boolean subFilterable = subField != null && fm.get(subField.toLowerCase()).getDescribe().isFilterable();
+
+        String q = term == null ? '' : term.trim();
+        Id recordId = idOrNull(q);
+        String pattern = '%' + q.replace('%', '').replace('_', '\\_') + '%';
+        String soql = 'SELECT Id, Name' + (subField == null ? '' : ', ' + subField) + ' FROM ' + objectApiName;
+        if (recordId != null && recordId.getSObjectType() == t) {
+            soql += ' WHERE Id = :recordId';
+        } else if (String.isNotBlank(q)) {
+            soql += ' WHERE (Name LIKE :pattern' + (subFilterable ? ' OR ' + subField + ' LIKE :pattern' : '') + ')';
+        }
+        soql += ' ORDER BY LastModifiedDate DESC LIMIT 8';
+
+        List<Object> out = new List<Object>();
+        try {
+            for (SObject r : Database.query(soql)) {
+                out.add(new Map<String, Object>{
+                    'id' => r.Id,
+                    'name' => r.get('Name'),
+                    'sub' => subField == null ? null : r.get(subField)
+                });
+            }
+        } catch (QueryException e) {
+            throw fail('Search failed: ' + e.getMessage());
+        }
+        return System.JSON.serialize(out);
+    }
+
+    /** Collects the per-candidate result of a bulk action. */
+    private class BulkOutcome {
+        public Map<Id, Contact> names;
+        public List<Id> addedIds = new List<Id>();
+        public List<Object> skipped = new List<Object>();
+        public List<Object> failed = new List<Object>();
+
+        public BulkOutcome(Map<Id, Contact> names) {
+            this.names = names;
+        }
+
+        public void skip(Id cid, String reason) {
+            skipped.add(new Map<String, Object>{ 'contactId' => cid, 'name' => nameOf(cid), 'reason' => reason });
+        }
+
+        public void insertAll(List<Id> cids, List<SObject> records) {
+            if (records.isEmpty()) return;
+            List<Database.SaveResult> results = Database.insert(records, false);
+            for (Integer i = 0; i < results.size(); i++) {
+                if (results[i].isSuccess()) {
+                    addedIds.add(cids[i]);
+                } else {
+                    List<String> msgs = new List<String>();
+                    for (Database.Error e : results[i].getErrors()) {
+                        msgs.add((e.getFields().isEmpty() ? '' : '[' + String.join(e.getFields(), ', ') + '] ') + e.getMessage());
+                    }
+                    failed.add(new Map<String, Object>{ 'contactId' => cids[i], 'name' => nameOf(cids[i]), 'error' => String.join(msgs, '; ') });
+                }
+            }
+        }
+
+        /** Never lets an audit failure fail the action. */
+        public void logTo(Id auditId, String action) {
+            if (auditId == null || addedIds.isEmpty()) return;
+            try {
+                Map<Id, String> docs = new Map<Id, String>();
+                for (Search_Audit_Result__c r : [
+                    SELECT Contact__c, TK_Doc_Id__c FROM Search_Audit_Result__c
+                    WHERE Search_Audit__c = :auditId AND Contact__c IN :addedIds
+                ]) {
+                    docs.put(r.Contact__c, r.TK_Doc_Id__c);
+                }
+                Set<String> docIds = new Set<String>();
+                for (Id cid : addedIds) docIds.add(docs.containsKey(cid) ? docs.get(cid) : candidateDocId(cid));
+                SearchAuditService.logActions(auditId, docIds, action);
+            } catch (Exception e) {
+                System.debug(LoggingLevel.WARN, 'Bulk action not logged: ' + e.getMessage());
+            }
+        }
+
+        public String nameOf(Id cid) {
+            return names.containsKey(cid) ? names.get(cid).Name : null;
+        }
+
+        /** For example "Added 3 to J-0142. 1 already on the job. 1 could not be added." */
+        public String toJson(String verb, String target, String skippedText) {
+            List<String> parts = new List<String>{
+                verb + ' ' + addedIds.size() + ' candidate' + (addedIds.size() == 1 ? '' : 's') + ' ' + target + '.'
+            };
+            Integer already = 0;
+            for (Object o : skipped) {
+                if (String.valueOf(((Map<String, Object>) o).get('reason')).startsWith('Already')) already++;
+            }
+            if (already > 0) parts.add(already + ' ' + skippedText + '.');
+            if (skipped.size() > already) parts.add((skipped.size() - already) + ' not found.');
+            if (!failed.isEmpty()) parts.add(failed.size() + ' could not be added.');
+            return System.JSON.serialize(new Map<String, Object>{
+                'added' => addedIds.size(),
+                'addedIds' => addedIds,
+                'skipped' => skipped,
+                'failed' => failed,
+                'message' => String.join(parts, ' ')
+            });
+        }
+    }
+
+    /** Parses a JSON list of Contact Ids: de-duplicated, in order, only 003 ids, at most max. */
+    @TestVisible
+    private static List<Id> contactIdList(String contactIdsJson, Integer max) {
+        List<Object> raw;
+        try {
+            raw = (List<Object>) System.JSON.deserializeUntyped(String.isBlank(contactIdsJson) ? '[]' : contactIdsJson);
+        } catch (Exception e) {
+            throw fail('contactIdsJson must be a JSON list of Contact Ids.');
+        }
+        List<Id> out = new List<Id>();
+        Set<Id> seen = new Set<Id>();
+        for (Object o : raw) {
+            Id cid = idOrNull(o == null ? null : String.valueOf(o));
+            if (cid == null || cid.getSObjectType() != Contact.SObjectType || seen.contains(cid)) continue;
+            seen.add(cid);
+            out.add(cid);
+        }
+        if (out.size() > max) throw fail('Select at most ' + max + ' candidates at a time.');
+        return out;
+    }
+
+    /**
+     * Shortlist = application at the "Application" stage. Built dynamically with the configured candidate lookup
+     * (Application_Candidate_Field__c, TR1__Applicant__c), so a field that differs in an org fails that record
+     * readably instead of failing the class deploy.
+     */
+    private static SObject shortlistRecord(Id jobId, Id contactId) {
+        TR1__Application_V2__c rec = new TR1__Application_V2__c(TR1__Job__c = jobId, TR1__Stage__c = PipelineStatusService.SHORTLIST_STAGE);
+        rec.put(CandidateSearchConfig.get().applicationCandidateField, contactId);
+        return rec;
+    }
+
+    /** Doc id of a candidate in the index: 15-char org Id + "_" + Contact Id (as seen on tksf_bh4sf_tso_cv). */
+    private static String candidateDocId(Id contactId) {
+        return UserInfo.getOrganizationId().left(15) + '_' + contactId;
+    }
+
+    /** Set by compareContacts: the COMPARE_FIELDS that exist in this org. */
+    private static List<String> comparePresent = new List<String>();
+
+    private static Map<Id, SObject> compareContacts(Set<Id> ids) {
+        Map<String, Schema.SObjectField> fm = Schema.SObjectType.Contact.fields.getMap();
+        List<String> fields = new List<String>{ 'Id', 'Name', 'Title', 'MailingCity', 'Owner.Name' };
+        comparePresent = new List<String>();
+        for (String f : COMPARE_FIELDS) if (fm.containsKey(f.toLowerCase())) comparePresent.add(f);
+        fields.addAll(comparePresent);
+        return new Map<Id, SObject>(Database.query('SELECT ' + String.join(fields, ', ') + ' FROM Contact WHERE Id IN :ids'));
+    }
+
+    /** The chips, as compare row headers. */
+    private static List<Object> compareCriteria(Map<String, Object> criteria) {
+        List<Object> out = new List<Object>();
+        if (criteria == null) return out;
+        for (Object o : CriteriaService.items(criteria)) {
+            Map<String, Object> it = (Map<String, Object>) o;
+            out.add(new Map<String, Object>{
+                'id' => it.get('id'), 'label' => it.get('label'), 'kind' => it.get('kind'), 'weight' => it.get('weight')
+            });
+        }
+        return out;
+    }
+
+    /** AI_Evidence_JSON__c ([{id, met, evidence, source}]) keyed by chip id. */
+    private static Map<String, Object> evidenceById(String evidenceJson) {
+        Map<String, Object> out = new Map<String, Object>();
+        if (String.isBlank(evidenceJson)) return out;
+        try {
+            for (Object o : (List<Object>) System.JSON.deserializeUntyped(evidenceJson)) {
+                if (!(o instanceof Map<String, Object>)) continue;
+                Map<String, Object> e = (Map<String, Object>) o;
+                if (e.get('id') != null) out.put(String.valueOf(e.get('id')), e);
+            }
+        } catch (Exception e) {
+            System.debug(LoggingLevel.WARN, 'Evidence not readable: ' + e.getMessage());
+        }
+        return out;
+    }
+
+    // ═════════════════════════════════════════════════════════════
     // Shared search completion
     // ═════════════════════════════════════════════════════════════
 
@@ -460,6 +1104,10 @@ public with sharing class CandidateSearchController {
         public Map<String, Object> criteria;
         public Map<String, Object> trace = new Map<String, Object>();
         public List<String> criteriaIds = new List<String>();
+        /** Location chips sent in the query string: met by every result. */
+        public List<String> queryCriteriaIds = new List<String>();
+        /** Excluded chips (and the placed-recently exclusion) sent as -field:value in the query string. */
+        public List<String> excludedCriteriaIds = new List<String>();
         public List<String> notices = new List<String>();
         public TkSearchClient.Result result;
         public Id auditId;
@@ -470,15 +1118,31 @@ public with sharing class CandidateSearchController {
     private static String finish(SearchRun s) {
         TkSearchClient.Result r = s.result;
         Boolean firstPage = s.auditId == null;
-        String criteriaJson = CriteriaService.serialize(s.criteria);
+        String criteriaJson = storedCriteriaJson(s.criteria);
         Id jobId = idOrNull(CriteriaService.str(s.criteria, 'jobId'));
 
+        // The index can hold documents from other Salesforce orgs (seen on tksf_bh4sf_tso_cv): hide them, and never
+        // write a lookup to a Contact that is not in this org (the audit row insert would fail)
+        String org15 = UserInfo.getOrganizationId().left(15);
+        Set<String> foreign = new Set<String>();
         Set<Id> contactIds = new Set<Id>();
-        for (TkSearchClient.Hit h : r.hits) if (h.contactId != null) contactIds.add(h.contactId);
-
-        Map<Id, PipelineStatusService.Flags> flags = PipelineStatusService.flagsFor(jobId, contactIds);
-        s.notices.addAll(PipelineStatusService.warnings);
+        for (TkSearchClient.Hit h : r.hits) {
+            if (String.isNotBlank(h.docId) && h.docId.contains('_') && !h.docId.startsWith(org15)) {
+                foreign.add(h.docId);
+                h.contactId = null;
+            }
+            if (h.contactId != null) contactIds.add(h.contactId);
+        }
         Map<Id, Contact> contacts = contactsFor(contactIds);
+        for (TkSearchClient.Hit h : r.hits) {
+            if (h.contactId != null && !contacts.containsKey(h.contactId)) h.contactId = null;
+        }
+        if (!foreign.isEmpty()) {
+            s.notices.add(foreign.size() + ' result' + (foreign.size() == 1 ? '' : 's') + ' from another Salesforce org ' + (foreign.size() == 1 ? 'was' : 'were') + ' hidden.');
+        }
+
+        Map<Id, PipelineStatusService.Flags> flags = PipelineStatusService.flagsFor(jobId, contacts.keySet());
+        s.notices.addAll(PipelineStatusService.warnings);
         Integer recentDays = placedWithinDays(s.criteria);
 
         Boolean hidePipeline = CriteriaService.exclusions(s.criteria).get('pipelineForJob') == true;
@@ -508,7 +1172,10 @@ public with sharing class CandidateSearchController {
                 SearchAuditWriter w = new SearchAuditWriter();
                 w.auditId = s.auditId;
                 w.firstPage = firstPage;
-                w.rows = SearchAuditService.resultRows(s.auditId, r, s.criteriaIds, flags, hidden);
+                List<String> auditIds = new List<String>(s.criteriaIds);
+                for (String id : s.queryCriteriaIds) auditIds.add('q:' + id);
+                for (String id : s.excludedCriteriaIds) auditIds.add('x:' + id);
+                w.rows = SearchAuditService.resultRows(s.auditId, r, auditIds, flags, hidden);
                 w.appendRequestXml = firstPage ? null : r.requestXml;
                 w.rawResponse = firstPage ? r.responseXml : null;
                 if (firstPage) w.recent = recent(s, criteriaJson, jobId);
@@ -522,8 +1189,11 @@ public with sharing class CandidateSearchController {
         Integer pos = 0;
         for (TkSearchClient.Hit h : r.hits) {
             pos++;
-            if (hidden.contains(h.docId)) continue;
-            rows.add(row(h, r.offset + pos, s.criteriaIds, contacts.get(h.contactId), flags.get(h.contactId), recentDays));
+            if (hidden.contains(h.docId) || foreign.contains(h.docId)) continue;
+            Map<String, Object> rowOut = row(h, r.offset + pos, s.criteriaIds, contacts.get(h.contactId), flags.get(h.contactId), recentDays);
+            rowOut.put('queryCriteriaIds', s.queryCriteriaIds);
+            rowOut.put('excludedCriteriaIds', s.excludedCriteriaIds);
+            rows.add(rowOut);
         }
 
         List<Object> facets = new List<Object>();
@@ -618,6 +1288,8 @@ public with sharing class CandidateSearchController {
             'city' => c != null && String.isNotBlank(c.MailingCity) ? c.MailingCity : firstValue(h.fields, 'city'),
             'distance' => null,
             'highlights' => h.highlights,
+            // Textkernel profile fields for the panel's Profile tab (TK_Result_Fields__c)
+            'fields' => h.fields,
             'pipeline' => pipeline
         };
     }
@@ -670,6 +1342,23 @@ public with sharing class CandidateSearchController {
         trace.put('outputTokens', u.outputTokens);
         trace.put('durationMs', u.durationMs);
         trace.put('attempts', u.attempts);
+    }
+
+    /**
+     * Criteria JSON for Criteria_JSON__c and the recent search (Long Text 131072). If a long job-match query does not
+     * fit, the stored copy drops each part's verbatim XML (the chips, fields and values stay, so it still explains
+     * and re-runs). The LWC always gets the full criteria.
+     */
+    @TestVisible
+    private static String storedCriteriaJson(Map<String, Object> criteria) {
+        String full = CriteriaService.serialize(criteria);
+        if (full.length() <= SearchAuditService.LONG_TEXT_MAX) return full;
+        Map<String, Object> slim = (Map<String, Object>) System.JSON.deserializeUntyped(full);
+        for (Object o : CriteriaService.items(slim)) {
+            Object raw = ((Map<String, Object>) o).get('raw');
+            if (raw instanceof Map<String, Object>) ((Map<String, Object>) raw).remove('xml');
+        }
+        return CriteriaService.serialize(slim);
     }
 
     /** searchWithUrl result: one chip per generated part, in the order TK returned them. */

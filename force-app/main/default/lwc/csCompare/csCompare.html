@@ -1,0 +1,78 @@
+<template>
+    <section class="compare" role="dialog" aria-label="Compare candidates" onkeydown={handleKeydown}>
+        <header class="cmp-head">
+            <div class="cmp-title-wrap">
+                <span class="cmp-badge"><c-cs-icon name="columns" size="16"></c-cs-icon></span>
+                <div>
+                    <h2 class="cmp-title">Compare candidates</h2>
+                    <div class="cmp-sub">Against the current search</div>
+                </div>
+            </div>
+            <button class="btn-icon close-btn" onclick={handleClose} aria-label="Close" title="Close (Escape)">
+                <c-cs-icon name="x" size="18"></c-cs-icon>
+            </button>
+        </header>
+
+        <div class="cmp-body">
+            <template lwc:if={loading}>
+                <div class="cmp-loading"><span class="spinner" role="status" aria-label="Loading the comparison"></span></div>
+            </template>
+            <template lwc:if={error}>
+                <div class="cmp-error" role="alert"><c-cs-icon name="alert" size="16"></c-cs-icon>{error}</div>
+            </template>
+            <template lwc:if={hasNotices}>
+                <template for:each={notices} for:item="n">
+                    <div key={n.id} class="cmp-notice">{n.text}</div>
+                </template>
+            </template>
+
+            <template lwc:if={hasData}>
+                <div class="grid" style={gridStyle} role="table" aria-label="Candidates side by side">
+                    <div class="g-corner" role="columnheader"></div>
+                    <template for:each={heads} for:item="h">
+                        <div key={h.key} class="g-head" role="columnheader">
+                            <template lwc:if={canRemove}>
+                                <button
+                                    class="btn-icon sm h-remove"
+                                    data-id={h.contactId}
+                                    onclick={handleRemove}
+                                    aria-label={h.removeLabel}
+                                    title={h.removeLabel}
+                                >
+                                    <c-cs-icon name="x" size="13"></c-cs-icon>
+                                </button>
+                            </template>
+                            <span class={h.avatarCls}>{h.initials}</span>
+                            <button class="h-name" data-id={h.contactId} onclick={openRecord} aria-label={h.openLabel}>{h.name}</button>
+                            <div class="h-sub">{h.sub}</div>
+                            <template lwc:if={h.hasScore}>
+                                <div class={h.ringCls} style={h.ringStyle}><span class="ring-num">{h.ringText}</span></div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template for:each={rows} for:item="r">
+                        <div key={r.key} class="g-row" role="row">
+                            <div class="g-label" role="rowheader">
+                                <div>{r.label}</div>
+                                <template lwc:if={r.sub}><div class="g-sub">{r.sub}</div></template>
+                            </div>
+                            <template for:each={r.cells} for:item="c">
+                                <div key={c.key} class={c.cls} role="cell">
+                                    <template lwc:if={c.hasIcon}>
+                                        <span class="c-status">
+                                            <span class="c-icon"><c-cs-icon name={c.icon} size="11" stroke-width="3"></c-cs-icon></span>
+                                            <span>{c.text}</span>
+                                        </span>
+                                        <template lwc:if={c.evidence}><div class="c-evidence">{c.evidence}</div></template>
+                                    </template>
+                                    <template lwc:else>{c.text}</template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </section>
+</template>

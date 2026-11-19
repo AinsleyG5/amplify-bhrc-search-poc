@@ -38,6 +38,16 @@ System.debug(TkSearchClient.getMetadata('tksf_bh4sf_tso_cv').abbreviate(100000))
 System.debug(TkSearchClient.getMetadata('tksf_bh4sf_tso_vac').abbreviate(100000));
 */
 
-/* ---- JOB MATCH ----
-System.debug(CandidateSearchController.startJobMatch('a1wDp000001g5BiIAI'));
+/* ---- JOB MATCH: prints the audit Id, notices, chips and candidates on separate lines ----
+Map<String, Object> jm = (Map<String, Object>) System.JSON.deserializeUntyped(CandidateSearchController.startJobMatch('a1wDp000001g5BiIAI'));
+System.debug('AUDIT ' + jm.get('auditId') + '  TOTAL ' + jm.get('total') + '  ERROR ' + jm.get('error'));
+System.debug('NOTICES ' + jm.get('notices'));
+for (Object o : (List<Object>) ((Map<String, Object>) jm.get('criteria')).get('items')) {
+    Map<String, Object> c = (Map<String, Object>) o;
+    System.debug('CHIP ' + c.get('id') + '  ' + c.get('kind') + '  ' + c.get('weight') + '  ' + c.get('label'));
+}
+for (Object o : (List<Object>) jm.get('rows')) {
+    Map<String, Object> r = (Map<String, Object>) o;
+    System.debug('ROW ' + r.get('rank') + '. ' + r.get('name') + '  ' + r.get('scorePct') + '%  ' + ((Map<String, Object>) r.get('pipeline')).get('label'));
+}
 */

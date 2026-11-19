@@ -1,0 +1,125 @@
+<template>
+    <div class="list">
+        <div class="head">
+            <label class="head-sel" title="Select all loaded candidates">
+                <input class="checkbox" type="checkbox" checked={pageSelected} onchange={handleSelectPage} aria-label="Select all loaded candidates" />
+            </label>
+            <div class="count" aria-live="polite">{countText}</div>
+            <template lwc:if={hiddenCount}>
+                <button class="link head-link" onclick={handleShowHidden}><c-cs-icon name="eye-off" size="13"></c-cs-icon>{hiddenText}</button>
+            </template>
+            <span class="head-spacer"></span>
+            <template lwc:if={hasFacets}>
+                <button class="btn btn-sm facet-toggle" onclick={toggleFacets} aria-expanded={facetsOpen}>
+                    <c-cs-icon name="sliders" size="14"></c-cs-icon>
+                    <span>{facetToggleLabel}</span>
+                </button>
+            </template>
+        </div>
+
+        <template lwc:if={facetsOpen}>
+            <div class="facets">
+                <template for:each={facetGroups} for:item="g">
+                    <div key={g.field} class="facet" role="group" aria-label={g.label}>
+                        <div class="eyebrow">{g.label}</div>
+                        <div class="facet-values">
+                            <template for:each={g.values} for:item="v">
+                                <button key={v.key} class={v.cls} data-field={g.field} data-value={v.value} aria-pressed={v.pressed} onclick={toggleFacetValue}>
+                                    {v.text}
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <template lwc:if={hasNotices}>
+            <div class="notices">
+                <template for:each={noticeItems} for:item="n">
+                    <div key={n.id} class="notice"><c-cs-icon name="alert" size="14"></c-cs-icon><span>{n.text}</span></div>
+                </template>
+            </div>
+        </template>
+
+        <template lwc:if={error}>
+            <div class="error" role="alert"><c-cs-icon name="alert" size="16"></c-cs-icon><span>{error}</span></div>
+        </template>
+
+        <template lwc:if={removedCount}>
+            <div class="removed">{removedText}</div>
+        </template>
+
+        <template lwc:if={loading}>
+            <div class="loading-rows" aria-label="Searching">
+                <div class="ghost"><span class="g-av"></span><span class="g-l"></span><span class="g-m"></span><span class="g-r"></span></div>
+                <div class="ghost"><span class="g-av"></span><span class="g-l"></span><span class="g-m"></span><span class="g-r"></span></div>
+                <div class="ghost"><span class="g-av"></span><span class="g-l"></span><span class="g-m"></span><span class="g-r"></span></div>
+                <div class="ghost"><span class="g-av"></span><span class="g-l"></span><span class="g-m"></span><span class="g-r"></span></div>
+                <div class="ghost"><span class="g-av"></span><span class="g-l"></span><span class="g-m"></span><span class="g-r"></span></div>
+            </div>
+        </template>
+        <template lwc:else>
+            <div class="rows" role="list">
+                <template for:each={items} for:item="it">
+                    <c-cs-result-row
+                        key={it.key}
+                        role="listitem"
+                        data-doc-id={it.docId}
+                        item={it}
+                        onrowopen={handleRowOpen}
+                        onrowselect={handleRowSelect}
+                        onexplain={handleExplain}
+                    ></c-cs-result-row>
+                </template>
+            </div>
+
+            <template lwc:if={showEmpty}>
+                <div class="empty">
+                    <div class="empty-icon"><c-cs-icon name="search" size="26"></c-cs-icon></div>
+                    <p class="empty-title">No matches</p>
+                    <p>Widen the radius or relax a must-have.</p>
+                </div>
+            </template>
+
+            <template lwc:if={hasMore}>
+                <div class="sentinel">
+                    <template lwc:if={loadingMore}>
+                        <span class="spinner" role="status" aria-label="Loading more candidates"></span>
+                    </template>
+                    <template lwc:else>
+                        <button class="btn btn-sm" onclick={loadMoreClick}>Load more</button>
+                    </template>
+                </div>
+            </template>
+            <template lwc:if={showEnd}>
+                <div class="end"><span>End of results</span></div>
+            </template>
+        </template>
+
+        <template lwc:if={hasRequest}>
+            <div class="req-viewer">
+                <button class="req-toggle" onclick={toggleRequest} aria-expanded={requestOpen}>
+                    <c-cs-icon name={requestIcon} size="14"></c-cs-icon>
+                    <c-cs-icon name="code" size="14"></c-cs-icon>
+                    <span class="req-toggle-label">Search sent to Textkernel</span>
+                </button>
+                <template lwc:if={requestOpen}>
+                    <div class="req-panel">
+                        <div class="req-bar">
+                            <span class="req-note">Password masked</span>
+                            <button class="btn-icon sm req-copy" onclick={copyRequest} aria-label="Copy request" title="Copy request">
+                                <c-cs-icon name="copy" size="14"></c-cs-icon>
+                            </button>
+                        </div>
+                        <div class="req-code">
+                            <template for:each={requestLines} for:item="l">
+                                <div key={l.id} class={l.cls}>{l.text}</div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+</template>

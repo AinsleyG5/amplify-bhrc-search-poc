@@ -1,0 +1,76 @@
+@import 'c/csStyles';
+
+:host {
+    display: block;
+}
+
+.launcher {
+    padding: 18px 18px 20px;
+    border-radius: var(--amp-r-lg);
+    background: var(--amp-hero);
+    border: 1px solid var(--amp-hero-line);
+    color: var(--amp-on-hero);
+}
+
+.l-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.l-open {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--amp-surface);
+    border: 1px solid var(--amp-hero-line);
+    color: var(--amp-blue-600);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px 6px 12px;
+    border-radius: var(--amp-r-pill);
+    cursor: pointer;
+}
+
+.l-open:hover {
+    border-color: var(--amp-blue);
+}
+
+.l-open:focus-visible {
+    outline: 0;
+    box-shadow: var(--amp-ring);
+}
+
+.l-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 16px 0 12px;
+}
+
+.l-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 5px 5px 14px;
+    border-radius: var(--amp-r-pill);
+    background: #fff;
+    border: 1px solid var(--amp-hero-line);
+}
+
+.l-icon {
+    display: inline-flex;
+    color: var(--amp-violet);
+}
+
+.q {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    font: inherit;
+    font-size: 14px;
+    color: var(--amp-text);
+    background: transparent;
+}

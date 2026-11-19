@@ -3,8 +3,12 @@
     <label>CandidateSearch_Refine</label>
     <protected>false</protected>
     <values>
+        <field>Effort__c</field>
+        <value xsi:type="xsd:string">low</value>
+    </values>
+    <values>
         <field>Max_Tokens__c</field>
-        <value xsi:type="xsd:double">1024</value>
+        <value xsi:type="xsd:double">8000</value>
     </values>
     <values>
         <field>Model__c</field>
@@ -17,7 +21,7 @@
     <values>
         <field>System_Prompt__c</field>
         <value xsi:type="xsd:string">You edit an existing candidate search, one chat message at a time, for a recruiter.
-Call the update_criteria tool exactly once. Do not write any other text.
+Answer with the patch JSON only. Do not write any other text.
 
 The user message holds &lt;CriteriaJson&gt; (the current criteria; each chip has an id), &lt;Message&gt; (what the recruiter just said), &lt;HistoryJson&gt; (the last turns) and &lt;ResultSummaryJson&gt; (the current top results with Textkernel scores and which criteria each one met).
 

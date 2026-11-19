@@ -104,7 +104,7 @@ public with sharing class SearchAuditService {
     /**
      * Chip ids met / not met by one result, from the per-query-part scores and the criteria map stored with it.
      * A chip with two parts (skill text + KS code) counts as met when any of its parts scored.
-     * Filter and exclusion parts are not chips and are left out.
+     * Filter and exclusion parts are not chips and are left out. "q:<id>" entries (query string) are always met.
      */
     public static Map<String, List<String>> metAndNotMet(String scoresCsv, String criteriaMapCsv) {
         List<String> scores = String.isBlank(scoresCsv) ? new List<String>() : scoresCsv.split(',');
@@ -112,6 +112,11 @@ public with sharing class SearchAuditService {
         Map<String, Boolean> metById = new Map<String, Boolean>();
         for (Integer i = 0; i < ids.size(); i++) {
             String id = ids[i].trim();
+            // q:<id> = sent in the query string (location): every result met it
+            if (id.startsWith('q:')) {
+                metById.put(id.substring(2), true);
+                continue;
+            }
             if (id.contains(':')) continue;
             Boolean met = false;
             if (i < scores.size()) {
@@ -184,29 +189,44 @@ public with sharing class SearchAuditService {
      * row creates it (the writer's later upsert fills in the TK fields and leaves the action alone).
      */
     public static void logAction(Id auditId, String docId, String action) {
+        logActions(auditId, new Set<String>{ docId }, action);
+    }
+
+    /** Bulk logAction: one query and one upsert for all the doc ids (bulk add, compare). */
+    public static void logActions(Id auditId, Set<String> docIds, String action) {
         String value = action == null ? null : ACTIONS.get(action.trim().toLowerCase());
         if (value == null) throw new SearchAuditException('Unknown action "' + action + '". Use opened, compared, shortlisted, added to pool or dismissed.');
+        if (auditId == null || docIds == null || docIds.isEmpty()) return;
 
-        String k = key(auditId, docId);
-        List<Search_Audit_Result__c> existing = [
-            SELECT Id, User_Action__c FROM Search_Audit_Result__c WHERE Audit_Doc_Key__c = :k LIMIT 1
-        ];
-        Set<String> actions = new Set<String>();
-        if (!existing.isEmpty() && String.isNotBlank(existing[0].User_Action__c)) {
-            actions.addAll(existing[0].User_Action__c.split(';'));
+        Map<String, String> docByKey = new Map<String, String>();
+        for (String d : docIds) if (String.isNotBlank(d)) docByKey.put(key(auditId, d), d);
+        Map<String, Search_Audit_Result__c> existing = new Map<String, Search_Audit_Result__c>();
+        for (Search_Audit_Result__c r : [
+            SELECT Id, Audit_Doc_Key__c, User_Action__c FROM Search_Audit_Result__c WHERE Audit_Doc_Key__c IN :docByKey.keySet()
+        ]) {
+            existing.put(r.Audit_Doc_Key__c, r);
         }
-        actions.add(value);
-        Search_Audit_Result__c row = new Search_Audit_Result__c(
-            Audit_Doc_Key__c = k,
-            User_Action__c = String.join(new List<String>(actions), ';'),
-            User_Action_At__c = System.now()
-        );
-        if (existing.isEmpty()) {
-            row.Search_Audit__c = auditId;
-            row.TK_Doc_Id__c = docId;
-            row.Contact__c = TkSearchClient.contactIdFrom(docId);
+
+        List<Search_Audit_Result__c> rows = new List<Search_Audit_Result__c>();
+        for (String k : docByKey.keySet()) {
+            Search_Audit_Result__c old = existing.get(k);
+            Set<String> actions = new Set<String>();
+            if (old != null && String.isNotBlank(old.User_Action__c)) actions.addAll(old.User_Action__c.split(';'));
+            actions.add(value);
+            Search_Audit_Result__c row = new Search_Audit_Result__c(
+                Audit_Doc_Key__c = k,
+                User_Action__c = String.join(new List<String>(actions), ';'),
+                User_Action_At__c = System.now()
+            );
+            if (old == null) {
+                String docId = docByKey.get(k);
+                row.Search_Audit__c = auditId;
+                row.TK_Doc_Id__c = docId;
+                row.Contact__c = TkSearchClient.contactIdFrom(docId);
+            }
+            rows.add(row);
         }
-        upsert row Audit_Doc_Key__c;
+        upsert rows Audit_Doc_Key__c;
     }
 
     public class SearchAuditException extends Exception {}

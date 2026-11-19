@@ -1,0 +1,120 @@
+<template>
+    <div class="home">
+        <template lwc:if={error}>
+            <div class="h-error" role="alert"><c-cs-icon name="alert" size="16"></c-cs-icon>{error}</div>
+        </template>
+
+        <section class="examples">
+            <div class="eyebrow">Try a search</div>
+            <div class="ex-list">
+                <template for:each={examples} for:item="e">
+                    <button key={e.id} class="ex" data-text={e.text} onclick={handleExample}>
+                        <span class="ex-icon"><c-cs-icon name="search" size="14"></c-cs-icon></span>
+                        <span class="ex-text">{e.text}</span>
+                        <span class="ex-go"><c-cs-icon name="chevron-right" size="14"></c-cs-icon></span>
+                    </button>
+                </template>
+            </div>
+        </section>
+
+        <template lwc:if={loading}>
+            <div class="cols">
+                <div class="col ghost-col">
+                    <div class="shimmer"><span></span><span></span><span></span></div>
+                </div>
+                <div class="col ghost-col">
+                    <div class="shimmer"><span></span><span></span><span></span></div>
+                </div>
+            </div>
+        </template>
+
+        <template lwc:if={hasAny}>
+            <div class="cols">
+                <template lwc:if={hasFavourites}>
+                    <section class="col">
+                        <h2 class="col-title">
+                            <span class="col-icon fav"><c-cs-icon name="star" size="14" filled></c-cs-icon></span>Favourites
+                        </h2>
+                        <ul class="items">
+                            <template for:each={favourites} for:item="s">
+                                <li key={s.key} class="item">
+                                    <button class="item-main" data-id={s.id} data-saved={s.saved} onclick={handleRun} aria-label={s.runLabel}>
+                                        <span class="item-name"
+                                            >{s.name}<template lwc:if={s.isJob}><span class="tag tag-blue job-tag">Job</span></template></span
+                                        >
+                                        <span class="item-detail">{s.detail}</span>
+                                    </button>
+                                    <button
+                                        class="btn-icon sm star on"
+                                        data-id={s.id}
+                                        data-favourite={s.favourite}
+                                        onclick={handleStar}
+                                        aria-label={s.starLabel}
+                                        title={s.starLabel}
+                                    >
+                                        <c-cs-icon name="star" size="15" filled></c-cs-icon>
+                                    </button>
+                                </li>
+                            </template>
+                        </ul>
+                    </section>
+                </template>
+
+                <template lwc:if={hasSaved}>
+                    <section class="col">
+                        <h2 class="col-title">
+                            <span class="col-icon saved"><c-cs-icon name="bookmark" size="14"></c-cs-icon></span>Saved searches
+                        </h2>
+                        <ul class="items">
+                            <template for:each={saved} for:item="s">
+                                <li key={s.key} class="item">
+                                    <button class="item-main" data-id={s.id} data-saved={s.saved} onclick={handleRun} aria-label={s.runLabel}>
+                                        <span class="item-name"
+                                            >{s.name}<template lwc:if={s.isJob}><span class="tag tag-blue job-tag">Job</span></template></span
+                                        >
+                                        <span class="item-detail">{s.detail}</span>
+                                    </button>
+                                    <button
+                                        class="btn-icon sm star"
+                                        data-id={s.id}
+                                        data-favourite={s.favourite}
+                                        onclick={handleStar}
+                                        aria-label={s.starLabel}
+                                        title={s.starLabel}
+                                    >
+                                        <c-cs-icon name="star" size="15"></c-cs-icon>
+                                    </button>
+                                </li>
+                            </template>
+                        </ul>
+                    </section>
+                </template>
+
+                <template lwc:if={hasRecent}>
+                    <section class="col">
+                        <h2 class="col-title">
+                            <span class="col-icon recent"><c-cs-icon name="history" size="14"></c-cs-icon></span>Recent searches
+                        </h2>
+                        <ul class="items">
+                            <template for:each={recent} for:item="s">
+                                <li key={s.key} class="item">
+                                    <button class="item-main" data-id={s.id} data-saved={s.saved} onclick={handleRun} aria-label={s.runLabel}>
+                                        <span class="item-name"
+                                            >{s.name}<template lwc:if={s.isJob}><span class="tag tag-blue job-tag">Job</span></template></span
+                                        >
+                                        <span class="item-detail">{s.detail}</span>
+                                    </button>
+                                    <span class="runs">{s.runs}</span>
+                                </li>
+                            </template>
+                        </ul>
+                    </section>
+                </template>
+            </div>
+        </template>
+
+        <template lwc:if={isEmpty}>
+            <p class="h-hint">Your recent and saved searches will appear here. To match a job, use <strong>Match Candidates</strong> on the job record.</p>
+        </template>
+    </div>
+</template>

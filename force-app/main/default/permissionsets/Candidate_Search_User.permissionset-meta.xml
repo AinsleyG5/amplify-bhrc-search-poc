@@ -329,6 +329,24 @@
         <readable>true</readable>
     </fieldPermissions>
     <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Contact</object>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>TR1__ContactDocument__c</object>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
         <allowCreate>1</allowCreate>
         <allowDelete>1</allowDelete>
         <allowEdit>1</allowEdit>
@@ -364,6 +382,10 @@
         <object>UserExternalCredential</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
+    <tabSettings>
+        <tab>Candidate_Search</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
     <description>Run Candidate Search: Apex classes, its objects (own records), prompts and config, and the TK, Tx Skills and Anthropic credentials.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Candidate Search User</label>

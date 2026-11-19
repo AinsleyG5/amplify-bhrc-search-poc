@@ -1,0 +1,45 @@
+<template>
+    <div class="cv">
+        <div class="cv-bar">
+            <div class="cv-summary" aria-live="polite">{summary}</div>
+            <div class="cv-actions">
+                <button class="btn-icon sm" onclick={prev} disabled={navDisabled} aria-label="Previous match" title="Previous match">
+                    <c-cs-icon name="chevron-up" size="16"></c-cs-icon>
+                </button>
+                <button class="btn-icon sm" onclick={next} disabled={navDisabled} aria-label="Next match" title="Next match">
+                    <c-cs-icon name="chevron-down" size="16"></c-cs-icon>
+                </button>
+                <button class="btn btn-sm" data-action="open-original" onclick={openOriginal} disabled={openDisabled} title="Open the original CV file">
+                    <template lwc:if={opening}><span class="spinner sm"></span></template>
+                    <template lwc:else><c-cs-icon name="external" size="14"></c-cs-icon></template>
+                    Open original
+                </button>
+            </div>
+        </div>
+
+        <template lwc:if={hasTerms}>
+            <div class="terms" role="list" aria-label="Search terms in this CV">
+                <template for:each={termChips} for:item="t">
+                    <button key={t.key} role="listitem" class={t.cls} data-term={t.key} onclick={jumpToTerm} disabled={t.disabled}>
+                        <span>{t.label}</span><span class="term-count">{t.count}</span>
+                    </button>
+                </template>
+            </div>
+        </template>
+
+        <template lwc:if={openError}><div class="cv-error" role="alert">{openError}</div></template>
+
+        <template lwc:if={loading}>
+            <div class="shimmer cv-loading" aria-label="Loading the CV"><span></span><span></span><span></span><span></span><span></span></div>
+        </template>
+        <template lwc:if={error}>
+            <div class="cv-error" role="alert">
+                {error}
+                <button class="link" onclick={retry}>Retry</button>
+            </div>
+        </template>
+        <template lwc:if={hasDoc}>
+            <article class="cv-doc" lwc:dom="manual"></article>
+        </template>
+    </div>
+</template>

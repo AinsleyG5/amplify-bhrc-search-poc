@@ -1,0 +1,343 @@
+@import 'c/csStyles';
+
+:host {
+    display: block;
+}
+
+.app {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 0 0 16px;
+    color: var(--amp-text);
+    font-size: 13px;
+    min-height: 520px;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Hero ───────────────────────────────────────── */
+
+.hero {
+    position: relative;
+    padding: 24px 28px 26px;
+    border-radius: var(--amp-r-lg);
+    background: var(--amp-hero);
+    border: 1px solid var(--amp-hero-line);
+    color: var(--amp-on-hero);
+}
+
+.hero-top {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 18px;
+}
+
+.hero-title {
+    padding-left: 20px;
+    border-left: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--amp-on-hero);
+}
+
+.hero-sub {
+    margin: 4px 0 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--amp-on-hero-muted);
+}
+
+.search-card {
+    position: relative;
+    z-index: 2;
+}
+
+.hero.compact {
+    padding: 14px 20px 16px;
+}
+
+.hero.compact .hero-top {
+    margin-bottom: 12px;
+}
+
+.hero.compact .h1 {
+    font-size: 17px;
+}
+
+.hero.compact .hero-sub {
+    display: none;
+}
+
+.home-wrap {
+    padding: 0 4px;
+}
+
+/* ── Workspace ──────────────────────────────────── */
+
+.workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    /* Height is set from JS (fitWorkspace) to fill the window below the hero */
+    height: 640px;
+    min-height: 520px;
+}
+
+.workspace.with-chat {
+    grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+.main {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    min-height: 32px;
+}
+
+.toolbar-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--amp-ink);
+}
+
+.toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.list-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    border-radius: var(--amp-r-lg);
+    scrollbar-width: thin;
+}
+
+/* Room under the last row for the floating tray */
+.with-tray .list-wrap {
+    padding-bottom: 140px;
+}
+
+/* The candidate panel is a full-height drawer on the right of the window, from just under the Salesforce header
+   (--cs-panel-top, measured in JS) to the bottom, whatever the page scroll or result-list height. It overlays the
+   list and never squashes it. */
+.panel-wrap {
+    position: fixed;
+    top: var(--cs-panel-top, 96px);
+    right: 16px;
+    bottom: 16px;
+    width: clamp(640px, 58vw, 1100px);
+    max-width: calc(100vw - 32px);
+    z-index: 60;
+}
+
+/* Parse a CV: large modal around the existing c-tx-resume-parser component */
+.btn-parse {
+    margin-left: auto;
+    background: var(--amp-surface);
+    color: var(--amp-blue-600);
+    border-color: transparent;
+}
+
+.parser-modal {
+    display: flex;
+    flex-direction: column;
+    width: min(1100px, 100%);
+    height: min(90vh, 960px);
+    background: var(--amp-surface);
+    border-radius: var(--amp-r-lg);
+    box-shadow: var(--amp-shadow-lg);
+    overflow: hidden;
+}
+
+.parser-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: var(--amp-hero);
+    color: #fff;
+}
+
+.parser-head h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.parser-head .btn-icon {
+    color: #fff;
+}
+
+.parser-head .btn-icon:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.parser-body {
+    flex: 1;
+    overflow: auto;
+    padding: 16px 20px 24px;
+}
+
+.chat-wrap {
+    min-height: 0;
+}
+
+/* Floating selection tray */
+.tray-wrap {
+    position: fixed;
+    left: 50%;
+    /* Clear of the Salesforce utility bar (about 40px) along the bottom of the window */
+    bottom: 64px;
+    transform: translateX(-50%);
+    z-index: 50;
+    max-width: calc(100vw - 32px);
+}
+
+/* Compare modal */
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    background: rgba(15, 26, 58, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.modal {
+    width: min(1200px, 100%);
+    height: min(88vh, 920px);
+}
+
+/* Toasts */
+.toasts {
+    position: fixed;
+    top: 112px;
+    right: 24px;
+    z-index: 9500;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(380px, calc(100vw - 32px));
+}
+
+.toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 10px 12px 14px;
+    background: var(--amp-surface);
+    border: 1px solid var(--amp-line);
+    border-radius: var(--amp-r);
+    box-shadow: var(--amp-shadow-lg);
+}
+
+.toast-icon {
+    flex: none;
+    display: inline-grid;
+    place-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+}
+
+.toast-success .toast-icon {
+    background: var(--amp-green-50);
+    color: var(--amp-green);
+}
+
+.toast-info .toast-icon {
+    background: var(--amp-blue-50);
+    color: var(--amp-blue);
+}
+
+.toast-warning .toast-icon {
+    background: var(--amp-amber-50);
+    color: var(--amp-amber);
+}
+
+.toast-error .toast-icon {
+    background: var(--amp-red-50);
+    color: var(--amp-red);
+}
+
+.toast-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.toast-title {
+    font-weight: 700;
+    color: var(--amp-ink);
+}
+
+.toast-msg {
+    margin-top: 2px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--amp-muted);
+    white-space: pre-line;
+}
+
+/* Below 900px: cards (in csResultRow) and full-screen sheets for the panel and chat */
+@media (max-width: 899px) {
+    .hero {
+        padding: 18px 16px 20px;
+    }
+    .hero-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .hero-title {
+        padding-left: 0;
+        border-left: 0;
+    }
+    .workspace,
+    .workspace.with-chat {
+        grid-template-columns: minmax(0, 1fr);
+        height: auto;
+        min-height: 0;
+    }
+    .list-wrap {
+        overflow: visible;
+    }
+    .panel-wrap,
+    .chat-wrap {
+        position: fixed;
+        inset: 0;
+        top: 0;
+        width: 100%;
+        z-index: 8000;
+        padding: 8px;
+        background: rgba(15, 26, 58, 0.4);
+    }
+    .modal {
+        height: 100%;
+    }
+    .toasts {
+        top: auto;
+        bottom: 96px;
+        right: 16px;
+    }
+}

@@ -1,0 +1,74 @@
+<template>
+    <aside class="chat" aria-label="Refine the search">
+        <header class="c-head">
+            <div class="c-title">
+                <div>
+                    <div class="c-name">Refine search</div>
+                    <div class="c-sub">One change at a time. Undo any step.</div>
+                </div>
+            </div>
+            <div class="c-actions">
+                <button
+                    class="btn-icon sm"
+                    data-action="undo"
+                    onclick={handleUndo}
+                    disabled={undoDisabled}
+                    aria-label="Undo the last change"
+                    title="Undo the last change"
+                >
+                    <c-cs-icon name="undo" size="15"></c-cs-icon>
+                </button>
+                <button class="btn-icon sm" data-action="close" onclick={handleClose} aria-label="Close the chat" title="Close the chat">
+                    <c-cs-icon name="x" size="15"></c-cs-icon>
+                </button>
+            </div>
+        </header>
+
+        <div class="log" aria-live="polite">
+            <template lwc:if={isEmpty}>
+                <div class="intro">
+                    <p>Try one of these, or type your own:</p>
+                    <div class="sugs">
+                        <template for:each={suggestions} for:item="s">
+                            <button key={s.id} class="sug" data-text={s.text} onclick={useSuggestion}>{s.text}</button>
+                        </template>
+                    </div>
+                </div>
+            </template>
+            <template for:each={items} for:item="t">
+                <div key={t.id} class={t.cls}>
+                    <div class="bubble">{t.text}</div>
+                    <template lwc:if={t.hasDiff}>
+                        <ul class="diffs">
+                            <template for:each={t.diff} for:item="d">
+                                <li key={d.id} class={d.cls}>{d.text}</li>
+                            </template>
+                        </ul>
+                    </template>
+                    <template lwc:if={t.undone}
+                        ><div class="undone"><c-cs-icon name="undo" size="11"></c-cs-icon>Undone</div></template
+                    >
+                </div>
+            </template>
+            <template lwc:if={busy}>
+                <div class="working" role="status"><span class="spinner sm"></span>Updating the search…</div>
+            </template>
+        </div>
+
+        <div class="compose">
+            <div class="compose-box">
+                <textarea
+                    class="msg"
+                    rows="1"
+                    placeholder="e.g. Only people who can start this week"
+                    aria-label="Message to refine the search"
+                    oninput={handleInput}
+                    onkeydown={handleKeydown}
+                ></textarea>
+                <button class="send" data-action="send" onclick={send} disabled={sendDisabled} aria-label="Send" title="Send">
+                    <c-cs-icon name="send" size="15"></c-cs-icon>
+                </button>
+            </div>
+        </div>
+    </aside>
+</template>

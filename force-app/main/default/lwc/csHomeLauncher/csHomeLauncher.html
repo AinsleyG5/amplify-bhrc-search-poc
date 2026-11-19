@@ -1,0 +1,22 @@
+<template>
+    <div class="launcher">
+        <div class="l-head">
+            <c-cs-brand logo-url={logoUrl} tone="light" compact></c-cs-brand>
+            <button class="l-open" onclick={openTab}>Open Candidate Search<c-cs-icon name="chevron-right" size="14"></c-cs-icon></button>
+        </div>
+        <div class="l-title">{heading}</div>
+        <div class="l-box">
+            <span class="l-icon"><c-cs-icon name="search" size="16"></c-cs-icon></span>
+            <input
+                class="q"
+                type="search"
+                placeholder="Forklift-certified warehouse operatives near Dagenham"
+                aria-label="Describe the candidates you are looking for"
+                value={text}
+                oninput={handleInput}
+                onkeydown={handleKeydown}
+            />
+            <button class="btn btn-search" data-action="search" onclick={go} disabled={disabled}><c-cs-icon name="search" size="15"></c-cs-icon>Search</button>
+        </div>
+    </div>
+</template>

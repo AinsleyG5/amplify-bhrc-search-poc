@@ -35,6 +35,12 @@ public with sharing class PipelineStatusService {
         }
     }
 
+    /**
+     * TR1__Application_V2__c.TR1__Stage__c API value for a shortlisted candidate (the label users see is "Shortlisted").
+     * An application at this stage flags as Shortlisted, not Applied; bulkAddToJob creates applications at it.
+     */
+    public static final String SHORTLIST_STAGE = 'Application';
+
     /** Messages about flags that could not be read, for the response notices and the debug log. */
     public static List<String> warnings = new List<String>();
 
@@ -50,9 +56,14 @@ public with sharing class PipelineStatusService {
             candField, 'Applied', jobId, contactIds, 'CreatedDate DESC'
         )) {
             Flags f = flag(out, (Id) r.get(candField));
+            String stage = (String) r.get('TR1__Stage__c');
+            if (stage == SHORTLIST_STAGE) {
+                f.shortlisted = true;
+                continue;
+            }
             if (f.applied) continue; // newest first: keep the latest stage
             f.applied = true;
-            f.stage = (String) r.get('TR1__Stage__c');
+            f.stage = stage;
         }
 
         for (SObject r : safeQuery(

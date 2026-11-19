@@ -1,0 +1,211 @@
+<template>
+    <section class="panel" role="dialog" aria-label={dialogLabel} onkeydown={handleKeydown}>
+        <header class="p-head">
+            <div class="p-top">
+                <div class="p-nav">
+                    <button class="btn-icon sm" onclick={handlePrev} aria-label="Previous candidate" title="Previous candidate (Up arrow)">
+                        <c-cs-icon name="chevron-up" size="16"></c-cs-icon>
+                    </button>
+                    <button class="btn-icon sm" onclick={handleNext} aria-label="Next candidate" title="Next candidate (Down arrow)">
+                        <c-cs-icon name="chevron-down" size="16"></c-cs-icon>
+                    </button>
+                    <template lwc:if={position}><span class="p-pos">{position}</span></template>
+                </div>
+                <button class="btn-icon sm close-btn" onclick={handleClose} aria-label="Close" title="Close (Escape)">
+                    <c-cs-icon name="x" size="16"></c-cs-icon>
+                </button>
+            </div>
+
+            <div class="p-id">
+                <span class={avatarCls} aria-hidden="true">{initials}</span>
+                <div class="p-title">
+                    <h2 class="p-name">{name}</h2>
+                    <div class="p-sub">{subtitle}</div>
+                    <template lwc:if={pipelineLabel}><span class="tag tag-amber p-tag">{pipelineLabel}</span></template>
+                </div>
+                <div class="p-score" title="Textkernel match score">
+                    <div class={score.cls} style={score.style}><span class="ring-num">{score.text}</span></div>
+                    <span class="p-score-label">match</span>
+                </div>
+            </div>
+
+            <div class="p-actions">
+                <button class="btn btn-sm" data-action="open-record" onclick={openRecord} disabled={noRecord}>
+                    <c-cs-icon name="external" size="14"></c-cs-icon>Open record
+                </button>
+                <template lwc:if={canShortlist}>
+                    <button class="btn btn-sm btn-soft" data-action="shortlist" onclick={handleShortlist} disabled={shortlistDisabled}>
+                        <c-cs-icon name="plus" size="14"></c-cs-icon>Shortlist on job
+                    </button>
+                </template>
+                <button class="btn btn-sm btn-ghost" data-action="dismiss" onclick={handleDismiss}>
+                    <c-cs-icon name="eye-off" size="14"></c-cs-icon>Dismiss
+                </button>
+                <button
+                    class="btn btn-sm btn-soft"
+                    data-action="match-jobs"
+                    onclick={matchToJobs}
+                    disabled={noRecord}
+                    title="Find open jobs that match this candidate"
+                >
+                    <c-cs-icon name="briefcase" size="14"></c-cs-icon>Match to jobs
+                </button>
+            </div>
+
+            <div class="seg tabs" role="tablist" aria-label="Candidate details" onkeydown={handleTabKeydown}>
+                <template for:each={tabs} for:item="t">
+                    <button
+                        key={t.value}
+                        id={t.id}
+                        class={t.cls}
+                        role="tab"
+                        aria-selected={t.selected}
+                        tabindex={t.tabIndex}
+                        data-tab={t.value}
+                        onclick={selectTab}
+                    >
+                        {t.label}
+                    </button>
+                </template>
+            </div>
+        </header>
+
+        <div class="p-body" role="tabpanel">
+            <template lwc:if={isWhy}>
+                <div class="ai-card">
+                    <div class="ai-head">Why they match</div>
+                    <template lwc:if={explainPending}>
+                        <div class="shimmer" aria-label="Explanation loading"><span></span><span></span><span></span></div>
+                    </template>
+                    <template lwc:if={summary}>
+                        <p class="p-summary">{summary}</p>
+                    </template>
+                    <template lwc:if={explainMissing}>
+                        <div class="p-explain">
+                            <span>Not explained yet.</span>
+                            <button class="btn btn-sm btn-ai" data-action="explain" onclick={handleExplain}>Explain</button>
+                        </div>
+                        <template lwc:if={explainErrorText}><div class="p-muted">{explainErrorText}</div></template>
+                    </template>
+                </div>
+
+                <h3 class="eyebrow p-section">Criteria, as scored by Textkernel</h3>
+                <ul class="why-list">
+                    <template for:each={whyCriteria} for:item="c">
+                        <li key={c.id} class={c.cls}>
+                            <span class="why-icon"><c-cs-icon name={c.icon} size="12" stroke-width="3"></c-cs-icon></span>
+                            <div class="why-text">
+                                <div class="why-label">
+                                    <span>{c.label}</span>
+                                    <span class="why-status">{c.status}</span>
+                                </div>
+                                <div class="why-meta">{c.meta}</div>
+                                <template lwc:if={c.hasEvidence}>
+                                    <blockquote class="why-evidence">
+                                        {c.evidence}
+                                        <template lwc:if={c.source}><cite class="why-source">{c.source}</cite></template>
+                                    </blockquote>
+                                </template>
+                            </div>
+                        </li>
+                    </template>
+                </ul>
+
+                <template lwc:if={hasHighlights}>
+                    <h3 class="eyebrow p-section">Matched text</h3>
+                    <ul class="hl-list">
+                        <template for:each={highlights} for:item="h">
+                            <li key={h.id} class="hl">
+                                <span class="hl-field">{h.field}</span>
+                                <span class="hl-text"
+                                    ><template for:each={h.segments} for:item="g"><span key={g.key} class={g.cls}>{g.text}</span></template></span
+                                >
+                            </li>
+                        </template>
+                    </ul>
+                </template>
+            </template>
+
+            <template lwc:if={isCv}>
+                <c-cs-cv-viewer doc-id={docId} contact-id={contactId} terms={cvTerms}></c-cs-cv-viewer>
+            </template>
+
+            <template lwc:if={isJobs}>
+                <c-cs-job-matches doc-id={docId} contact-id={contactId}></c-cs-job-matches>
+            </template>
+
+            <template lwc:if={isProfile}>
+                <template lwc:if={hasTkProfile}>
+                    <h3 class="eyebrow p-section tk-head">From the Textkernel profile</h3>
+                    <dl class="tk-profile">
+                        <template for:each={tkProfile} for:item="r">
+                            <div key={r.key} class="tk-row">
+                                <dt>{r.label}</dt>
+                                <dd>
+                                    <span class={r.listCls}>
+                                        <template for:each={r.values} for:item="v">
+                                            <span key={v.key} class={v.cls}
+                                                ><template for:each={v.segs} for:item="g"><span key={g.key} class={g.cls}>{g.text}</span></template></span
+                                            >
+                                        </template>
+                                    </span>
+                                    <template lwc:if={r.moreText}
+                                        ><button class="link tk-more" data-label={r.label} onclick={toggleMore}>{r.moreText}</button></template
+                                    >
+                                </dd>
+                            </div>
+                        </template>
+                    </dl>
+                    <h3 class="eyebrow p-section">From Salesforce</h3>
+                </template>
+                <template lwc:if={noRecord}><p class="p-muted">This result has no Salesforce candidate record.</p></template>
+                <template lwc:if={detailLoading}
+                    ><div class="p-loading"><span class="spinner" role="status" aria-label="Loading profile"></span></div
+                ></template>
+                <template lwc:if={detailError}><div class="p-error" role="alert">{detailError}</div></template>
+                <dl class="facts">
+                    <template for:each={profileRows} for:item="f">
+                        <div key={f.key} class="fact">
+                            <dt>{f.label}</dt>
+                            <dd>{f.value}</dd>
+                        </div>
+                    </template>
+                </dl>
+            </template>
+
+            <template lwc:if={isSkills}>
+                <template lwc:if={detailLoading}
+                    ><div class="p-loading"><span class="spinner" role="status" aria-label="Loading skills"></span></div
+                ></template>
+                <template lwc:if={detailError}><div class="p-error" role="alert">{detailError}</div></template>
+                <template lwc:if={hasSkills}>
+                    <div class="skills">
+                        <template for:each={skills} for:item="s">
+                            <span key={s.id} class="skill">{s.label}</span>
+                        </template>
+                    </div>
+                </template>
+                <template lwc:elseif={showDetailEmpty}><p class="p-muted">No skills on record.</p></template>
+            </template>
+
+            <template lwc:if={isActivity}>
+                <template lwc:if={detailLoading}
+                    ><div class="p-loading"><span class="spinner" role="status" aria-label="Loading activity"></span></div
+                ></template>
+                <template lwc:if={detailError}><div class="p-error" role="alert">{detailError}</div></template>
+                <template lwc:if={hasNotes}>
+                    <ol class="timeline">
+                        <template for:each={notes} for:item="n">
+                            <li key={n.id} class="note">
+                                <span class="note-dot" aria-hidden="true"></span>
+                                <div class="note-head">{n.head}</div>
+                                <div class="note-text">{n.text}</div>
+                            </li>
+                        </template>
+                    </ol>
+                </template>
+                <template lwc:elseif={showDetailEmpty}><p class="p-muted">No recent notes.</p></template>
+            </template>
+        </div>
+    </section>
+</template>

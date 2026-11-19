@@ -260,7 +260,43 @@ public with sharing class CriteriaService {
         public List<TkSearchClient.QueryPart> parts = new List<TkSearchClient.QueryPart>();
         /** Same order as parts: chip id, "filter:<field>" or "exclusion:<key>". */
         public List<String> criteriaIds = new List<String>();
+        /**
+         * Location goes in the free-text <query> string, not a query part: TK only geo-interprets the query string
+         * (confirmed on tksf_bh4sf_tso_cv: city:Dagenham+15 finds 4, a city part "Dagenham+15" finds 0).
+         * The query string has no per-part score, so these chips are met by every result.
+         */
+        public List<String> queryTerms = new List<String>();
+        public List<String> queryCriteriaIds = new List<String>();
+        /**
+         * Excluded chips and placedWithinDays, also sent in the query string as -field:value: TK ignores every
+         * condition spelling for exclusion (all behave as REQUIRED), but query negation works
+         * (tkExclude.apex: -custom_date_1:>=today-1000 left 1106 of 1172). Stored as x:<id>, never met/not met.
+         */
+        public List<String> excludedCriteriaIds = new List<String>();
         public List<String> notices = new List<String>();
+
+        public String queryString() {
+            return String.join(queryTerms, ' ');
+        }
+
+        public Boolean isEmpty() {
+            return parts.isEmpty() && queryTerms.isEmpty();
+        }
+
+        /** Search options carrying the query string. The caller sets the offset. */
+        public TkSearchClient.SearchOptions options() {
+            TkSearchClient.SearchOptions o = new TkSearchClient.SearchOptions();
+            o.query = queryString();
+            return o;
+        }
+
+        /** criteriaIds, then "q:<id>" for each query-string chip: stored in TK_Criteria_Map__c. */
+        public List<String> auditCriteriaIds() {
+            List<String> ids = new List<String>(criteriaIds);
+            for (String id : queryCriteriaIds) ids.add('q:' + id);
+            for (String id : excludedCriteriaIds) ids.add('x:' + id);
+            return ids;
+        }
     }
 
     public static BuildResult toQueryParts(Map<String, Object> criteria) {
@@ -287,6 +323,18 @@ public with sharing class CriteriaService {
                 continue;
             }
 
+            // Excluded: a negated query-string term, never a part (TK treats every exclude condition as REQUIRED)
+            if (str(item, 'weight') == 'excluded') {
+                String term = excludedTerm(item, cfg);
+                if (term == null) {
+                    out.notices.add('"' + str(item, 'label') + '" was not sent: it cannot be excluded yet.');
+                } else {
+                    out.queryTerms.add(term);
+                    out.excludedCriteriaIds.add(id);
+                }
+                continue;
+            }
+
             if (kind == 'title') {
                 add(out, part(cfg.tkTitleField, condition, textValue(cfg.tkTitleField, value)), id);
             } else if (kind == 'skill') {
@@ -304,7 +352,22 @@ public with sharing class CriteriaService {
                     add(out, part(cfg.tkCertificationCodeField, condition == 'REQUIRED' ? 'STRONGLY_FAVORED' : condition, code), id);
                 }
             } else if (kind == 'location') {
-                add(out, part(cfg.tkLocationField, condition, locationValue(item)), id);
+                String label = str(item, 'label');
+                if (str(item, 'weight') != 'required') {
+                    out.notices.add('"' + label + '" is applied as a filter: Textkernel cannot weight a location.');
+                }
+                if (String.isNotBlank(str(item, 'geo'))) {
+                    // A TK-generated location keeps its coordinates and stays a part, as TK produced it
+                    // (US San Francisco CA+25@37.77493 -122.41942); only the radius changes
+                    String place = str(item, 'value');
+                    Decimal radius = dec(item, 'radius');
+                    if (str(item, 'unit') == 'km') radius = radius * 0.621371;
+                    String field = item.get('raw') instanceof Map<String, Object> ? str((Map<String, Object>) item.get('raw'), 'field') : cfg.tkLocationField;
+                    add(out, part(field, condition, place + '+' + radius.round(System.RoundingMode.HALF_UP) + '@' + str(item, 'geo')), id);
+                    continue;
+                }
+                out.queryTerms.add(locationQuery(item));
+                out.queryCriteriaIds.add(id);
             } else if (kind == 'keyword' || kind == 'shift') {
                 add(out, part('FULLTEXT', condition, quote(value)), id);
             } else if (kind == 'language') {
@@ -338,8 +401,8 @@ public with sharing class CriteriaService {
         Map<String, Object> x = exclusions(criteria);
         if (x.get('placedWithinDays') != null && String.isNotBlank(cfg.tkLastPlacementField)) {
             Integer days = Decimal.valueOf(String.valueOf(x.get('placedWithinDays'))).intValue();
-            Date today = Date.today();
-            add(out, part(cfg.tkLastPlacementField, cfg.tkExcludeCondition, dateRange(today.addDays(-days), today)), 'exclusion:placedWithinDays');
+            out.queryTerms.add('-' + cfg.tkLastPlacementField + ':>=today-' + days);
+            out.excludedCriteriaIds.add('exclusion:placedWithinDays');
         }
         return out;
     }
@@ -355,7 +418,8 @@ public with sharing class CriteriaService {
         String c = condition == null ? '' : condition.toUpperCase();
         if (c == 'REQUIRED') return 'required';
         if (c == 'STRONGLY_FAVORED') return 'strongly_preferred';
-        if (c == CandidateSearchConfig.get().tkExcludeCondition.toUpperCase() || c.startsWith('EXCLU') || c == 'MUST_NOT' || c == 'REJECTED') {
+        String configured = CandidateSearchConfig.get().tkExcludeCondition;
+        if ((String.isNotBlank(configured) && c == configured.toUpperCase()) || c.startsWith('EXCLU') || c == 'MUST_NOT' || c == 'REJECTED') {
             return 'excluded';
         }
         return 'preferred';
@@ -372,27 +436,54 @@ public with sharing class CriteriaService {
         return place + '+' + radius.round(System.RoundingMode.HALF_UP);
     }
 
+    /** -field:value for an excluded chip, or null when the chip has nothing to negate. */
     @TestVisible
-    private static String availabilityRange(Map<String, Object> item) {
-        Date today = Date.today();
-        if (item.get('withinDays') != null) {
-            return dateRange(null, today.addDays(dec(item, 'withinDays').intValue()));
+    private static String excludedTerm(Map<String, Object> item, CandidateSearchConfig cfg) {
+        String kind = str(item, 'kind');
+        String value = str(item, 'value');
+        if (kind == 'location') return '-' + locationQuery(item);
+        if (kind == 'availability') {
+            return String.isBlank(cfg.tkAvailabilityField) ? null : '-' + cfg.tkAvailabilityField + ':' + availabilityRange(item);
         }
-        return dateRange(null, Date.valueOf(str(item, 'value')));
+        if (kind == 'title') return '-' + fieldTerm(cfg.tkTitleField, value);
+        if (kind == 'language') return '-' + fieldTerm(String.isBlank(cfg.tkLanguageField) ? 'FULLTEXT' : cfg.tkLanguageField, value);
+        if (kind == 'fingerprint' || kind == 'tk_raw') {
+            Map<String, Object> raw = item.get('raw') instanceof Map<String, Object> ? (Map<String, Object>) item.get('raw') : null;
+            List<String> values = raw == null ? new List<String>() : strings(raw.get('values'));
+            if (values.isEmpty() || kind == 'fingerprint') return null;
+            return '-' + fieldTerm(str(raw, 'field'), values[0]);
+        }
+        return String.isBlank(value) ? null : '-' + fieldTerm('FULLTEXT', value);
+    }
+
+    /** "phrase" for FULLTEXT, field:value otherwise (quoted when the value has a space). */
+    private static String fieldTerm(String field, String value) {
+        if (field == 'FULLTEXT') return quote(value);
+        String v = value.trim();
+        if (v.contains(' ') && !v.startsWith('"')) v = '"' + v.replace('"', '') + '"';
+        return field + ':' + v;
+    }
+
+    /** city:Dagenham+15, or city:"RM9 6SA"+15 when the place has a space (quoting not yet confirmed with TK). */
+    @TestVisible
+    private static String locationQuery(Map<String, Object> item) {
+        String v = locationValue(item);
+        String place = v.substringBeforeLast('+');
+        String radius = v.substringAfterLast('+');
+        if (place.contains(' ')) place = '"' + place.replace('"', '') + '"';
+        return CandidateSearchConfig.get().tkLocationField + ':' + place + '+' + radius;
     }
 
     /**
-     * Date range for a TK date field. The open end uses a far date. Confirm the range syntax with the
-     * open item 2 Postman call (excluded part on custom_date_1); change DATE_RANGE_FORMAT if it differs.
+     * Date values use TK's relative date syntax, as the index's own facets do (documentdate: ">=today-365").
+     * Available within N days = date_available on or before today+N; an explicit date = on or before that date.
      */
     @TestVisible
-    private static final String DATE_RANGE_FORMAT = '{0}..{1}';
-
-    @TestVisible
-    private static String dateRange(Date fromDate, Date toDate) {
-        String f = fromDate == null ? '1900-01-01' : isoDate(fromDate);
-        String t = toDate == null ? '2999-12-31' : isoDate(toDate);
-        return String.format(DATE_RANGE_FORMAT, new List<Object>{ f, t });
+    private static String availabilityRange(Map<String, Object> item) {
+        if (item.get('withinDays') != null) {
+            return '<=today+' + dec(item, 'withinDays').intValue();
+        }
+        return '<=' + isoDate(Date.valueOf(str(item, 'value')));
     }
 
     private static String isoDate(Date d) {
@@ -460,27 +551,47 @@ public with sharing class CriteriaService {
                 item.put('label', 'Job description');
                 item.put('value', null);
             } else if (TITLE_FIELDS.contains(field)) {
+                // TK wraps normalised titles in brackets: [Process Engineer]
+                String title = display.removeStart('[').removeEnd(']').trim();
                 item.put('kind', 'title');
-                item.put('label', display);
-                item.put('value', display);
+                item.put('label', title);
+                item.put('value', title);
             } else if (SKILL_FIELDS.contains(field)) {
                 item.put('kind', 'skill');
-                item.put('label', display);
-                item.put('value', display);
-                if (display.startsWithIgnoreCase('KS') && !display.contains(' ')) item.put('code', display);
+                if (display.startsWithIgnoreCase('KS') && !display.contains(' ')) {
+                    // A KS code: the first synonym TK sent names the skill (KSAXTOY5CH3G8GUTIAUU = Lightning Components)
+                    String name = p.synonyms.isEmpty() ? display : p.synonyms[0].trim().removeEnd('.').trim();
+                    item.put('code', display);
+                    item.put('label', name);
+                    item.put('value', name);
+                } else {
+                    item.put('label', display);
+                    item.put('value', display);
+                }
             } else if (LOCATION_FIELDS.contains(field)) {
+                // US San Francisco CA+50@37.77493 -122.41942: place, radius, then coordinates after @
                 item.put('kind', 'location');
-                List<String> bits = first.split('\\+');
-                String place = bits[0].trim();
-                Decimal radius = CandidateSearchConfig.get().defaultRadiusMiles;
-                if (bits.size() > 1 && bits[1].trim().isNumeric()) radius = Decimal.valueOf(bits[1].trim());
+                String placeAndRadius = first.substringBefore('@');
+                if (first.contains('@')) item.put('geo', first.substringAfter('@').trim());
+                String place = placeAndRadius.contains('+') ? placeAndRadius.substringBeforeLast('+').trim() : placeAndRadius.trim();
+                String r = placeAndRadius.contains('+') ? placeAndRadius.substringAfterLast('+').trim() : '';
+                Decimal radius = r.isNumeric() ? Decimal.valueOf(r) : CandidateSearchConfig.get().defaultRadiusMiles;
                 item.put('value', place);
                 item.put('radius', radius);
                 item.put('unit', 'mi');
                 item.put('label', place + ' + ' + radius + ' mi');
+            } else if (field == 'fulltext') {
+                // Keywords TK took from the job description: ordinary keyword chips
+                List<String> shown = new List<String>();
+                for (String v : p.values) shown.add(v.replace('"', '').trim());
+                item.put('kind', 'keyword');
+                item.put('label', String.join(shown, ', ').abbreviate(MAX_LABEL));
+                item.put('value', display);
             } else {
                 item.put('kind', 'tk_raw');
-                String label = p.field + ': ' + String.join(p.values, ', ');
+                String label = p.values.isEmpty()
+                    ? friendlyField(p.field)
+                    : friendlyField(p.field) + ': ' + String.join(p.values, ', ');
                 item.put('label', label.abbreviate(MAX_LABEL));
                 item.put('value', null);
             }
@@ -489,6 +600,20 @@ public with sharing class CriteriaService {
             out.add(item);
         }
         return out;
+    }
+
+    private static final Map<String, String> FRIENDLY_FIELDS = new Map<String, String>{
+        'workfield' => 'Work field and experience level',
+        'experience_years' => 'Years of experience',
+        'educationlevel_international' => 'Education level',
+        'experiencelevel' => 'Experience level',
+        'language_skills' => 'Language',
+        'date_available' => 'Available from'
+    };
+
+    private static String friendlyField(String field) {
+        String f = field == null ? '' : field.toLowerCase();
+        return FRIENDLY_FIELDS.containsKey(f) ? FRIENDLY_FIELDS.get(f) : field;
     }
 
     private static Map<String, Object> rawOf(TkSearchClient.QueryPart p) {

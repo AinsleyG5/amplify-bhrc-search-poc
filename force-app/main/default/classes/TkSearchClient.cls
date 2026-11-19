@@ -10,7 +10,8 @@
  *
  * Credentials: the Named Credential (Candidate_Search_Config__mdt.TK_Named_Credential__c) points at the SOAP
  * endpoint and its External Credential holds the service account password, merged into the body with
- * {!HTMLENCODE($Credential.<External Credential>.Password)}. "Allow formulas in HTTP body" must be on. No password in code.
+ * {!$Credential.<External Credential>.Password} inside CDATA (HTMLENCODE is not allowed in callout body formulas),
+ * so any character in the password stays valid XML. "Allow formulas in HTTP body" must be on. No password in code.
  *
  * The response is parsed with Dom.Document and is tolerant about element names, because the exact SearchResult
  * element names are still to be confirmed against the pilot service account (spec section 15). Each name list
@@ -45,7 +46,13 @@ public with sharing class TkSearchClient {
         public String condition;
         public Decimal weight = 1.0;
         public List<String> values = new List<String>();
-        /** The part exactly as TK returned it. When set, it is sent back verbatim. */
+        /** Synonyms TK attached to the first item (for a KS code, the first one names the skill). */
+        public List<String> synonyms = new List<String>();
+        /**
+         * The part as TK returned it, minus its <synonyms> lists. When set, it is sent back verbatim. Synonyms are
+         * dropped because they can run to tens of kilobytes per part (job match on tksf_bh4sf_tso_vac) and TK
+         * expands them again from the search itself (synonymExpansionMode QUERY_AND_QUERYPARTS).
+         */
         public String xml;
         /** Chip the part came from (not sent to TK). */
         public String criteriaId;
@@ -55,6 +62,8 @@ public with sharing class TkSearchClient {
         public Integer pageSize;
         public Integer offset = 0;
         public List<String> resultFields;
+        /** Free-text query string, sent before the parts. Used for location, which TK only geo-interprets here. */
+        public String query;
     }
 
     public class Hit {
@@ -102,8 +111,9 @@ public with sharing class TkSearchClient {
 
     public static Result search(List<QueryPart> parts, SearchOptions opts) {
         CandidateSearchConfig cfg = CandidateSearchConfig.get();
-        if (parts == null || parts.isEmpty()) throw new TkException('There is nothing to search on.');
         if (opts == null) opts = new SearchOptions();
+        if (parts == null) parts = new List<QueryPart>();
+        if (parts.isEmpty() && String.isBlank(opts.query)) throw new TkException('There is nothing to search on.');
 
         Integer pageSize = opts.pageSize == null ? cfg.pageSize : opts.pageSize;
         pageSize = Math.max(1, Math.min(MAX_PAGE_SIZE, pageSize));
@@ -114,7 +124,7 @@ public with sharing class TkSearchClient {
         }
         List<String> resultFields = opts.resultFields == null ? cfg.tkResultFields : opts.resultFields;
 
-        String request = '';
+        String request = String.isBlank(opts.query) ? '' : '<query>' + opts.query.escapeXml() + '</query>';
         for (QueryPart p : parts) request += partXml(p);
         request += '<pageSize>' + pageSize + '</pageSize>';
         request += '<resultOffset>' + offset + '</resultOffset>';
@@ -148,6 +158,72 @@ public with sharing class TkSearchClient {
     }
 
     /** Raw getMetadata response, to confirm queryable field names (open item 3). */
+    /** Named Credential for Textkernel's View Document Service (same service account as search). */
+    public static final String VIEW_NAMED_CREDENTIAL = 'TK_View_Document';
+
+    /**
+     * The candidate's indexed CV as HTML, from the View Document Service (viewDocument). Confirmed in bh4sftso:
+     * the HTML comes back escaped inside soap:Body > viewDocumentResponse > return.
+     */
+    public static String viewDocument(String docId) {
+        if (String.isBlank(docId)) throw new TkException('No document id was given.');
+        CandidateSearchConfig cfg = CandidateSearchConfig.get();
+        String searcher = String.isBlank(cfg.tkCandidateSearchEngine) ? 'candidates' : cfg.tkCandidateSearchEngine;
+        String body = envelope('viewDocument',
+            '<environment>' + cfg.tkCandidateEnvironment.escapeXml() + '</environment>'
+            + '<password><![CDATA[{!$Credential.' + cfg.tkExternalCredential + '.Password}]]></password>'
+            + '<searchEngine>' + searcher.escapeXml() + '</searchEngine>'
+            + '<documentID>' + docId.escapeXml() + '</documentID>'
+            + '<accessRoles>' + cfg.tkAccessRoles.escapeXml() + '</accessRoles>');
+
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint('callout:' + VIEW_NAMED_CREDENTIAL);
+        req.setMethod('POST');
+        req.setHeader('Content-Type', 'text/xml; charset=UTF-8');
+        req.setHeader('SOAPAction', '""');
+        req.setTimeout(Math.min(120000, cfg.tkTimeoutMs));
+        req.setBody(body);
+        HttpResponse res;
+        try {
+            res = new Http().send(req);
+        } catch (CalloutException e) {
+            throw new TkException('Textkernel did not answer: ' + e.getMessage());
+        }
+        if (res.getStatusCode() != 200) throw new TkException(httpErrorText(VIEW_NAMED_CREDENTIAL, res));
+
+        Dom.Document doc = new Dom.Document();
+        try {
+            doc.load(res.getBody());
+        } catch (Exception e) {
+            throw new TkException('Textkernel returned a CV response that is not XML.');
+        }
+        Dom.XmlNode b = child(doc.getRootElement(), new List<String>{ 'Body' });
+        if (b == null) throw new TkException('Textkernel CV response has no SOAP body.');
+        Dom.XmlNode fault = child(b, new List<String>{ 'Fault' });
+        if (fault != null) throw new TkException('Textkernel error: ' + firstText(fault, new List<String>{ 'faultstring', 'Reason', 'Text' }));
+        Dom.XmlNode op = firstElement(b);
+        Dom.XmlNode ret = op == null ? null : child(op, new List<String>{ 'return' });
+        return ret == null ? null : ret.getText();
+    }
+
+    /**
+     * Reverse match: open jobs for a candidate. searchWithUrl in the job environment with the candidate's indexed
+     * document as the query, the same call as the Textkernel portal's "match" action
+     * (doc://<candidate environment>/candidates/<docId>).
+     */
+    public static Result matchCandidateToJobs(String candidateDocId, Integer pageSize) {
+        CandidateSearchConfig cfg = CandidateSearchConfig.get();
+        Integer size = pageSize == null ? 10 : Math.max(1, Math.min(MAX_PAGE_SIZE, pageSize));
+        String url = 'doc://' + cfg.tkCandidateEnvironment + '/candidates/' + candidateDocId;
+        String body = envelope('searchWithUrl',
+            credentialXml(cfg.tkJobEnvironment)
+            + '<url>' + url.escapeXml() + '</url>'
+            + '<pageSize>' + size + '</pageSize>');
+        Result r = send('searchWithUrl', body);
+        r.pageSize = size;
+        return r;
+    }
+
     public static String getMetadata(String environment) {
         CandidateSearchConfig cfg = CandidateSearchConfig.get();
         String body = envelope('getMetadata', credentialXml(String.isBlank(environment) ? cfg.tkCandidateEnvironment : environment));
@@ -183,7 +259,7 @@ public with sharing class TkSearchClient {
     private static String credentialXml(String environment) {
         CandidateSearchConfig cfg = CandidateSearchConfig.get();
         return '<environment>' + String.valueOf(environment).escapeXml() + '</environment>'
-            + '<password>{!HTMLENCODE($Credential.' + cfg.tkExternalCredential + '.Password)}</password>'
+            + '<password><![CDATA[{!$Credential.' + cfg.tkExternalCredential + '.Password}]]></password>'
             + '<accessRoles>' + cfg.tkAccessRoles.escapeXml() + '</accessRoles>';
     }
 
@@ -206,7 +282,7 @@ public with sharing class TkSearchClient {
         HttpResponse res = callout(body);
         Result r = parseResponse(res.getBody());
         r.method = method;
-        r.requestXml = AmplifyTKMatchService.maskRequest(body);
+        r.requestXml = AmplifyTKMatchService.maskRequest(body.replaceAll('<password><!\\[CDATA\\[.*?\\]\\]></password>', '<password></password>'));
         r.durationMs = System.currentTimeMillis() - started;
         return r;
     }
@@ -228,11 +304,38 @@ public with sharing class TkSearchClient {
             throw new TkException('Textkernel did not answer: ' + e.getMessage());
         }
         if (res.getStatusCode() != 200) {
-            String fault = faultText(res.getBody());
-            throw new TkException('Textkernel returned HTTP ' + res.getStatusCode()
-                + (String.isBlank(fault) ? '' : ': ' + fault));
+            System.debug(LoggingLevel.ERROR, 'TK HTTP ' + res.getStatusCode() + ' from callout:' + cfg.tkNamedCredential + ' body: ' + res.getBody());
+            throw new TkException(httpErrorText(cfg.tkNamedCredential, res));
         }
         return res;
+    }
+
+    /**
+     * Readable HTTP error: status, which Named Credential was called, the SOAP fault or a text snippet of the body,
+     * and what to check for the common statuses.
+     */
+    @TestVisible
+    private static String httpErrorText(String namedCredential, HttpResponse res) {
+        Integer code = res.getStatusCode();
+        String body = res.getBody();
+        String detail = faultText(body);
+        if (String.isNotBlank(detail) && detail.contains('<')) detail = detail.stripHtmlTags();
+        detail = String.isBlank(detail) ? null : detail.normalizeSpace().abbreviate(300);
+
+        String msg = 'Textkernel returned HTTP ' + code + (String.isBlank(res.getStatus()) ? '' : ' ' + res.getStatus())
+            + ' from the ' + namedCredential + ' Named Credential'
+            + (detail == null ? ' (empty response body).' : ': ' + detail);
+        if (!msg.endsWith('.')) msg += '.';
+
+        if (code == 404 || code == 405) {
+            msg += ' The URL on that Named Credential does not point at the Textkernel SOAP search service.'
+                + ' Check it in Setup: it should be the same URL as TK_Agent_Search_Endpoint, which the Talent Pool viewer uses.';
+        } else if (code == 401 || code == 403) {
+            msg += ' Check the environment and password on the TK_Search_Service_Account External Credential, and that the user\'s permission set grants its principal.';
+        } else if (code >= 500) {
+            msg += ' Textkernel or the network is not answering. If the body mentions DNS, the Named Credential URL host is wrong.';
+        }
+        return msg;
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -310,6 +413,8 @@ public with sharing class TkSearchClient {
                 } else {
                     for (Dom.XmlNode k : kids) addDecimal(h.queryPartScores, leafText(k));
                 }
+            } else if (name == 'fieldValues' && !c.getChildElements().isEmpty() && c.getChildElements()[0].getName() == 'entry') {
+                addEntries(h, c);
             } else if (FIELD_VALUE_NAMES.contains(name)) {
                 addNamedValues(h.fields, c);
             } else if (HIGHLIGHT_NAMES.contains(name)) {
@@ -351,13 +456,18 @@ public with sharing class TkSearchClient {
             String name = c.getName();
             if (name == 'items' || name == 'item') {
                 String v = firstText(c, new List<String>{ 'value', 'term' });
-                if (v == null) v = leafText(c);
+                if (v == null && c.getChildElements().isEmpty()) v = leafText(c);
                 if (String.isNotBlank(v)) p.values.add(v);
+                if (p.synonyms.isEmpty()) {
+                    for (Dom.XmlNode s : c.getChildElements()) {
+                        if (s.getName() == 'synonyms' && String.isNotBlank(leafText(s))) p.synonyms.add(leafText(s));
+                    }
+                }
             } else if (name == 'value' || name == 'values') {
                 if (String.isNotBlank(leafText(c))) p.values.add(leafText(c));
             }
         }
-        p.xml = serialize(n, 'queryParts');
+        p.xml = serialize(n, 'queryParts', new Set<String>{ 'synonyms' });
         return p;
     }
 
@@ -373,6 +483,33 @@ public with sharing class TkSearchClient {
         }
     }
 
+    /**
+     * The real response shape (confirmed against tksf_bh4sf_tso_cv):
+     * <fieldValues><entry><key>jobtitles</key><value><item><value>&lt;b&gt;Warehouse&lt;/b&gt; Operative</value></item></value></entry></fieldValues>
+     * Highlighting is inline: matched terms are wrapped in <b>. Values with a <b> are copied to the highlights
+     * (tags kept, for the UI and the explain prompt); the field values themselves are stored without tags.
+     */
+    private static void addEntries(Hit h, Dom.XmlNode fieldValues) {
+        for (Dom.XmlNode entry : fieldValues.getChildElements()) {
+            if (entry.getName() != 'entry') continue;
+            String key = firstText(entry, new List<String>{ 'key' });
+            if (key == null) continue;
+            List<String> raw = new List<String>();
+            for (Dom.XmlNode c : entry.getChildElements()) {
+                if (c.getName() == 'value') collectItems(c, raw);
+            }
+            List<String> plain = new List<String>();
+            for (String v : raw) {
+                if (v.contains('<b>')) {
+                    if (!h.highlights.containsKey(key)) h.highlights.put(key, new List<String>());
+                    h.highlights.get(key).add(v);
+                }
+                plain.add(v.replace('<b>', '').replace('</b>', ''));
+            }
+            h.fields.put(key, plain);
+        }
+    }
+
     /** <values><field>city</field><items>London</items></values> style: field name, then every other leaf as a value. */
     private static void addNamedValues(Map<String, List<String>> target, Dom.XmlNode n) {
         String field = firstText(n, new List<String>{ 'field', 'name', 'fieldName' });
@@ -383,6 +520,47 @@ public with sharing class TkSearchClient {
             if (name == 'field' || name == 'name' || name == 'fieldName') continue;
             collectLeaves(c, target.get(field));
         }
+    }
+
+    /** Keys that name a nested object (certifications: custom_text_1 is the name in the connector mapping). */
+    private static final List<String> NESTED_NAME_KEYS = new List<String>{ 'description', 'name', 'label', 'custom_text_1', 'text', 'value' };
+
+    /**
+     * Values of one field. A plain <item><value>x</value></item> gives x; a nested object
+     * (<item><value><entry><key>custom_text_1</key><value>...</value></entry>...</value></item>) gives only its name,
+     * so keys such as custom_text_9 or flags such as false never reach the UI.
+     */
+    private static void collectItems(Dom.XmlNode valueNode, List<String> out) {
+        if (descendants(valueNode, 'entry').isEmpty()) {
+            collectLeaves(valueNode, out);
+            return;
+        }
+        // Group entries per item so each nested object yields one name
+        for (Dom.XmlNode item : descendants(valueNode, 'item')) {
+            Map<String, String> m = new Map<String, String>();
+            for (Dom.XmlNode e : descendants(item, 'entry')) {
+                String k = firstText(e, new List<String>{ 'key' });
+                List<String> vals = new List<String>();
+                for (Dom.XmlNode c : e.getChildElements()) if (c.getName() == 'value') collectLeaves(c, vals);
+                if (k != null && !vals.isEmpty() && !m.containsKey(k.toLowerCase())) m.put(k.toLowerCase(), vals[0]);
+            }
+            if (m.isEmpty()) continue;
+            for (String nk : NESTED_NAME_KEYS) {
+                if (String.isNotBlank(m.get(nk))) {
+                    out.add(m.get(nk));
+                    break;
+                }
+            }
+        }
+    }
+
+    private static List<Dom.XmlNode> descendants(Dom.XmlNode n, String name) {
+        List<Dom.XmlNode> out = new List<Dom.XmlNode>();
+        for (Dom.XmlNode c : n.getChildElements()) {
+            if (c.getName() == name) out.add(c);
+            else out.addAll(descendants(c, name));
+        }
+        return out;
     }
 
     private static void collectLeaves(Dom.XmlNode n, List<String> out) {
@@ -468,6 +646,11 @@ public with sharing class TkSearchClient {
     }
 
     private static String serialize(Dom.XmlNode n, String asName) {
+        return serialize(n, asName, new Set<String>());
+    }
+
+    /** As serialize, leaving out child elements with any of the given names. */
+    private static String serialize(Dom.XmlNode n, String asName, Set<String> skip) {
         if (n.getNodeType() == Dom.XmlNodeType.TEXT) return n.getText() == null ? '' : n.getText().escapeXml();
         if (n.getNodeType() != Dom.XmlNodeType.ELEMENT) return '';
         String attrs = '';
@@ -478,7 +661,10 @@ public with sharing class TkSearchClient {
             attrs += ' ' + key + '="' + String.valueOf(n.getAttributeValue(key, ns)).escapeXml() + '"';
         }
         String innerXml = '';
-        for (Dom.XmlNode c : n.getChildren()) innerXml += serialize(c, c.getName());
+        for (Dom.XmlNode c : n.getChildren()) {
+            if (c.getNodeType() == Dom.XmlNodeType.ELEMENT && skip.contains(c.getName())) continue;
+            innerXml += serialize(c, c.getName(), skip);
+        }
         return '<' + asName + attrs + '>' + innerXml + '</' + asName + '>';
     }
 }

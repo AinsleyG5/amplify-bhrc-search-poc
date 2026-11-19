@@ -11,7 +11,7 @@ private class CandidateSearchControllerTest {
         CandidateSearchTestMocks.usePrompts();
         List<Contact> cs = CandidateSearchTestMocks.contacts(3);
         CandidateSearchTestMocks.toolInputs.put('set_criteria', new List<String>{ CandidateSearchTestMocks.PARSE_OUTPUT });
-        CandidateSearchTestMocks.partScores = new List<String>{ '1.0', '1.0', '0.0', '1.0' };
+        CandidateSearchTestMocks.partScores = new List<String>{ '1.0', '0.0', '1.0' };
         CandidateSearchTestMocks.total = 9;
         CandidateSearchTestMocks.hasMore = true;
         CandidateSearchTestMocks.install();
@@ -36,8 +36,10 @@ private class CandidateSearchControllerTest {
         System.assertEquals(cs[0].Id, row.get('contactId'));
         System.assertEquals(1, row.get('rank'));
         System.assertEquals(98, row.get('scorePct'));
-        System.assertEquals(new List<Object>{ 1, 1, 0, 1 }, row.get('queryPartFlags'));
-        System.assertEquals(new List<Object>{ 'c1', 'c2', 'c3', 'filter:candidate_status' }, row.get('criteriaIds'));
+        System.assertEquals(new List<Object>{ 1, 0, 1 }, row.get('queryPartFlags'));
+        System.assertEquals(new List<Object>{ 'c1', 'c2', 'filter:candidate_status' }, row.get('criteriaIds'));
+        System.assertEquals(new List<Object>{ 'c3' }, row.get('queryCriteriaIds'));
+        System.assert(CandidateSearchTestMocks.requests[1].getBody().contains('<query>city:Dagenham+15</query>'), 'location goes in the query string');
         System.assertEquals('Test0 Candidate0', row.get('name'));
         System.assertEquals(1, ((List<Object>) res.get('facets')).size());
         System.assert(((Map<String, Object>) res.get('criteria')).get('trace') == null, 'trace is never returned or stored');
@@ -58,18 +60,20 @@ private class CandidateSearchControllerTest {
         System.assert(a.TK_Request_XML__c.contains('<password>(hidden)</password>'));
         System.assertNotEquals(null, a.Saved_Search__c, 'logged as a recent search');
         System.assertEquals(3, [SELECT COUNT() FROM Search_Audit_Result__c WHERE Search_Audit__c = :auditId]);
+        Search_Audit_Result__c first = [SELECT TK_Criteria_Map__c FROM Search_Audit_Result__c WHERE Search_Audit__c = :auditId ORDER BY Rank__c LIMIT 1];
+        System.assertEquals('c1,c2,filter:candidate_status,q:c3', first.TK_Criteria_Map__c);
     }
 
     /** Builds an audit with result rows the way the writer would, before any callout in the test. */
     private static Id seedAudit(List<Contact> cs) {
-        CandidateSearchTestMocks.partScores = new List<String>{ '1.0', '0.0', '1.0', '1.0', '1.0' };
+        CandidateSearchTestMocks.partScores = new List<String>{ '1.0', '0.0', '1.0', '1.0' };
         TkSearchClient.Result r = TkSearchClient.parseResponse(CandidateSearchTestMocks.searchResponse(false));
         r.method = 'search';
         SearchAuditService.AuditStart s = new SearchAuditService.AuditStart();
         s.criteriaJson = CandidateSearchTestMocks.criteriaJson();
         Search_Audit__c a = SearchAuditService.newAudit(s, r, 'Success', null);
         insert a;
-        List<String> ids = CriteriaService.toQueryParts(CriteriaService.parse(s.criteriaJson)).criteriaIds;
+        List<String> ids = CriteriaService.toQueryParts(CriteriaService.parse(s.criteriaJson)).auditCriteriaIds();
         insert SearchAuditService.resultRows(a.Id, r, ids, new Map<Id, PipelineStatusService.Flags>(), new Set<String>());
         insert new Task(WhoId = cs[0].Id, Subject = 'Call', Description = 'Has a forklift licence, happy to do nights.');
         return a.Id;
@@ -146,6 +150,8 @@ private class CandidateSearchControllerTest {
         System.assertEquals(auditId, (Id) res.get('auditId'));
         System.assertEquals(21, ((Map<String, Object>) ((List<Object>) res.get('rows'))[0]).get('rank'));
         System.assert(CandidateSearchTestMocks.requests[0].getBody().contains('<resultOffset>20</resultOffset>'));
+        System.assert(CandidateSearchTestMocks.requests[0].getBody().contains('<query>city:Dagenham+15 -custom_date_1:&gt;=today-30</query>'),
+            'location and the placed-recently exclusion go in the query string');
         Search_Audit_Result__c r = [SELECT Rank__c, Page_Offset__c FROM Search_Audit_Result__c WHERE Contact__c = :more[0].Id];
         System.assertEquals(21, r.Rank__c);
         System.assertEquals(20, r.Page_Offset__c);
@@ -215,6 +221,31 @@ private class CandidateSearchControllerTest {
         Id auditId = (Id) res.get('auditId');
         Search_Audit__c a = [SELECT Status__c, Error__c FROM Search_Audit__c WHERE Id = :auditId];
         System.assertEquals('TK error', a.Status__c);
+    }
+
+    @isTest
+    static void resultsFromAnotherOrgAreHiddenAndNeverLinked() {
+        List<Contact> cs = CandidateSearchTestMocks.contacts(1);
+        CandidateSearchTestMocks.docIds.add('00Dfo000004ft2e_003fo000005QaEkAAK');
+        CandidateSearchTestMocks.install();
+        Test.startTest();
+        Map<String, Object> res = obj(CandidateSearchController.runSearch(CandidateSearchTestMocks.criteriaJson(), 0, null));
+        Test.stopTest();
+        System.assertEquals(1, ((List<Object>) res.get('rows')).size());
+        System.assert(String.valueOf(res.get('notices')).contains('another Salesforce org'), String.valueOf(res.get('notices')));
+        Id auditId = (Id) res.get('auditId');
+        System.assertEquals('Success', [SELECT Status__c FROM Search_Audit__c WHERE Id = :auditId].Status__c, 'no failed lookups');
+        System.assertEquals(2, [SELECT COUNT() FROM Search_Audit_Result__c WHERE Search_Audit__c = :auditId], 'both still audited');
+    }
+
+    @isTest
+    static void storedCriteriaFitTheField() {
+        Map<String, Object> c = CriteriaService.parse(CandidateSearchTestMocks.criteriaJson());
+        Map<String, Object> item = (Map<String, Object>) CriteriaService.items(c)[0];
+        item.put('raw', new Map<String, Object>{ 'field' => 'jobtitles', 'xml' => 'x'.repeat(140000) });
+        String stored = CandidateSearchController.storedCriteriaJson(c);
+        System.assert(stored.length() <= SearchAuditService.LONG_TEXT_MAX);
+        System.assert(stored.contains('"field":"jobtitles"'), 'chips and fields kept');
     }
 
     @isTest
@@ -326,5 +357,86 @@ private class CandidateSearchControllerTest {
             System.assert(e.getMessage().contains('Unknown action'));
         }
         CandidateSearchController.logAction(null, null, 'opened'); // ignored
+    }
+
+    @isTest
+    static void searchRecordsOnlyAllowsJobsAndPools() {
+        try {
+            CandidateSearchController.searchRecords('Contact', 'a');
+            System.assert(false, 'expected an error');
+        } catch (AuraHandledException e) {
+            System.assert(e.getMessage().contains('not available'), e.getMessage());
+        }
+        TR1__Call_List__c pool = new TR1__Call_List__c(Name = 'Forklift drivers pool');
+        insert pool;
+        List<Object> found = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.searchRecords('TR1__Call_List__c', 'forklift'));
+        System.assertEquals(1, found.size());
+        System.assertEquals(pool.Id, ((Map<String, Object>) found[0]).get('id'));
+        found = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.searchRecords('TR1__Call_List__c', pool.Id));
+        System.assertEquals('Forklift drivers pool', ((Map<String, Object>) found[0]).get('name'));
+    }
+
+    @isTest
+    static void cvComesFromTextkernelViewDocument() {
+        CandidateSearchTestMocks.install();
+        CandidateSearchTestMocks.viewDocumentHtml = '<div><p><b>Jane Doe</b></p><p>Certified Forklift Operator</p></div>';
+        Test.startTest();
+        Map<String, Object> res = (Map<String, Object>) System.JSON.deserializeUntyped(CandidateSearchController.getCandidateCv('00D000000000001_003000000000001AAA'));
+        Test.stopTest();
+        System.assert(String.valueOf(res.get('html')).contains('Certified Forklift Operator'));
+        try {
+            CandidateSearchController.getCandidateCv(' ');
+            System.assert(false, 'expected an error');
+        } catch (AuraHandledException e) {
+            System.assert(e.getMessage().contains('no Textkernel document'));
+        }
+    }
+
+    @isTest
+    static void cvPickPrefersTheDefaultResume() {
+        List<TR1__ContactDocument__c> docs = new List<TR1__ContactDocument__c>{
+            new TR1__ContactDocument__c(Name = 'cover.pdf', TR1__Type__c = 'Other'),
+            new TR1__ContactDocument__c(Name = 'cv-new.pdf', TR1__Type__c = 'Resume', TR1__isDefault__c = false),
+            new TR1__ContactDocument__c(Name = 'cv-default.docx', TR1__Type__c = 'Resume', TR1__isDefault__c = true)
+        };
+        System.assertEquals('cv-default.docx', CandidateSearchController.pickCv(docs).Name);
+        docs.remove(2);
+        System.assertEquals('cv-new.pdf', CandidateSearchController.pickCv(docs).Name);
+        System.assertEquals(null, CandidateSearchController.pickCv(new List<TR1__ContactDocument__c>()));
+    }
+
+    @isTest
+    static void professionAndSkillSuggestionsComeFromTheTxOntology() {
+        CandidateSearchTestMocks.install();
+        Test.startTest();
+        List<Object> profs = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.suggestProfessions('forklift'));
+        List<Object> fromProf = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.suggestSkillsForProfession(2357));
+        List<Object> similar = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.suggestSimilarSkills('["KS120076FGP5WGWYMP0F"]'));
+        Test.stopTest();
+        System.assertEquals(2357, ((Map<String, Object>) profs[0]).get('codeId'));
+        System.assertEquals('Forklift Truck Operation', ((Map<String, Object>) fromProf[0]).get('description'));
+        System.assertEquals(2, similar.size());
+        Map<String, Object> sent = (Map<String, Object>) System.JSON.deserializeUntyped(CandidateSearchTestMocks.requests[1].getBody());
+        System.assertEquals(new List<Object>{ 2357 }, sent.get('ProfessionCodeIds'));
+        System.assertEquals('[]', CandidateSearchController.suggestProfessions('f'));
+        System.assertEquals('[]', CandidateSearchController.suggestSimilarSkills('[]'));
+    }
+
+    @isTest
+    static void matchCandidateToJobsSearchesTheJobEnvironment() {
+        CandidateSearchTestMocks.install();
+        Test.startTest();
+        Map<String, Object> res = (Map<String, Object>) System.JSON.deserializeUntyped(CandidateSearchController.matchCandidateToJobs('00D000000000001_003000000000001AAA'));
+        Test.stopTest();
+        String sent = CandidateSearchTestMocks.requests[0].getBody();
+        System.assert(sent.contains('<sear:searchWithUrl>'), sent);
+        System.assert(sent.contains('doc://'), sent);
+        System.assertNotEquals(null, res.get('jobs'));
+        try {
+            CandidateSearchController.matchCandidateToJobs(' ');
+            System.assert(false, 'expected an error');
+        } catch (AuraHandledException e) {
+            System.assert(e.getMessage().contains('no Textkernel document'));
+        }
     }
 }

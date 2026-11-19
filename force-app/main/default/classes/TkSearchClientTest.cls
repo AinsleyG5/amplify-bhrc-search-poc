@@ -2,6 +2,9 @@
 private class TkSearchClientTest {
 
     private static List<TkSearchClient.QueryPart> parts() {
+        CandidateSearchConfig cfg = new CandidateSearchConfig();
+        cfg.tkExcludeCondition = 'EXCLUDED';
+        CandidateSearchConfig.overrideForTest(cfg);
         return CriteriaService.toQueryParts(CriteriaService.parse(CandidateSearchTestMocks.criteriaJson())).parts;
     }
 
@@ -14,18 +17,19 @@ private class TkSearchClientTest {
 
         TkSearchClient.SearchOptions opts = new TkSearchClient.SearchOptions();
         opts.offset = 20;
+        opts.query = 'city:Dagenham+15';
         Test.startTest();
         TkSearchClient.Result r = TkSearchClient.search(parts(), opts);
         Test.stopTest();
 
         String body = CandidateSearchTestMocks.requests[0].getBody();
+        System.assert(body.contains('<request><query>city:Dagenham+15</query><queryParts>'), body);
         System.assert(body.contains('<sear:search>'), body);
         System.assert(body.contains('<resultOffset>20</resultOffset>'), body);
         System.assert(body.contains('<pageSize>20</pageSize>'), body);
         System.assert(body.contains('<resultFields>jobtitles</resultFields>'), body);
         System.assert(body.contains('<synonymExpansionMode>QUERY_AND_QUERYPARTS</synonymExpansionMode>'), body);
-        System.assert(body.contains('{!HTMLENCODE($Credential.TK_Search_Service_Account.Password)}'), body);
-        System.assert(body.contains('<condition>EXCLUDED</condition>'), body);
+        System.assert(body.contains('<password><![CDATA[{!$Credential.TK_Search_Service_Account.Password}]]></password>'), body);
         System.assertEquals('callout:TK_Candidate_Search', CandidateSearchTestMocks.requests[0].getEndpoint());
 
         System.assertEquals('search', r.method);
@@ -39,7 +43,11 @@ private class TkSearchClientTest {
         System.assertEquals(98, h.scorePct.intValue());
         System.assertEquals(new List<Decimal>{ 1.0, 0.0 }, h.queryPartScores);
         System.assertEquals('Ethan Kirby', h.fields.get('fullname')[0]);
-        System.assert(h.highlights.get('FULLTEXT')[0].contains('<b>Certified Forklift Operator</b>'));
+        System.assertEquals('GB London', h.fields.get('city')[0]);
+        System.assertEquals('Certified Forklift Operator', h.fields.get('jobtitles')[0], 'tags stripped from field values');
+        System.assertEquals(0, h.fields.get('profskills').size());
+        System.assert(h.highlights.get('jobtitles')[0].contains('<b>Certified Forklift Operator</b>'), 'inline highlights kept');
+        System.assert(!h.highlights.containsKey('city'));
         System.assertEquals(1, r.facets.size());
         System.assertEquals('candidate_status', r.facets[0].field);
         System.assertEquals(4, r.facets[0].values[0].count);
@@ -52,7 +60,7 @@ private class TkSearchClientTest {
         TkSearchClient.Hit again = TkSearchClient.parseHitXml(h.xml);
         System.assertEquals(h.docId, again.docId);
         System.assertEquals(h.queryPartScores, again.queryPartScores);
-        System.assertEquals(1, again.highlights.get('FULLTEXT').size());
+        System.assertEquals(1, again.highlights.get('jobtitles').size());
     }
 
     @isTest
@@ -90,12 +98,15 @@ private class TkSearchClientTest {
         System.assert(body.contains('<url>' + url + '</url>'));
         System.assert(r.requestXml.contains('<url>doc://(index)/'));
         System.assertEquals('searchWithUrl', r.method);
-        System.assertEquals(3, r.queryParts.size());
+        System.assertEquals(5, r.queryParts.size());
         System.assertEquals('jobtitles', r.queryParts[0].field);
         System.assertEquals('REQUIRED', r.queryParts[0].condition);
-        System.assertEquals('Warehouse Operative', r.queryParts[0].values[0]);
+        System.assertEquals('[Warehouse Operative]', r.queryParts[0].values[0]);
         System.assertEquals(0.5, r.queryParts[2].weight);
         System.assert(r.queryParts[0].xml.startsWith('<queryParts><field>jobtitles</field>'), r.queryParts[0].xml);
+        System.assertEquals('Forklift Truck Operation', r.queryParts[1].synonyms[0], 'synonyms are read');
+        System.assert(!r.queryParts[0].xml.contains('synonyms'), 'but not kept in the stored XML: ' + r.queryParts[0].xml);
+        System.assertEquals('GB Dagenham+25@51.5397 0.1436', r.queryParts[3].values[0]);
     }
 
     @isTest
@@ -126,6 +137,17 @@ private class TkSearchClientTest {
             }
         }
         System.assertEquals(null, TkSearchClient.faultText(''));
+    }
+
+    @isTest
+    static void aQueryStringAloneIsEnough() {
+        CandidateSearchTestMocks.install();
+        TkSearchClient.SearchOptions opts = new TkSearchClient.SearchOptions();
+        opts.query = 'city:Dagenham+15';
+        Test.startTest();
+        TkSearchClient.search(null, opts);
+        Test.stopTest();
+        System.assert(CandidateSearchTestMocks.requests[0].getBody().contains('<query>city:Dagenham+15</query>'));
     }
 
     @isTest
@@ -166,5 +188,23 @@ private class TkSearchClientTest {
         System.assertEquals('<queryParts><field>FULLTEXT</field><condition>FAVORED</condition><weight>1.0</weight><items><value>&quot;R&amp;D&quot;</value></items></queryParts>', xml);
         p.xml = '<queryParts>verbatim</queryParts>';
         System.assertEquals(p.xml, TkSearchClient.partXml(p));
+    }
+
+    @isTest
+    static void httpErrorsSayWhatWasCalledAndWhatToCheck() {
+        HttpResponse res = new HttpResponse();
+        res.setStatusCode(404);
+        res.setStatus('Not Found');
+        res.setBody('');
+        String msg = TkSearchClient.httpErrorText('TK_Candidate_Search', res);
+        System.assert(msg.startsWith('Textkernel returned HTTP 404 Not Found from the TK_Candidate_Search Named Credential (empty response body).'), msg);
+        System.assert(msg.contains('TK_Agent_Search_Endpoint'), msg);
+
+        res.setStatusCode(503);
+        res.setStatus('Service Unavailable');
+        res.setBody('<html><body><h1>ERR_DNS_FAIL</h1><p>Unable to resolve DNS</p></body></html>');
+        msg = TkSearchClient.httpErrorText('TK_Candidate_Search', res);
+        System.assert(msg.contains('ERR_DNS_FAIL Unable to resolve DNS'), msg);
+        System.assert(!msg.contains('<'), msg);
     }
 }
