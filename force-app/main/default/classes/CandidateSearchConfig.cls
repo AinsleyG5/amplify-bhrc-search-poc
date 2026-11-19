@@ -21,10 +21,24 @@ public with sharing class CandidateSearchConfig {
      * no condition spelling excludes (tkExclude.apex), they all behave as REQUIRED.
      */
     public String tkExcludeCondition;
+    /**
+     * Textkernel profile fields for the panel's Profile tab. Always requested on top of TK_Result_Fields__c, which is
+     * a Text(255) field and cannot hold them all.
+     */
+    public static final List<String> PROFILE_RESULT_FIELDS = new List<String>{
+        'lastjobtitle', 'workfield', 'experiencelevel', 'employers', 'experience_years', 'educationlevel_international',
+        'degree_name', 'degree_institute', 'language_skills', 'professional_skills', 'soft_skills', 'custom_nested_object_1',
+        'date_available', 'documentdate', 'job_submissions', 'current_salary', 'salary'
+    };
+
     public List<String> tkResultFields = new List<String>{
         'fullname', 'jobtitles', 'recent_jobtitles', 'city', 'candidate_status',
         'custom_date_1', 'owner_id', 'owner_name', 'it_skills', 'profskills'
     };
+
+    {
+        tkResultFields.addAll(PROFILE_RESULT_FIELDS);
+    }
     public String tkTitleField = 'FULLTEXT';
     public String tkSkillCodeField = 'it_skills';
     public String tkCertificationCodeField;
@@ -93,6 +107,7 @@ public with sharing class CandidateSearchConfig {
         cfg.tkExcludeCondition = text(rec.TK_Exclude_Condition__c, null);
         if (String.isNotBlank(rec.TK_Result_Fields__c)) {
             cfg.tkResultFields = splitList(rec.TK_Result_Fields__c);
+            for (String f : PROFILE_RESULT_FIELDS) if (!cfg.tkResultFields.contains(f)) cfg.tkResultFields.add(f);
         }
         cfg.tkTitleField = text(rec.TK_Title_Field__c, cfg.tkTitleField);
         cfg.tkSkillCodeField = text(rec.TK_Skill_Code_Field__c, cfg.tkSkillCodeField);
