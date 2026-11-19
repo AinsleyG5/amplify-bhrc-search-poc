@@ -26,8 +26,6 @@ function loadFont(cmp) {
 }
 
 const EXPLAIN_QUEUE_MS = 400;
-/** The candidate panel's minimum height (px): it is the main surface once open. */
-const PANEL_MIN_HEIGHT = 760;
 const AUTO_LOAD_LIMIT = 5;
 const CHAT_HISTORY_TURNS = 6;
 
@@ -119,7 +117,7 @@ export default class CandidateSearchApp extends LightningElement {
             return;
         }
         const top = ws.getBoundingClientRect().top + window.scrollY;
-        const h = Math.max(this.panelDocId ? PANEL_MIN_HEIGHT : 520, window.innerHeight - top - 16);
+        const h = Math.max(520, window.innerHeight - top - 16);
         if (ws.style.height !== `${h}px`) ws.style.height = `${h}px`;
     }
 
@@ -129,10 +127,7 @@ export default class CandidateSearchApp extends LightningElement {
             window.addEventListener('resize', this._onResize);
         }
         this.fitWorkspace();
-        if (this._revealPanel) {
-            this._revealPanel = false;
-            this.revealWorkspace();
-        }
+        this.placePanel();
         if (this._focusPanel) {
             const panel = this.template.querySelector('c-cs-candidate-panel');
             if (panel) {
@@ -717,18 +712,22 @@ export default class CandidateSearchApp extends LightningElement {
         this.openPanel(event.detail.docId);
     }
 
-    /** When the open panel runs past the bottom of the window, scroll once so all of it is in view. */
-    revealWorkspace() {
-        const ws = this.template.querySelector('.workspace');
-        if (!ws || window.innerWidth < 900) return;
-        const box = ws.getBoundingClientRect();
-        if (box.bottom > window.innerHeight && typeof ws.scrollIntoView === 'function') ws.scrollIntoView({ block: 'start' });
+    /**
+     * The drawer starts just under the Salesforce header: this component's distance from the top of the document
+     * (the header is fixed, so that offset does not change with scrolling).
+     */
+    placePanel() {
+        const wrap = this.template.querySelector('.panel-wrap');
+        if (!wrap || window.innerWidth < 900) return;
+        const app = this.template.querySelector('.app');
+        const offset = app ? app.getBoundingClientRect().top + window.scrollY : 96;
+        const top = `${Math.round(Math.min(Math.max(offset, 16), 200))}px`;
+        if (wrap.style.getPropertyValue('--cs-panel-top') !== top) wrap.style.setProperty('--cs-panel-top', top);
     }
 
     openPanel(docId) {
         const row = this.rows.find((r) => r.docId === docId);
         if (!row) return;
-        if (!this.panelDocId) this._revealPanel = true;
         this.panelDocId = docId;
         this._focusPanel = true;
         const ex = this.explanations[docId];
@@ -961,6 +960,32 @@ export default class CandidateSearchApp extends LightningElement {
             details ? `${res.message}\n${details}` : res.message,
             failed ? 'warning' : res.added ? 'success' : 'info'
         );
+    }
+
+    // ─── Parse a CV (existing c-tx-resume-parser in a modal) ──
+
+    parserOpen = false;
+
+    openParser() {
+        this.parserOpen = true;
+         
+        Promise.resolve().then(() => {
+            const btn = this.template.querySelector('.parser-close');
+            if (btn) btn.focus();
+        });
+    }
+
+    /** Closes only on the button or Escape, so a half-finished parse is not lost to a stray click. */
+    closeParser() {
+        this.parserOpen = false;
+        this.loadHome();
+    }
+
+    parserKeydown(event) {
+        if (event.key === 'Escape') {
+            event.stopPropagation();
+            this.closeParser();
+        }
     }
 
     toast(title, message, variant) {

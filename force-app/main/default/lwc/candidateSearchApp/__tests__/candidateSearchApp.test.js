@@ -575,4 +575,14 @@ describe('c-candidate-search-app', () => {
         expect(second.items.map((i) => i.code).filter(Boolean)).toEqual(['KS1', 'KS2']);
         expect(bar.shadowRoot.querySelectorAll('.sugg-added').length).toBe(2);
     });
+
+    it('opens the CV parser in a modal from the banner and closes it with Escape', async () => {
+        await flush();
+        shadow(element, '[data-action="parse"]').click();
+        await flush();
+        expect(shadow(element, 'c-tx-resume-parser')).not.toBeNull();
+        shadow(element, '.parser-modal').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await flush();
+        expect(shadow(element, 'c-tx-resume-parser')).toBeNull();
+    });
 });

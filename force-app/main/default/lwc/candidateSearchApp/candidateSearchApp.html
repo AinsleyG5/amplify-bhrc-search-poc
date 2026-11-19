@@ -7,6 +7,9 @@
                     <h1 class="h1">{heading}</h1>
                     <p class="hero-sub">Search by role, tickets, location and availability, in your own words.</p>
                 </div>
+                <button class="btn btn-parse" data-action="parse" onclick={openParser} title="Parse a CV into a new candidate">
+                    <c-cs-icon name="file-plus" size="15"></c-cs-icon>Parse a CV
+                </button>
             </div>
             <div class="search-card">
                 <c-cs-search-bar
@@ -150,6 +153,22 @@
                         onremove={handleCompareRemove}
                     ></c-cs-compare>
                 </div>
+            </div>
+        </template>
+
+        <template lwc:if={parserOpen}>
+            <div class="backdrop">
+                <section class="parser-modal" role="dialog" aria-modal="true" aria-label="Parse a new candidate" onkeydown={parserKeydown}>
+                    <header class="parser-head">
+                        <h2>Parse a new candidate</h2>
+                        <button class="btn-icon parser-close" onclick={closeParser} aria-label="Close" title="Close">
+                            <c-cs-icon name="x" size="18"></c-cs-icon>
+                        </button>
+                    </header>
+                    <div class="parser-body">
+                        <c-tx-resume-parser></c-tx-resume-parser>
+                    </div>
+                </section>
             </div>
         </template>
 

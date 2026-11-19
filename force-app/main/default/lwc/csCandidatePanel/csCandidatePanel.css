@@ -21,7 +21,7 @@
 /* ── Header: solid blue (#4A89DC), white text ───── */
 
 .p-head {
-    padding: 14px 28px 0;
+    padding: 10px 28px 0;
     background: var(--amp-hero);
     border-bottom: 1px solid var(--amp-hero-line);
     color: var(--amp-on-hero);
@@ -76,9 +76,9 @@
 }
 
 .avatar-lg {
-    width: 64px;
-    height: 64px;
-    font-size: 20px;
+    width: 52px;
+    height: 52px;
+    font-size: 17px;
 }
 
 .p-title {
@@ -87,7 +87,7 @@
 }
 
 .p-name {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
     color: var(--amp-on-hero);
     margin: 0;
@@ -113,8 +113,8 @@
 }
 
 .p-score .ring {
-    width: 64px;
-    height: 64px;
+    width: 56px;
+    height: 56px;
 }
 
 .p-score .ring::before {
@@ -145,7 +145,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin: 18px 0 16px;
+    margin: 12px 0 8px;
 }
 
 /* Tabs sit on the header's bottom edge, underline style */
