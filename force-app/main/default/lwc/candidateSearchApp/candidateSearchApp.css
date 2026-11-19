@@ -132,7 +132,7 @@
 
 /* Room under the last row for the floating tray */
 .with-tray .list-wrap {
-    padding-bottom: 84px;
+    padding-bottom: 140px;
 }
 
 /* The candidate panel is a full-height drawer on the right of the window, from just under the Salesforce header
@@ -205,7 +205,8 @@
 .tray-wrap {
     position: fixed;
     left: 50%;
-    bottom: 24px;
+    /* Clear of the Salesforce utility bar (about 40px) along the bottom of the window */
+    bottom: 64px;
     transform: translateX(-50%);
     z-index: 50;
     max-width: calc(100vw - 32px);
