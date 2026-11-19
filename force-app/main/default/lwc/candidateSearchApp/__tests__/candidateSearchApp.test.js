@@ -15,6 +15,8 @@ import bulkAddToJob from '@salesforce/apex/CandidateSearchController.bulkAddToJo
 import bulkAddToTalentPool from '@salesforce/apex/CandidateSearchController.bulkAddToTalentPool';
 import saveSearch from '@salesforce/apex/CandidateSearchController.saveSearch';
 import searchRecords from '@salesforce/apex/CandidateSearchController.searchRecords';
+import getCandidateCv from '@salesforce/apex/CandidateSearchController.getCandidateCv';
+import getCandidateCvLink from '@salesforce/apex/CandidateSearchController.getCandidateCvLink';
 
 jest.mock('@salesforce/apex/CandidateSearchController.parseQuery', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.startJobMatch', () => ({ default: jest.fn() }), { virtual: true });
@@ -31,6 +33,8 @@ jest.mock('@salesforce/apex/CandidateSearchController.bulkAddToTalentPool', () =
 jest.mock('@salesforce/apex/CandidateSearchController.logAction', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.autocompleteSkills', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.searchRecords', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/CandidateSearchController.getCandidateCv', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/CandidateSearchController.getCandidateCvLink', () => ({ default: jest.fn() }), { virtual: true });
 
 const CRITERIA = {
     version: 1,
@@ -483,5 +487,43 @@ describe('c-candidate-search-app', () => {
             auditId: 'a0X000000000001AAA'
         });
         expect(shadow(element, 'c-cs-selection-tray')).toBeNull();
+    });
+
+    it('shows the CV from Textkernel, cleaned, with the search terms highlighted', async () => {
+        getCandidateCv.mockResolvedValue(
+            JSON.stringify({
+                docId: row(0).docId,
+                html:
+                    '<div><tk_metadata name="author" value="x"> </tk_metadata><p style="text-align:center"><b>Candidate 0</b></p>' +
+                    '<p onclick="alert(1)">Warehouse Operative since 2019. Certified Forklift Operator, forklift licence.</p>' +
+                    '<script>window.hacked = true</script><a href="javascript:alert(1)">bad link</a><img src="x.png"></div>'
+            })
+        );
+        getCandidateCvLink.mockResolvedValue(JSON.stringify({ url: 'https://files.example.com/cv.pdf?sig=1', name: 'cv.pdf', extension: 'pdf' }));
+        window.open = jest.fn();
+        await searchFromUrl();
+        shadow(element, 'c-cs-result-list').shadowRoot.querySelector('c-cs-result-row').shadowRoot.querySelector('.name-btn').click();
+        await flush(8);
+        const panel = shadow(element, 'c-cs-candidate-panel');
+        panel.shadowRoot.querySelector('[data-tab="cv"]').click();
+        await flush(10);
+        expect(getCandidateCv).toHaveBeenCalledWith({ docId: row(0).docId });
+        const viewer = panel.shadowRoot.querySelector('c-cs-cv-viewer');
+        const doc = viewer.shadowRoot.querySelector('.cv-doc');
+        expect(doc.querySelector('script')).toBeNull();
+        expect(doc.querySelector('img')).toBeNull();
+        expect(doc.querySelector('tk_metadata')).toBeNull();
+        expect(doc.querySelector('[onclick]')).toBeNull();
+        expect(doc.querySelector('a').getAttribute('href')).toBeNull();
+        expect(window.hacked).toBeUndefined();
+        const marks = [...doc.querySelectorAll('mark.hit')].map((m) => m.textContent);
+        expect(marks).toEqual(['Warehouse Operative', 'Forklift', 'forklift']);
+        const chips = [...viewer.shadowRoot.querySelectorAll('.term')].map((t) => t.textContent);
+        expect(chips).toContain('Forklift2');
+
+        viewer.shadowRoot.querySelector('[data-action="open-original"]').click();
+        await flush(6);
+        expect(getCandidateCvLink).toHaveBeenCalledWith({ contactId: row(0).contactId });
+        expect(window.open).toHaveBeenCalledWith('https://files.example.com/cv.pdf?sig=1', '_blank', 'noopener');
     });
 });

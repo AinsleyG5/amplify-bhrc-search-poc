@@ -375,4 +375,33 @@ private class CandidateSearchControllerTest {
         found = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.searchRecords('TR1__Call_List__c', pool.Id));
         System.assertEquals('Forklift drivers pool', ((Map<String, Object>) found[0]).get('name'));
     }
+
+    @isTest
+    static void cvComesFromTextkernelViewDocument() {
+        CandidateSearchTestMocks.install();
+        CandidateSearchTestMocks.viewDocumentHtml = '<div><p><b>Jane Doe</b></p><p>Certified Forklift Operator</p></div>';
+        Test.startTest();
+        Map<String, Object> res = (Map<String, Object>) System.JSON.deserializeUntyped(CandidateSearchController.getCandidateCv('00D000000000001_003000000000001AAA'));
+        Test.stopTest();
+        System.assert(String.valueOf(res.get('html')).contains('Certified Forklift Operator'));
+        try {
+            CandidateSearchController.getCandidateCv(' ');
+            System.assert(false, 'expected an error');
+        } catch (AuraHandledException e) {
+            System.assert(e.getMessage().contains('no Textkernel document'));
+        }
+    }
+
+    @isTest
+    static void cvPickPrefersTheDefaultResume() {
+        List<TR1__ContactDocument__c> docs = new List<TR1__ContactDocument__c>{
+            new TR1__ContactDocument__c(Name = 'cover.pdf', TR1__Type__c = 'Other'),
+            new TR1__ContactDocument__c(Name = 'cv-new.pdf', TR1__Type__c = 'Resume', TR1__isDefault__c = false),
+            new TR1__ContactDocument__c(Name = 'cv-default.docx', TR1__Type__c = 'Resume', TR1__isDefault__c = true)
+        };
+        System.assertEquals('cv-default.docx', CandidateSearchController.pickCv(docs).Name);
+        docs.remove(2);
+        System.assertEquals('cv-new.pdf', CandidateSearchController.pickCv(docs).Name);
+        System.assertEquals(null, CandidateSearchController.pickCv(new List<TR1__ContactDocument__c>()));
+    }
 }

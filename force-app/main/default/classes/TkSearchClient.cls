@@ -158,6 +158,54 @@ public with sharing class TkSearchClient {
     }
 
     /** Raw getMetadata response, to confirm queryable field names (open item 3). */
+    /** Named Credential for Textkernel's View Document Service (same service account as search). */
+    public static final String VIEW_NAMED_CREDENTIAL = 'TK_View_Document';
+
+    /**
+     * The candidate's indexed CV as HTML, from the View Document Service (viewDocument). Confirmed in bh4sftso:
+     * the HTML comes back escaped inside soap:Body > viewDocumentResponse > return.
+     */
+    public static String viewDocument(String docId) {
+        if (String.isBlank(docId)) throw new TkException('No document id was given.');
+        CandidateSearchConfig cfg = CandidateSearchConfig.get();
+        String searcher = String.isBlank(cfg.tkCandidateSearchEngine) ? 'candidates' : cfg.tkCandidateSearchEngine;
+        String body = envelope('viewDocument',
+            '<environment>' + cfg.tkCandidateEnvironment.escapeXml() + '</environment>'
+            + '<password><![CDATA[{!$Credential.' + cfg.tkExternalCredential + '.Password}]]></password>'
+            + '<searchEngine>' + searcher.escapeXml() + '</searchEngine>'
+            + '<documentID>' + docId.escapeXml() + '</documentID>'
+            + '<accessRoles>' + cfg.tkAccessRoles.escapeXml() + '</accessRoles>');
+
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint('callout:' + VIEW_NAMED_CREDENTIAL);
+        req.setMethod('POST');
+        req.setHeader('Content-Type', 'text/xml; charset=UTF-8');
+        req.setHeader('SOAPAction', '""');
+        req.setTimeout(Math.min(120000, cfg.tkTimeoutMs));
+        req.setBody(body);
+        HttpResponse res;
+        try {
+            res = new Http().send(req);
+        } catch (CalloutException e) {
+            throw new TkException('Textkernel did not answer: ' + e.getMessage());
+        }
+        if (res.getStatusCode() != 200) throw new TkException(httpErrorText(VIEW_NAMED_CREDENTIAL, res));
+
+        Dom.Document doc = new Dom.Document();
+        try {
+            doc.load(res.getBody());
+        } catch (Exception e) {
+            throw new TkException('Textkernel returned a CV response that is not XML.');
+        }
+        Dom.XmlNode b = child(doc.getRootElement(), new List<String>{ 'Body' });
+        if (b == null) throw new TkException('Textkernel CV response has no SOAP body.');
+        Dom.XmlNode fault = child(b, new List<String>{ 'Fault' });
+        if (fault != null) throw new TkException('Textkernel error: ' + firstText(fault, new List<String>{ 'faultstring', 'Reason', 'Text' }));
+        Dom.XmlNode op = firstElement(b);
+        Dom.XmlNode ret = op == null ? null : child(op, new List<String>{ 'return' });
+        return ret == null ? null : ret.getText();
+    }
+
     public static String getMetadata(String environment) {
         CandidateSearchConfig cfg = CandidateSearchConfig.get();
         String body = envelope('getMetadata', credentialXml(String.isBlank(environment) ? cfg.tkCandidateEnvironment : environment));

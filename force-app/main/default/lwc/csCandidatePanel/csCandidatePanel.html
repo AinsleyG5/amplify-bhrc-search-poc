@@ -117,6 +117,10 @@
                 </template>
             </template>
 
+            <template lwc:if={isCv}>
+                <c-cs-cv-viewer doc-id={docId} contact-id={contactId} terms={cvTerms}></c-cs-cv-viewer>
+            </template>
+
             <template lwc:if={isProfile}>
                 <template lwc:if={noRecord}><p class="p-muted">This result has no Salesforce candidate record.</p></template>
                 <template lwc:if={detailLoading}

@@ -504,6 +504,93 @@ public with sharing class CandidateSearchController {
         return System.JSON.serialize(data);
     }
 
+    // ═════════════════════════════════════════════════════════════
+    // CV tab
+    // ═════════════════════════════════════════════════════════════
+
+    /**
+     * The candidate's CV as HTML from the Textkernel index (View Document Service). The LWC sanitises it and
+     * highlights the search terms. Returns { docId, html }.
+     */
+    @AuraEnabled
+    public static String getCandidateCv(String docId) {
+        if (String.isBlank(docId)) throw fail('This result has no Textkernel document.');
+        String html;
+        try {
+            html = TkSearchClient.viewDocument(docId);
+        } catch (TkSearchClient.TkException e) {
+            throw fail('The CV could not be loaded. ' + e.getMessage());
+        }
+        if (String.isBlank(html)) throw fail('Textkernel has no CV text for this candidate.');
+        return System.JSON.serialize(new Map<String, Object>{ 'docId' => docId, 'html' => html });
+    }
+
+    /**
+     * "Open original": a presigned link (15 minutes by default) to the candidate's CV file, from the BH4SF package
+     * endpoint /TR1/api/v1/contact-documents/{id}/public-url. Its handler classes are public, so this calls the global
+     * REST entry point TR1.RestApiEndpoint.doGet() with a request built here. Picks the default resume, else the
+     * newest resume, else the newest document. Returns { url, name, extension, documentId }.
+     */
+    @AuraEnabled
+    public static String getCandidateCvLink(Id contactId) {
+        if (contactId == null) throw fail('This result has no Salesforce candidate record.');
+        List<TR1__ContactDocument__c> docs = [
+            SELECT Id, Name, TR1__Type__c, TR1__isDefault__c, CreatedDate
+            FROM TR1__ContactDocument__c
+            WHERE TR1__Contact__c = :contactId
+            WITH USER_MODE
+            ORDER BY CreatedDate DESC
+            LIMIT 50
+        ];
+        TR1__ContactDocument__c pick = pickCv(docs);
+        if (pick == null) throw fail('This candidate has no CV file.');
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/TR1/api/v1/contact-documents/' + pick.Id + '/public-url';
+        req.httpMethod = 'GET';
+        RestContext.request = req;
+        RestContext.response = new RestResponse();
+        try {
+            TR1.RestApiEndpoint.doGet();
+        } catch (Exception e) {
+            throw fail('The CV file link could not be created: ' + e.getMessage());
+        }
+        Integer status = RestContext.response.statusCode;
+        String body = RestContext.response.responseBody == null ? '' : RestContext.response.responseBody.toString().trim();
+        if (status != null && status != 200) {
+            String msg = null;
+            try {
+                Object parsed = System.JSON.deserializeUntyped(body);
+                if (parsed instanceof Map<String, Object>) msg = (String) ((Map<String, Object>) parsed).get('message');
+            } catch (Exception e) {
+                msg = null;
+            }
+            throw fail('The CV file link could not be created (HTTP ' + status + ')' + (String.isBlank(msg) ? '.' : ': ' + msg));
+        }
+        // The package writes the link as the raw body, not JSON
+        String url = body.removeStart('"').removeEnd('"');
+        if (!url.startsWithIgnoreCase('http')) throw fail('The CV file link was not returned.');
+        return System.JSON.serialize(new Map<String, Object>{
+            'url' => url,
+            'name' => pick.Name,
+            'extension' => pick.Name == null ? null : pick.Name.substringAfterLast('.').toLowerCase(),
+            'documentId' => pick.Id
+        });
+    }
+
+    /** Default resume, else the newest resume, else the newest document (docs are newest first). */
+    @TestVisible
+    private static TR1__ContactDocument__c pickCv(List<TR1__ContactDocument__c> docs) {
+        if (docs == null || docs.isEmpty()) return null;
+        TR1__ContactDocument__c newestResume = null;
+        for (TR1__ContactDocument__c d : docs) {
+            Boolean resume = d.TR1__Type__c != null && d.TR1__Type__c.containsIgnoreCase('resume');
+            if (resume && d.TR1__isDefault__c == true) return d;
+            if (resume && newestResume == null) newestResume = d;
+        }
+        return newestResume != null ? newestResume : docs[0];
+    }
+
     /** Shared by compare and the candidate panel. action is logged on the audit for each candidate found. */
     private static Map<String, Object> candidateData(List<Id> ids, Id auditId, String action) {
         Set<Id> idSet = new Set<Id>(ids);

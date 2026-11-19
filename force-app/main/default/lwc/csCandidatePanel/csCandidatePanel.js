@@ -5,10 +5,14 @@ import { metAndNotMet, kindLabel, weightLabel, formatDate, highlightSegments, in
 
 const TABS = [
     { value: 'why', label: 'Why' },
+    { value: 'cv', label: 'CV' },
     { value: 'profile', label: 'Profile' },
     { value: 'skills', label: 'Skills' },
     { value: 'activity', label: 'Activity' }
 ];
+
+/** Chip kinds whose values are words to look for in the CV (not locations, dates or Textkernel-generated parts). */
+const CV_TERM_KINDS = new Set(['title', 'skill', 'certification', 'keyword', 'language', 'shift']);
 
 const PROFILE_FIELDS = [
     { field: 'TR1__Candidate_Status__c', label: 'Status' },
@@ -19,7 +23,7 @@ const PROFILE_FIELDS = [
 ];
 
 /**
- * csCandidatePanel: overlay over the result list (screen 3). Tabs: Why, Profile, Skills, Activity.
+ * csCandidatePanel: overlay over the result list (screen 3). Tabs: Why, CV, Profile, Skills, Activity.
  * Escape closes; Up and Down move to the previous or next row.
  *
  * Events: close {}, navigate { delta }, explain { docId }, shortlist { docId }, dismiss { docId }.
@@ -149,6 +153,44 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
 
     get isSkills() {
         return this.tab === 'skills';
+    }
+
+    get isCv() {
+        return this.tab === 'cv';
+    }
+
+    /** Words to highlight in the CV: the searchable chips, then the words Textkernel highlighted for this candidate. */
+    get cvTerms() {
+        const out = [];
+        const seen = new Set();
+        const add = (t) => {
+            const v = String(t || '').trim();
+            const k = v.toLowerCase();
+            if (v.length < 2 || seen.has(k)) return;
+            seen.add(k);
+            out.push(v);
+        };
+        ((this.criteria && this.criteria.items) || []).forEach((it) => {
+            if (!CV_TERM_KINDS.has(it.kind) || it.weight === 'excluded') return;
+            add(it.value || it.label);
+        });
+        const h = (this._row && this._row.highlights) || {};
+        Object.keys(h).forEach((field) => {
+            [].concat(h[field] || []).forEach((snippet) => {
+                highlightSegments(snippet)
+                    .filter((g) => g.bold)
+                    .forEach((g) => add(g.text));
+            });
+        });
+        return out.slice(0, 20);
+    }
+
+    get docId() {
+        return this._row ? this._row.docId : null;
+    }
+
+    get contactId() {
+        return this._row ? this._row.contactId : null;
     }
 
     get isActivity() {

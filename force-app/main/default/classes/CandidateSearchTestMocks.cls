@@ -36,6 +36,7 @@ public class CandidateSearchTestMocks implements HttpCalloutMock {
 
     public static String skillsBody = '{"Value":{"Skills":[{"Id":"KS120076FGP5WGWYMP0F","Description":"Forklift Truck Operation","Category":"Logistics"}]}}';
     public static Integer skillsStatus = 200;
+    public static String viewDocumentHtml = '<div><p>CV</p></div>';
 
     public static void install() {
         Test.setMock(HttpCalloutMock.class, new CandidateSearchTestMocks());
@@ -58,6 +59,9 @@ public class CandidateSearchTestMocks implements HttpCalloutMock {
             } else {
                 res.setBody(searchResponse(withUrl));
             }
+        } else if (endpoint.startsWith('callout:TK_View_Document')) {
+            res.setStatusCode(200);
+            res.setBody(envelope('viewDocumentResponse', '<return>' + viewDocumentHtml.escapeXml() + '</return>'));
         } else if (endpoint.startsWith('callout:Tx_Skills_API')) {
             res.setStatusCode(skillsStatus);
             res.setBody(skillsBody);
