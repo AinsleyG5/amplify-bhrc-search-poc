@@ -219,6 +219,18 @@ export default class CandidateSearchApp extends LightningElement {
         return this.hasResults && !this.chatOpen;
     }
 
+    /** Bounces twice after the first search on the page has results, so a first-time user notices it. */
+    refineBounce = false;
+    _refineHinted = false;
+
+    get refineBtnCls() {
+        return `btn btn-refine-ai${this.refineBounce ? ' bounce' : ''}`;
+    }
+
+    endRefineBounce() {
+        this.refineBounce = false;
+    }
+
     get busy() {
         return this.loading || this.chatBusy;
     }
@@ -437,6 +449,10 @@ export default class CandidateSearchApp extends LightningElement {
         }
         if (this.panelDocId && !this.rows.some((r) => r.docId === this.panelDocId)) this.panelDocId = null;
 
+        if (!this.error && this.rows.length && !prevRanks && !this._refineHinted) {
+            this._refineHinted = true;
+            this.refineBounce = true;
+        }
         if (!this.error && this.rows.length && this.auditId) this.explainFirstPage(seq);
         if (res.autoLoadMore) this.loadMore(true);
     }

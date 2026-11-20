@@ -1,5 +1,27 @@
 import { LightningElement, api } from 'lwc';
-import { metAndNotMet, changeTag, facetLabel, prettyXmlLines, initials, avatarClass, ring, READ_ONLY_KINDS } from 'c/csUtils';
+import getColumnOptions from '@salesforce/apex/CandidateSearchController.getColumnOptions';
+import getColumnValues from '@salesforce/apex/CandidateSearchController.getColumnValues';
+import {
+    metAndNotMet,
+    changeTag,
+    facetLabel,
+    prettyXmlLines,
+    initials,
+    avatarClass,
+    ring,
+    weightLabel,
+    normalizeError,
+    READ_ONLY_KINDS,
+    TK_COLUMNS,
+    DEFAULT_COLUMNS,
+    MAX_COLUMNS,
+    tkColumnText,
+    sfColumnText
+} from 'c/csUtils';
+
+/** Per-browser choice of columns (a convenience: the defaults apply when storage is unavailable). */
+const COLUMNS_STORAGE_KEY = 'amp.candidateSearch.columns';
+const SF_BATCH = 200;
 
 /**
  * csResultList: result rows, infinite scroll, facet filters, selection, request viewer (screen 2A).
@@ -12,9 +34,20 @@ import { metAndNotMet, changeTag, facetLabel, prettyXmlLines, initials, avatarCl
  * - explain { docId }                  explain one row on demand
  * - facetchange { field, values }      new selected values for one facet
  * - showhidden {}                      stop hiding candidates already on the job
+ *
+ * Columns: the user picks up to MAX_COLUMNS fields, from the Textkernel fields already on each row and from the
+ * Contact field set Candidate_Search_Columns (values read with getColumnValues for the loaded rows).
  */
 export default class CsResultList extends LightningElement {
-    @api rows = [];
+    @api
+    get rows() {
+        return this._rows;
+    }
+    set rows(value) {
+        this._rows = value || [];
+        this.loadSfValues();
+    }
+    _rows = [];
     @api criteria;
     @api explanations = {};
     @api selectedIds = [];
@@ -35,6 +68,162 @@ export default class CsResultList extends LightningElement {
     facetsOpen = false;
     requestOpen = false;
     _observer;
+
+    // ─── Columns ────────────────────────────────────
+    columnKeys = DEFAULT_COLUMNS;
+    columnsOpen = false;
+    /** [{ path, label, type }] from the Contact field set. */
+    sfOptions = [];
+    /** contactId to { path: value } */
+    sfValues = {};
+    sfError = null;
+    /** contactIds already read for the current set of Salesforce columns. */
+    _sfRead = new Set();
+    _sfPathsKey = '';
+
+    connectedCallback() {
+        try {
+            const saved = JSON.parse(window.localStorage.getItem(COLUMNS_STORAGE_KEY));
+            if (Array.isArray(saved)) this.columnKeys = saved.filter((k) => typeof k === 'string').slice(0, MAX_COLUMNS);
+        } catch {
+            // No storage (private window, preview): the defaults apply
+        }
+        this.loadSfOptions();
+    }
+
+    async loadSfOptions() {
+        try {
+            this.sfOptions = JSON.parse((await getColumnOptions()) || '[]') || [];
+        } catch (e) {
+            this.sfOptions = [];
+            this.sfError = normalizeError(e);
+        }
+        this.loadSfValues();
+    }
+
+    get columnDefs() {
+        const sf = new Map(this.sfOptions.map((o) => [`sf:${o.path}`, o]));
+        const tk = new Map(TK_COLUMNS.map((c) => [c.key, c]));
+        return this.columnKeys
+            .map((key) => {
+                if (tk.has(key)) return { key, label: tk.get(key).label, tk: tk.get(key) };
+                if (sf.has(key)) return { key, label: sf.get(key).label, sf: sf.get(key) };
+                return null;
+            })
+            .filter((c) => c);
+    }
+
+    get sfPaths() {
+        return this.columnDefs.filter((c) => c.sf).map((c) => c.sf.path);
+    }
+
+    /** Reads the chosen Salesforce fields for loaded rows not read yet (all rows again when the columns change). */
+    async loadSfValues() {
+        const paths = this.sfPaths;
+        if (!paths.length) return;
+        const key = paths.join('|');
+        if (key !== this._sfPathsKey) {
+            this._sfPathsKey = key;
+            this._sfRead = new Set();
+            this.sfValues = {};
+        }
+        const ids = [...new Set((this._rows || []).map((r) => r.contactId).filter((id) => id && !this._sfRead.has(id)))];
+        if (!ids.length) return;
+        ids.forEach((id) => this._sfRead.add(id));
+        for (let i = 0; i < ids.length; i += SF_BATCH) {
+            const batch = ids.slice(i, i + SF_BATCH);
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                const res = JSON.parse(await getColumnValues({ contactIdsJson: JSON.stringify(batch), pathsJson: JSON.stringify(paths) }));
+                if (key !== this._sfPathsKey) return;
+                this.sfValues = { ...this.sfValues, ...(res || {}) };
+                this.sfError = null;
+            } catch (e) {
+                batch.forEach((id) => this._sfRead.delete(id));
+                this.sfError = normalizeError(e);
+            }
+        }
+    }
+
+    get hasColumns() {
+        return this.columnDefs.length > 0;
+    }
+
+    get columnsLabel() {
+        return this.columnDefs.length ? `Columns (${this.columnDefs.length})` : 'Columns';
+    }
+
+    get columnGroups() {
+        const chosen = new Set(this.columnKeys);
+        const full = chosen.size >= MAX_COLUMNS;
+        const opt = (key, label) => ({
+            key,
+            label,
+            checked: chosen.has(key),
+            disabled: !chosen.has(key) && full
+        });
+        const groups = [{ id: 'tk', label: 'From Textkernel', options: TK_COLUMNS.map((c) => opt(c.key, c.label)) }];
+        if (this.sfOptions.length) {
+            groups.push({ id: 'sf', label: 'From Salesforce', options: this.sfOptions.map((o) => opt(`sf:${o.path}`, o.label)) });
+        }
+        return groups;
+    }
+
+    get columnsHint() {
+        return `Pick up to ${MAX_COLUMNS}. Your admin chooses the Salesforce fields (Contact field set "Candidate Search Columns").`;
+    }
+
+    toggleColumns() {
+        this.columnsOpen = !this.columnsOpen;
+    }
+
+    closeColumns() {
+        this.columnsOpen = false;
+    }
+
+    handleColumnsKeydown(event) {
+        if (event.key === 'Escape') {
+            event.stopPropagation();
+            this.columnsOpen = false;
+            const btn = this.template.querySelector('.columns-toggle');
+            if (btn) btn.focus();
+        }
+    }
+
+    toggleColumn(event) {
+        const key = event.target.dataset.key;
+        const next = event.target.checked ? [...this.columnKeys.filter((k) => k !== key), key] : this.columnKeys.filter((k) => k !== key);
+        this.setColumns(next.slice(0, MAX_COLUMNS));
+    }
+
+    resetColumns() {
+        this.setColumns(DEFAULT_COLUMNS);
+    }
+
+    setColumns(keys) {
+        this.columnKeys = keys;
+        try {
+            window.localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(keys));
+        } catch {
+            // No storage: the choice lasts until the page reloads
+        }
+        this.loadSfValues();
+    }
+
+    /** One cell per chosen column, in the user's order. Same column count on every row, so the cells line up. */
+    factsFor(r, defs) {
+        const vals = (r.contactId && this.sfValues[r.contactId]) || {};
+        return defs.map((c) => {
+            const text = c.tk ? tkColumnText(r, c.tk) : sfColumnText(vals[c.sf.path], c.sf.type);
+            return {
+                key: c.key,
+                label: c.label,
+                text: text || '–',
+                cls: text ? 'fact-val' : 'fact-val fact-empty',
+                title: text ? `${c.label}: ${text}` : `${c.label}: not recorded`
+            };
+        });
+    }
 
     // ─── Infinite scroll ────────────────────────────
 
@@ -80,6 +269,8 @@ export default class CsResultList extends LightningElement {
         const selected = new Set(this.selectedIds || []);
         const chips = this.chipList;
         const ex = this.explanations || {};
+        const defs = this.columnDefs;
+        const factsStyle = `grid-template-columns:repeat(${Math.max(1, defs.length)},minmax(0,200px))`;
         return (this.rows || []).map((r) => {
             const { met, notMet } = metAndNotMet(r);
             const criteria = chips.map((c) => {
@@ -90,12 +281,16 @@ export default class CsResultList extends LightningElement {
                 return {
                     id: c.id,
                     label,
+                    status,
+                    weight: weightLabel(c.weight),
                     cls: `crit-item crit-${status}`,
                     icon: isMet ? 'check' : isNotMet ? 'x' : 'minus',
                     statusText: isMet ? 'Met' : isNotMet ? 'Not met' : 'Not scored',
                     title: `${label}: ${isMet ? 'met' : isNotMet ? 'not met' : 'not scored separately'} (per Textkernel)`
                 };
             });
+            const pick = (status) => criteria.filter((c) => c.status === status).map((c) => ({ id: c.id, label: c.label, weight: c.weight }));
+            const match = { met: pick('met'), notMet: pick('notmet'), na: pick('na') };
             const p = r.pipeline || {};
             const score = ring(r.scorePct);
             return {
@@ -113,6 +308,15 @@ export default class CsResultList extends LightningElement {
                 city: r.city,
                 scorePct: r.scorePct,
                 criteria,
+                match: {
+                    ...match,
+                    hasMet: match.met.length > 0,
+                    hasNotMet: match.notMet.length > 0,
+                    hasNa: match.na.length > 0,
+                    summary: `${match.met.length} of ${criteria.length} criteria met`
+                },
+                facts: defs.length ? this.factsFor(r, defs) : null,
+                factsStyle,
                 pipelineLabel: p.label || null,
                 placedRecently: p.placedRecently === true,
                 changeTag: changeTag(this.prevRanks, r.docId, r.rank),

@@ -62,10 +62,80 @@
             </template>
         </div>
 
-        <div class="score" title="Textkernel match score">
+        <div
+            class="score"
+            tabindex="0"
+            role="button"
+            aria-label={scoreLabel}
+            aria-describedby="match-pop"
+            onmouseenter={showMatch}
+            onmouseleave={hideMatch}
+            onfocus={showMatch}
+            onblur={hideMatch}
+            onkeydown={scoreKeydown}
+        >
             <div class={item.ringCls} style={item.ringStyle}>
                 <span class="ring-num">{item.ringText}</span>
             </div>
+            <div id="match-pop" class={matchPopCls} role="tooltip">
+                <div class="mp-head">
+                    <span class="mp-score">{item.ringText}</span>
+                    <span class="mp-sub">Textkernel match · {item.match.summary}</span>
+                </div>
+                <template lwc:if={item.match.hasMet}>
+                    <div class="mp-group">
+                        <div class="mp-label mp-label-met">Matches</div>
+                        <ul class="mp-list">
+                            <template for:each={item.match.met} for:item="m">
+                                <li key={m.id} class="mp-item mp-met">
+                                    <c-cs-icon name="check" size="12" stroke-width="3"></c-cs-icon>
+                                    <span class="mp-text">{m.label}</span>
+                                    <span class="mp-weight">{m.weight}</span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </template>
+                <template lwc:if={item.match.hasNotMet}>
+                    <div class="mp-group">
+                        <div class="mp-label mp-label-not">Doesn't match</div>
+                        <ul class="mp-list">
+                            <template for:each={item.match.notMet} for:item="m">
+                                <li key={m.id} class="mp-item mp-not">
+                                    <c-cs-icon name="x" size="12" stroke-width="3"></c-cs-icon>
+                                    <span class="mp-text">{m.label}</span>
+                                    <span class="mp-weight">{m.weight}</span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </template>
+                <template lwc:if={item.match.hasNa}>
+                    <div class="mp-group">
+                        <div class="mp-label">Not scored separately</div>
+                        <ul class="mp-list">
+                            <template for:each={item.match.na} for:item="m">
+                                <li key={m.id} class="mp-item mp-na">
+                                    <c-cs-icon name="minus" size="12" stroke-width="3"></c-cs-icon>
+                                    <span class="mp-text">{m.label}</span>
+                                    <span class="mp-weight">{m.weight}</span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </template>
+            </div>
         </div>
+
+        <template lwc:if={item.facts}>
+            <div class="facts" style={item.factsStyle}>
+                <template for:each={item.facts} for:item="f">
+                    <div key={f.key} class="fact" title={f.title}>
+                        <div class="fact-label">{f.label}</div>
+                        <div class={f.cls}>{f.text}</div>
+                    </div>
+                </template>
+            </div>
+        </template>
     </div>
 </template>

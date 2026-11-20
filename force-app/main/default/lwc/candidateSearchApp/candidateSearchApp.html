@@ -59,8 +59,14 @@
                                 </button>
                             </template>
                             <template lwc:if={showChatToggle}>
-                                <button class="btn btn-sm btn-ai" data-action="open-chat" onclick={openChat}>
-                                    <c-cs-icon name="message" size="14"></c-cs-icon>Refine
+                                <button
+                                    class={refineBtnCls}
+                                    data-action="open-chat"
+                                    onclick={openChat}
+                                    onanimationend={endRefineBounce}
+                                    title="Tell the AI what to change, in your own words, and get suggestions"
+                                >
+                                    <c-cs-icon name="sparkles" size="15"></c-cs-icon>Refine with AI
                                 </button>
                             </template>
                         </div>

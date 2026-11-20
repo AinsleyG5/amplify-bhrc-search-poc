@@ -441,4 +441,24 @@ private class CandidateSearchControllerTest {
             System.assert(e.getMessage().contains('no Textkernel document'));
         }
     }
+
+    @isTest
+    static void columnsReadOnlyFieldSetMembers() {
+        Contact c = new Contact(LastName = 'Columns', MobilePhone = '07700 900123', Email = 'columns@example.com');
+        insert c;
+        List<Object> options = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.getColumnOptions());
+        Set<String> paths = new Set<String>();
+        for (Object o : options) paths.add((String) ((Map<String, Object>) o).get('path'));
+        System.assert(paths.contains('MobilePhone'), paths);
+
+        Map<String, Object> res = (Map<String, Object>) System.JSON.deserializeUntyped(
+            CandidateSearchController.getColumnValues(System.JSON.serialize(new List<Id>{ c.Id }), '["MobilePhone","Name"]')
+        );
+        Map<String, Object> vals = (Map<String, Object>) res.get(String.valueOf(c.Id));
+        System.assertEquals('07700 900123', vals.get('MobilePhone'));
+        System.assert(!vals.containsKey('Name'), 'fields outside the field set are never read');
+        System.assertEquals('{}', CandidateSearchController.getColumnValues('[]', '["MobilePhone"]'));
+        System.assertEquals('Yes', CandidateSearchController.columnText(true, Schema.DisplayType.BOOLEAN));
+        System.assertEquals('2026-11-20', CandidateSearchController.columnText(Date.newInstance(2026, 11, 20), Schema.DisplayType.DATE));
+    }
 }

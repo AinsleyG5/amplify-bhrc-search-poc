@@ -9,6 +9,41 @@
                 <button class="link head-link" onclick={handleShowHidden}><c-cs-icon name="eye-off" size="13"></c-cs-icon>{hiddenText}</button>
             </template>
             <span class="head-spacer"></span>
+            <div class="columns-wrap">
+                <button class="btn btn-sm columns-toggle" data-action="columns" onclick={toggleColumns} aria-expanded={columnsOpen} aria-haspopup="dialog">
+                    <c-cs-icon name="columns" size="14"></c-cs-icon>
+                    <span>{columnsLabel}</span>
+                </button>
+                <template lwc:if={columnsOpen}>
+                    <div class="columns-pop" role="dialog" aria-label="Choose columns" onkeydown={handleColumnsKeydown}>
+                        <div class="columns-head">
+                            <span class="columns-title">Columns</span>
+                            <button class="link" onclick={resetColumns}>Reset</button>
+                            <button class="btn-icon sm" onclick={closeColumns} aria-label="Close"><c-cs-icon name="x" size="14"></c-cs-icon></button>
+                        </div>
+                        <template for:each={columnGroups} for:item="g">
+                            <fieldset key={g.id} class="columns-group">
+                                <legend class="eyebrow">{g.label}</legend>
+                                <template for:each={g.options} for:item="o">
+                                    <label key={o.key} class="columns-opt">
+                                        <input
+                                            class="checkbox"
+                                            type="checkbox"
+                                            data-key={o.key}
+                                            checked={o.checked}
+                                            disabled={o.disabled}
+                                            onchange={toggleColumn}
+                                        />
+                                        <span>{o.label}</span>
+                                    </label>
+                                </template>
+                            </fieldset>
+                        </template>
+                        <template lwc:if={sfError}><p class="columns-error" role="alert">{sfError}</p></template>
+                        <p class="columns-hint">{columnsHint}</p>
+                    </div>
+                </template>
+            </div>
             <template lwc:if={hasFacets}>
                 <button class="btn btn-sm facet-toggle" onclick={toggleFacets} aria-expanded={facetsOpen}>
                     <c-cs-icon name="sliders" size="14"></c-cs-icon>

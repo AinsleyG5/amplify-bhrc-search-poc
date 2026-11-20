@@ -20,6 +20,8 @@ import getCandidateCvLink from '@salesforce/apex/CandidateSearchController.getCa
 import suggestProfessions from '@salesforce/apex/CandidateSearchController.suggestProfessions';
 import suggestSkillsForProfession from '@salesforce/apex/CandidateSearchController.suggestSkillsForProfession';
 import autocompleteSkills from '@salesforce/apex/CandidateSearchController.autocompleteSkills';
+import getColumnOptions from '@salesforce/apex/CandidateSearchController.getColumnOptions';
+import getColumnValues from '@salesforce/apex/CandidateSearchController.getColumnValues';
 
 jest.mock('@salesforce/apex/CandidateSearchController.parseQuery', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.startJobMatch', () => ({ default: jest.fn() }), { virtual: true });
@@ -43,6 +45,8 @@ jest.mock('@salesforce/apex/CandidateSearchController.suggestSkillsForProfession
 jest.mock('@salesforce/apex/CandidateSearchController.suggestSimilarSkills', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.describeSkills', () => ({ default: jest.fn(() => Promise.resolve('{}')) }), { virtual: true });
 jest.mock('@salesforce/apex/CandidateSearchController.matchCandidateToJobs', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/CandidateSearchController.getColumnOptions', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/CandidateSearchController.getColumnValues', () => ({ default: jest.fn() }), { virtual: true });
 
 const CRITERIA = {
     version: 1,
@@ -182,6 +186,9 @@ describe('c-candidate-search-app', () => {
             })
         );
         logAction.mockResolvedValue(null);
+        getColumnOptions.mockResolvedValue(JSON.stringify([{ path: 'MobilePhone', label: 'Mobile', type: 'phone' }]));
+        getColumnValues.mockResolvedValue('{}');
+        window.localStorage.clear();
         element = createElement('c-candidate-search-app', {
             is: CandidateSearchApp
         });
@@ -607,5 +614,59 @@ describe('c-candidate-search-app', () => {
         await flush();
         expect(shadow(element, 'lightning-flow')).toBeNull();
         expect(shadow(element, '.toast-title').textContent).toBe('Email sent');
+    });
+
+    it('shows the default Textkernel columns, and adds a Salesforce column picked in the column chooser', async () => {
+        runSearch.mockResolvedValue(response([row(0, { fields: { experience_years: ['7'], educationlevel_international: ['Secondary'] } }), row(1)]));
+        getColumnValues.mockResolvedValue(JSON.stringify({ '003000000000100AAA': { MobilePhone: '07700 900123' } }));
+        await searchFromUrl();
+        const list = shadow(element, 'c-cs-result-list');
+        const firstRow = () => list.shadowRoot.querySelector('c-cs-result-row').shadowRoot;
+        const cells = () =>
+            [...firstRow().querySelectorAll('.fact')].map((f) => `${f.querySelector('.fact-label').textContent}=${f.querySelector('.fact-val').textContent}`);
+        expect(cells()).toEqual(['Experience=7 yrs', 'Education level=Secondary', 'Date available=–']);
+        expect(getColumnValues).not.toHaveBeenCalled();
+
+        list.shadowRoot.querySelector('[data-action="columns"]').click();
+        await flush();
+        const mobile = list.shadowRoot.querySelector('input[data-key="sf:MobilePhone"]');
+        mobile.checked = true;
+        mobile.dispatchEvent(new CustomEvent('change'));
+        await flush(8);
+        expect(getColumnValues).toHaveBeenCalledWith({
+            contactIdsJson: JSON.stringify(['003000000000100AAA', '003000000000101AAA']),
+            pathsJson: JSON.stringify(['MobilePhone'])
+        });
+        expect(cells()).toEqual(['Experience=7 yrs', 'Education level=Secondary', 'Date available=–', 'Mobile=07700 900123']);
+        expect(JSON.parse(window.localStorage.getItem('amp.candidateSearch.columns'))).toEqual([
+            'tk:experience',
+            'tk:education',
+            'tk:available',
+            'sf:MobilePhone'
+        ]);
+    });
+
+    it('hovering the score lists what matched and what did not', async () => {
+        await searchFromUrl();
+        const rows = shadow(element, 'c-cs-result-list').shadowRoot.querySelectorAll('c-cs-result-row');
+        const second = rows[1].shadowRoot;
+        second.querySelector('.score').dispatchEvent(new CustomEvent('mouseenter'));
+        await flush();
+        const pop = second.querySelector('.match-pop');
+        expect(pop.classList.contains('match-pop-open')).toBe(true);
+        const texts = (sel) => [...pop.querySelectorAll(`${sel} .mp-text`)].map((n) => n.textContent);
+        expect(texts('.mp-met')).toEqual(['Warehouse Operative', 'Dagenham + 15 mi']);
+        expect(texts('.mp-not')).toEqual(['Forklift']);
+        expect(pop.querySelector('.mp-sub').textContent).toContain('2 of 3 criteria met');
+    });
+
+    it('Refine with AI bounces after the first search only', async () => {
+        await searchFromUrl();
+        const btn = shadow(element, '[data-action="open-chat"]');
+        expect(btn.textContent).toContain('Refine with AI');
+        expect(btn.classList.contains('bounce')).toBe(true);
+        btn.dispatchEvent(new CustomEvent('animationend'));
+        await flush();
+        expect(shadow(element, '[data-action="open-chat"]').classList.contains('bounce')).toBe(false);
     });
 });

@@ -9,6 +9,10 @@ import { LightningElement, api } from 'lwc';
 export default class CsResultRow extends LightningElement {
     @api item;
 
+    matchOpen = false;
+    /** Opens the breakdown upwards when there is no room below the score. */
+    matchUp = false;
+
     @api
     focus() {
         const btn = this.template.querySelector('.name-btn');
@@ -69,6 +73,34 @@ export default class CsResultRow extends LightningElement {
 
     get checkboxTitle() {
         return this.item && this.item.selectable ? this.selectLabel : 'This result has no Salesforce candidate record';
+    }
+
+    get scoreLabel() {
+        const i = this.item || {};
+        return `Match ${i.ringText || ''}: ${(i.match && i.match.summary) || ''}. Press Enter to open the candidate.`;
+    }
+
+    get matchPopCls() {
+        return `match-pop${this.matchOpen ? ' match-pop-open' : ''}${this.matchUp ? ' match-pop-up' : ''}`;
+    }
+
+    showMatch(event) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        this.matchUp = rect.bottom + 300 > (window.innerHeight || 0) && rect.top > 300;
+        this.matchOpen = true;
+    }
+
+    hideMatch() {
+        this.matchOpen = false;
+    }
+
+    scoreKeydown(event) {
+        if (event.key === 'Escape') {
+            this.matchOpen = false;
+        } else if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            this.handleOpen(event);
+        }
     }
 
     handleOpen(event) {

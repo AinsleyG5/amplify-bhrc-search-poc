@@ -324,3 +324,65 @@ function decode(s) {
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'");
 }
+
+// ─── Result list columns ────────────────────────
+
+/**
+ * Textkernel fields users can add as result columns. They come back with every search (TK_Result_Fields__c plus
+ * CandidateSearchConfig.PROFILE_RESULT_FIELDS), so they cost no extra call.
+ */
+export const TK_COLUMNS = [
+    { key: 'tk:recent', label: 'Recent position', fields: ['recent_jobtitles', 'lastjobtitle'] },
+    { key: 'tk:workfield', label: 'Work field', fields: ['workfield'] },
+    { key: 'tk:employers', label: 'Employers', fields: ['employers'] },
+    { key: 'tk:experience', label: 'Experience', fields: ['experience_years'], suffix: ' yrs' },
+    { key: 'tk:education', label: 'Education level', fields: ['educationlevel_international'] },
+    { key: 'tk:degree', label: 'Degree', fields: ['degree_name'] },
+    { key: 'tk:status', label: 'Candidate status', fields: ['candidate_status'] },
+    { key: 'tk:owner', label: 'Owner', fields: ['owner_name'] },
+    { key: 'tk:available', label: 'Date available', fields: ['date_available'], date: true },
+    { key: 'tk:modified', label: 'CV last modified', fields: ['documentdate'], date: true },
+    { key: 'tk:salary', label: 'Current salary', fields: ['current_salary'], number: true },
+    { key: 'tk:desired', label: 'Desired salary', fields: ['salary'], number: true },
+    { key: 'tk:applications', label: 'Applications', fields: ['job_submissions'] }
+];
+export const DEFAULT_COLUMNS = ['tk:experience', 'tk:education', 'tk:available'];
+export const MAX_COLUMNS = 6;
+
+const COLUMN_JUNK = /^(custom_(text|date|numeric)_\d+|true|false)$/i;
+
+/** Plain text of one Textkernel column for a row: values deduplicated, the first two joined, "+N" for the rest. */
+export function tkColumnText(row, col) {
+    const fields = (row && row.fields) || {};
+    const seen = new Set();
+    const values = [];
+    col.fields.forEach((f) =>
+        [].concat(fields[f] || []).forEach((v) => {
+            const text = highlightSegments(v)
+                .map((s) => s.text)
+                .join('')
+                .trim();
+            if (!text || COLUMN_JUNK.test(text) || seen.has(text.toLowerCase())) return;
+            seen.add(text.toLowerCase());
+            values.push(text);
+        })
+    );
+    if (!values.length) return '';
+    const shown = values.slice(0, 2).map((v) => {
+        if (col.date) return formatDate(v.substring(0, 10)) || v;
+        if (col.number && !Number.isNaN(Number(v))) return Number(v).toLocaleString();
+        return col.suffix && !Number.isNaN(Number(v)) ? `${v}${col.suffix}` : v;
+    });
+    const more = values.length - shown.length;
+    return `${shown.join(', ')}${more > 0 ? ` +${more}` : ''}`;
+}
+
+/** Display text of a Salesforce column value (getColumnValues returns dates as yyyy-MM-dd). */
+export function sfColumnText(value, type) {
+    if (value === null || value === undefined || value === '') return '';
+    if (type === 'date' || type === 'datetime') return formatDate(value);
+    if ((type === 'currency' || type === 'double' || type === 'integer' || type === 'percent') && !Number.isNaN(Number(value))) {
+        return Number(value).toLocaleString() + (type === 'percent' ? '%' : '');
+    }
+    return String(value);
+}

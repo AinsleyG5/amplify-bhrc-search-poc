@@ -1432,6 +1432,119 @@ public with sharing class CandidateSearchController {
         return parts.isEmpty() ? e.getMessage() : String.join(parts, '; ');
     }
 
+    // ═════════════════════════════════════════════════════════════
+    // Result list columns (Salesforce fields)
+    // ═════════════════════════════════════════════════════════════
+
+    /** Contact field set the admin maintains in Setup: the Salesforce fields users can add to the result list. */
+    @TestVisible private static final String COLUMN_FIELD_SET = 'Candidate_Search_Columns';
+    @TestVisible private static final Integer COLUMN_MAX_CONTACTS = 200;
+
+    /**
+     * The Salesforce fields users can add as result columns: the members of the Contact field set
+     * Candidate_Search_Columns that this user can read. Returns [{ path, label, type }]; [] when the field set is missing.
+     */
+    @AuraEnabled(cacheable=true)
+    public static String getColumnOptions() {
+        List<Object> out = new List<Object>();
+        for (Schema.FieldSetMember m : columnMembers()) {
+            out.add(new Map<String, Object>{
+                'path' => m.getFieldPath(),
+                'label' => m.getLabel(),
+                'type' => String.valueOf(m.getType()).toLowerCase()
+            });
+        }
+        return System.JSON.serialize(out);
+    }
+
+    /**
+     * Values of the chosen field set fields for the given Contacts. Only field set members are queried, in user mode.
+     * Returns { contactId: { path: text } }; dates come back as yyyy-MM-dd, booleans as Yes or No.
+     */
+    @AuraEnabled
+    public static String getColumnValues(String contactIdsJson, String pathsJson) {
+        Map<String, Object> out = new Map<String, Object>();
+        List<Id> ids = contactIdList(contactIdsJson, COLUMN_MAX_CONTACTS);
+        Set<String> wanted = new Set<String>();
+        try {
+            for (Object o : (List<Object>) System.JSON.deserializeUntyped(String.isBlank(pathsJson) ? '[]' : pathsJson)) {
+                if (o != null) wanted.add(String.valueOf(o).toLowerCase());
+            }
+        } catch (Exception e) {
+            throw fail('pathsJson must be a JSON list of field paths.');
+        }
+        if (ids.isEmpty() || wanted.isEmpty()) return System.JSON.serialize(out);
+
+        Map<String, Schema.FieldSetMember> members = new Map<String, Schema.FieldSetMember>();
+        for (Schema.FieldSetMember m : columnMembers()) {
+            if (wanted.contains(m.getFieldPath().toLowerCase())) members.put(m.getFieldPath(), m);
+        }
+        if (members.isEmpty()) return System.JSON.serialize(out);
+
+        List<String> select = new List<String>{ 'Id' };
+        for (String path : members.keySet()) if (path.toLowerCase() != 'id') select.add(path);
+        List<SObject> recs;
+        try {
+            recs = Database.queryWithBinds(
+                'SELECT ' + String.join(select, ', ') + ' FROM Contact WHERE Id IN :ids',
+                new Map<String, Object>{ 'ids' => ids },
+                AccessLevel.USER_MODE
+            );
+        } catch (Exception e) {
+            throw fail('Could not read the column fields. ' + e.getMessage());
+        }
+        for (SObject rec : recs) {
+            Map<String, Object> vals = new Map<String, Object>();
+            for (Schema.FieldSetMember m : members.values()) {
+                String text = columnText(fieldValue(rec, m.getFieldPath()), m.getType());
+                if (text != null) vals.put(m.getFieldPath(), text);
+            }
+            out.put(String.valueOf(rec.Id), vals);
+        }
+        return System.JSON.serialize(out);
+    }
+
+    /** The field set members this user can read (the first field of a relationship path is checked). */
+    @TestVisible
+    private static List<Schema.FieldSetMember> columnMembers() {
+        List<Schema.FieldSetMember> out = new List<Schema.FieldSetMember>();
+        Schema.FieldSet fs = Schema.SObjectType.Contact.fieldSets.getMap().get(COLUMN_FIELD_SET.toLowerCase());
+        if (fs == null) return out;
+        Map<String, Schema.SObjectField> fm = Schema.SObjectType.Contact.fields.getMap();
+        for (Schema.FieldSetMember m : fs.getFields()) {
+            String path = m.getFieldPath();
+            String first = path.substringBefore('.');
+            if (path.contains('.')) {
+                first = first.endsWithIgnoreCase('__r') ? first.removeEndIgnoreCase('__r') + '__c' : first + 'Id';
+            }
+            Schema.SObjectField f = fm.get(first.toLowerCase());
+            if (f != null && f.getDescribe().isAccessible()) out.add(m);
+        }
+        return out;
+    }
+
+    /** Value at a field path such as Owner.Name; null when a relationship on the way is empty. */
+    private static Object fieldValue(SObject rec, String path) {
+        List<String> parts = path.split('\\.');
+        SObject cur = rec;
+        for (Integer i = 0; i < parts.size() - 1; i++) {
+            cur = cur.getSObject(parts[i]);
+            if (cur == null) return null;
+        }
+        return cur.get(parts[parts.size() - 1]);
+    }
+
+    @TestVisible
+    private static String columnText(Object v, Schema.DisplayType t) {
+        if (v == null) return null;
+        if (v instanceof Boolean) return (Boolean) v ? 'Yes' : 'No';
+        if (v instanceof Date) return String.valueOf((Date) v);
+        if (v instanceof Datetime) return ((Datetime) v).format('yyyy-MM-dd');
+        String s = String.valueOf(v).trim();
+        if (t == Schema.DisplayType.TEXTAREA) s = s.stripHtmlTags().normalizeSpace();
+        return String.isBlank(s) ? null : s.abbreviate(255);
+    }
+
     private static AuraHandledException fail(String msg) {
         AuraHandledException e = new AuraHandledException(msg);
         e.setMessage(msg);
