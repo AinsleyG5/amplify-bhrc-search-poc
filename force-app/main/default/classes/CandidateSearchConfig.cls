@@ -9,9 +9,9 @@
  */
 public with sharing class CandidateSearchConfig {
 
-    public String tkCandidateEnvironment = 'tksf_bh4sf_tso_cv';
+    public String tkCandidateEnvironment = 'tksf_bh4sf_tbc_cv';
     public String tkCandidateSearchEngine;
-    public String tkJobEnvironment = 'tksf_bh4sf_tso_vac';
+    public String tkJobEnvironment = 'tksf_bh4sf_tbc_vac';
     public String tkJobSearchEngine = 'vacancies';
     public String tkNamedCredential = 'TK_Candidate_Search';
     public String tkExternalCredential = 'TK_Search_Service_Account';

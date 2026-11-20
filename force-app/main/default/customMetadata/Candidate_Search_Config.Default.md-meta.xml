@@ -68,7 +68,7 @@
     </values>
     <values>
         <field>TK_Candidate_Environment__c</field>
-        <value xsi:type="xsd:string">tksf_bh4sf_tso_cv</value>
+        <value xsi:type="xsd:string">tksf_bh4sf_tbc_cv</value>
     </values>
     <values>
         <field>TK_Candidate_Search_Engine__c</field>
@@ -88,7 +88,7 @@
     </values>
     <values>
         <field>TK_Job_Environment__c</field>
-        <value xsi:type="xsd:string">tksf_bh4sf_tso_vac</value>
+        <value xsi:type="xsd:string">tksf_bh4sf_tbc_vac</value>
     </values>
     <values>
         <field>TK_Job_Search_Engine__c</field>

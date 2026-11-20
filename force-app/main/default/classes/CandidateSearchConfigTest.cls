@@ -4,8 +4,8 @@ private class CandidateSearchConfigTest {
     @isTest
     static void defaultsMatchTheSpec() {
         CandidateSearchConfig cfg = CandidateSearchConfig.get();
-        System.assertEquals('tksf_bh4sf_tso_cv', cfg.tkCandidateEnvironment);
-        System.assertEquals('tksf_bh4sf_tso_vac', cfg.tkJobEnvironment);
+        System.assertEquals('tksf_bh4sf_tbc_cv', cfg.tkCandidateEnvironment);
+        System.assertEquals('tksf_bh4sf_tbc_vac', cfg.tkJobEnvironment);
         System.assertEquals(20, cfg.pageSize);
         System.assertEquals(10, cfg.explainBatchSize);
         System.assertEquals(15, cfg.defaultRadiusMiles);

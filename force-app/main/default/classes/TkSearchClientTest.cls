@@ -92,7 +92,7 @@ private class TkSearchClientTest {
         TkSearchClient.Result r = TkSearchClient.searchWithUrl(url, null);
         Test.stopTest();
 
-        System.assert(url.startsWith('doc://tksf_bh4sf_tso_vac/vacancies/' + UserInfo.getOrganizationId().left(15) + '_'), url);
+        System.assert(url.startsWith('doc://tksf_bh4sf_tbc_vac/vacancies/' + UserInfo.getOrganizationId().left(15) + '_'), url);
         String body = CandidateSearchTestMocks.requests[0].getBody();
         System.assert(body.contains('<sear:searchWithUrl>'));
         System.assert(body.contains('<url>' + url + '</url>'));

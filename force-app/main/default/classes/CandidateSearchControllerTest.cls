@@ -451,7 +451,7 @@ private class CandidateSearchControllerTest {
         String sent = CandidateSearchTestMocks.requests[0].getBody();
         System.assert(sent.contains('<sear:searchWithUrl>'), sent);
         System.assert(sent.contains('doc://'), sent);
-        System.assert(sent.contains('<environment>tksf_bh4sf_tso_vac</environment>'), sent);
+        System.assert(sent.contains('<environment>tksf_bh4sf_tbc_vac</environment>'), sent);
         System.assert(sent.contains('{!$Credential.TK_Search_Service_Account.VacancyPassword}'), sent);
         System.assertNotEquals(null, res.get('jobs'));
         try {
