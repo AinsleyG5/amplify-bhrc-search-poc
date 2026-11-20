@@ -10,7 +10,7 @@
     </targets>
     <targetConfigs>
         <targetConfig targets="lightning__HomePage,lightning__AppPage">
-            <property name="heading" type="String" label="Heading" default="Find candidates" />
+            <property name="heading" type="String" label="Heading" default="Find candidates" description="Leave as Find candidates to show it in English or French with the user's language." />
             <property name="logoUrl" type="String" label="Logo URL (optional)" description="Image URL for the Amplify logo, for example /resource/AmplifyLogo. Blank shows the Amplify wordmark." />
             <property name="tabApiName" type="String" label="Candidate Search tab API name" default="Candidate_Search" />
         </targetConfig>

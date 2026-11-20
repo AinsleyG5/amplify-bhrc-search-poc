@@ -2,37 +2,38 @@ import { LightningElement, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import getCandidateDetail from '@salesforce/apex/CandidateSearchController.getCandidateDetail';
 import describeSkills from '@salesforce/apex/CandidateSearchController.describeSkills';
+import { labels, tr } from 'c/csI18n';
 import { metAndNotMet, kindLabel, weightLabel, formatDate, highlightSegments, initials, avatarClass, ring, normalizeError, READ_ONLY_KINDS } from 'c/csUtils';
 
 const TABS = [
-    { value: 'why', label: 'Why' },
-    { value: 'cv', label: 'CV' },
-    { value: 'profile', label: 'Profile' },
-    { value: 'skills', label: 'Skills' },
-    { value: 'activity', label: 'Activity' },
-    { value: 'jobs', label: 'Jobs' }
+    { value: 'why', labelKey: 'tabWhy' },
+    { value: 'cv', labelKey: 'tabCv' },
+    { value: 'profile', labelKey: 'tabProfile' },
+    { value: 'skills', labelKey: 'tabSkills' },
+    { value: 'activity', labelKey: 'tabActivity' },
+    { value: 'jobs', labelKey: 'tabJobs' }
 ];
 
 /** Textkernel profile fields for the Profile tab, in the portal's order and with its labels. */
 const TK_PROFILE = [
-    { fields: ['documentdate'], label: 'Last modified', date: true },
-    { fields: ['recent_jobtitles', 'lastjobtitle'], label: 'Recent positions' },
-    { fields: ['jobtitles'], label: 'All positions' },
-    { fields: ['workfield'], label: 'Current work field' },
-    { fields: ['employers'], label: 'All employers' },
-    { fields: ['experience_years'], label: 'Years of experience' },
-    { fields: ['educationlevel_international'], label: 'Education level' },
-    { fields: ['degree_name'], label: 'Majors / degrees' },
-    { fields: ['degree_institute'], label: 'Colleges / universities' },
-    { fields: ['it_skills'], label: 'IT skills', pills: true },
-    { fields: ['language_skills'], label: 'Language skills', pills: true },
-    { fields: ['professional_skills', 'profskills'], label: 'Professional skills', pills: true },
-    { fields: ['soft_skills'], label: 'Competencies', pills: true },
-    { fields: ['custom_nested_object_1'], label: 'Certifications', pills: true },
-    { fields: ['date_available'], label: 'Date available', date: true },
-    { fields: ['job_submissions'], label: 'Applications' },
-    { fields: ['current_salary'], label: 'Current salary', number: true },
-    { fields: ['salary'], label: 'Desired salary', number: true }
+    { fields: ['documentdate'], label: 'pLastModified', date: true },
+    { fields: ['recent_jobtitles', 'lastjobtitle'], label: 'pRecentPositions' },
+    { fields: ['jobtitles'], label: 'pAllPositions' },
+    { fields: ['workfield'], label: 'pWorkField' },
+    { fields: ['employers'], label: 'pEmployers' },
+    { fields: ['experience_years'], label: 'pYears' },
+    { fields: ['educationlevel_international'], label: 'pEducation' },
+    { fields: ['degree_name'], label: 'pDegrees' },
+    { fields: ['degree_institute'], label: 'pInstitutes' },
+    { fields: ['it_skills'], label: 'pItSkills', pills: true },
+    { fields: ['language_skills'], label: 'pLangSkills', pills: true },
+    { fields: ['professional_skills', 'profskills'], label: 'pProfSkills', pills: true },
+    { fields: ['soft_skills'], label: 'pCompetencies', pills: true },
+    { fields: ['custom_nested_object_1'], label: 'pCertifications', pills: true },
+    { fields: ['date_available'], label: 'pAvailable', date: true },
+    { fields: ['job_submissions'], label: 'pApplications' },
+    { fields: ['current_salary'], label: 'pSalary', number: true },
+    { fields: ['salary'], label: 'pDesired', number: true }
 ];
 const PROFILE_LIST_MAX = 12;
 
@@ -42,17 +43,17 @@ const SKILL_CODE = /^KS[0-9A-Z]{6,}$/;
 const JUNK = /^(custom_(text|date|numeric)_\d+|true|false)$/i;
 const SKILL_FIELDS = ['it_skills', 'language_skills', 'professional_skills', 'profskills', 'soft_skills', 'custom_nested_object_1'];
 /** Session cache of skill names (Textkernel's terms require lookups to be cached). */
-const SKILL_NAMES = new Map();
+const SKILL_NAMES = { en: new Map(), fr: new Map() };
 
 /** Chip kinds whose values are words to look for in the CV (not locations, dates or Textkernel-generated parts). */
 const CV_TERM_KINDS = new Set(['title', 'skill', 'certification', 'keyword', 'language', 'shift']);
 
 const PROFILE_FIELDS = [
-    { field: 'TR1__Candidate_Status__c', label: 'Status' },
-    { field: 'Date_Available__c', label: 'Available from', date: true },
-    { field: 'TR1__Date_Available__c', label: 'Available from', date: true },
-    { field: 'TR1__Last_Placement_Date__c', label: 'Last placed', date: true },
-    { field: 'TR1__Candidate_Summary__c', label: 'Summary', long: true }
+    { field: 'TR1__Candidate_Status__c', label: 'sfStatus' },
+    { field: 'Date_Available__c', label: 'sfAvailableFrom', date: true },
+    { field: 'TR1__Date_Available__c', label: 'sfAvailableFrom', date: true },
+    { field: 'TR1__Last_Placement_Date__c', label: 'sfLastPlaced', date: true },
+    { field: 'TR1__Candidate_Summary__c', label: 'sfSummary', long: true }
 ];
 
 /**
@@ -67,6 +68,22 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
     @api auditId;
     @api canShortlist = false;
     @api position = '';
+
+    /** 'en' or 'fr' (csI18n). Skill names are looked up again in the new language. */
+    @api
+    get lang() {
+        return this._lang;
+    }
+    set lang(value) {
+        const changed = this._lang !== undefined && value !== this._lang;
+        this._lang = value;
+        if (changed && this._row) this.loadSkillNames();
+    }
+    _lang;
+
+    get L() {
+        return labels(this.lang);
+    }
 
     _row;
     @api
@@ -105,7 +122,7 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
         }
         this.detailLoading = true;
         try {
-            const res = JSON.parse(await getCandidateDetail({ contactId, auditId: this.auditId }));
+            const res = JSON.parse(await getCandidateDetail({ contactId, auditId: this.auditId, lang: this.lang }));
             this._cache[contactId] = res.candidate;
             if (this._row && this._row.contactId === contactId) this.detail = res.candidate;
         } catch (e) {
@@ -118,7 +135,7 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
     // ─── Header ─────────────────────────────────────
 
     get name() {
-        return (this._row && this._row.name) || 'Unnamed candidate';
+        return (this._row && this._row.name) || this.L.unnamedCandidate;
     }
 
     get subtitle() {
@@ -128,7 +145,7 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
 
     get scoreText() {
         const s = this._row && this._row.scorePct;
-        return s === null || s === undefined ? '' : `${Math.round(s)}% match`;
+        return s === null || s === undefined ? '' : tr('pctMatch', { n: Math.round(s) }, this.lang);
     }
 
     get initials() {
@@ -162,7 +179,7 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
     }
 
     get dialogLabel() {
-        return `Candidate ${this.name}`;
+        return tr('candidateName', { name: this.name }, this.lang);
     }
 
     // ─── Tabs ───────────────────────────────────────
@@ -170,6 +187,7 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
     get tabs() {
         return TABS.map((t) => ({
             ...t,
+            label: this.L[t.labelKey],
             selected: this.tab === t.value ? 'true' : 'false',
             cls: 'seg-btn tab',
             tabIndex: this.tab === t.value ? '0' : '-1',
@@ -264,7 +282,7 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
                 if (!text || seen.has(key)) return;
                 seen.add(key);
                 let shown = segs;
-                if (def.date) shown = [{ key: 's0', text: formatDate(text.substring(0, 10)) || text, cls: 'hl-txt' }];
+                if (def.date) shown = [{ key: 's0', text: formatDate(text.substring(0, 10), this.lang) || text, cls: 'hl-txt' }];
                 if (def.number && !Number.isNaN(Number(text))) shown = [{ key: 's0', text: Number(text).toLocaleString(), cls: 'hl-txt' }];
                 values.push({ key: `${def.label}-${values.length}`, segs: shown, cls: def.pills ? 'tk-pill' : 'tk-val' });
             });
@@ -273,9 +291,9 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
             const more = values.length - PROFILE_LIST_MAX;
             out.push({
                 key: def.label,
-                label: def.label,
+                label: this.L[def.label],
                 values: open || more <= 0 ? values : values.slice(0, PROFILE_LIST_MAX),
-                moreText: more > 0 ? (open ? 'Show less' : `+${more} more`) : '',
+                moreText: more > 0 ? (open ? this.L.showLess : tr('nMore', { n: more }, this.lang)) : '',
                 listCls: def.pills ? 'tk-values tk-pills' : 'tk-values'
             });
         });
@@ -305,24 +323,25 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
 
     async loadSkillNames() {
         const fields = (this._row && this._row.fields) || {};
+        const cache = SKILL_NAMES[this.lang === 'fr' ? 'fr' : 'en'];
         const codes = new Set();
         SKILL_FIELDS.forEach((f) =>
             [].concat(fields[f] || []).forEach((v) => {
                 const t = String(v)
                     .replace(/<\/?b>/gi, '')
                     .trim();
-                if (SKILL_CODE.test(t) && !SKILL_NAMES.has(t)) codes.add(t);
+                if (SKILL_CODE.test(t) && !cache.has(t)) codes.add(t);
             })
         );
         if (codes.size) {
             try {
-                const names = JSON.parse(await describeSkills({ skillIdsJson: JSON.stringify([...codes].slice(0, 100)) }));
-                Object.keys(names || {}).forEach((k) => SKILL_NAMES.set(k, names[k]));
+                const names = JSON.parse(await describeSkills({ skillIdsJson: JSON.stringify([...codes].slice(0, 100)), lang: this.lang }));
+                Object.keys(names || {}).forEach((k) => cache.set(k, names[k]));
             } catch {
                 // Lookup unavailable (a Textkernel add-on): codes stay hidden rather than shown raw
             }
         }
-        this.skillNames = Object.fromEntries(SKILL_NAMES);
+        this.skillNames = Object.fromEntries(cache);
     }
 
     handleTabKeydown(event) {
@@ -373,11 +392,12 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
             const isMet = met.has(it.id);
             const isNotMet = notMet.has(it.id);
             const ev = evidence[it.id] || {};
-            const status = excluded ? 'Excluded' : isMet ? 'Met' : isNotMet ? 'Not met' : 'Not scored';
+            const L = this.L;
+            const status = excluded ? L.statusExcluded : isMet ? L.statusMet : isNotMet ? L.statusNotMet : L.statusNotScored;
             return {
                 id: it.id,
-                label: READ_ONLY_KINDS.has(it.kind) ? it.label || 'Job description' : it.label || it.value,
-                meta: `${kindLabel(it.kind)} · ${weightLabel(it.weight)}`,
+                label: READ_ONLY_KINDS.has(it.kind) ? it.label || L.jobDescription : it.label || it.value,
+                meta: `${kindLabel(it.kind, this.lang)} · ${weightLabel(it.weight, this.lang)}`,
                 status,
                 cls: `why-item why-${excluded ? 'excluded' : isMet ? 'met' : isNotMet ? 'notmet' : 'na'}`,
                 icon: excluded ? 'ban' : isMet ? 'check' : isNotMet ? 'x' : 'minus',
@@ -418,9 +438,10 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
         const d = this.detail;
         if (!d) return [];
         const rows = [];
-        if (d.title) rows.push({ key: 'title', label: 'Title', value: d.title });
-        if (d.city) rows.push({ key: 'city', label: 'City', value: d.city });
-        if (d.owner) rows.push({ key: 'owner', label: 'Owner', value: d.owner });
+        const L = this.L;
+        if (d.title) rows.push({ key: 'title', label: L.sfTitle, value: d.title });
+        if (d.city) rows.push({ key: 'city', label: L.sfCity, value: d.city });
+        if (d.owner) rows.push({ key: 'owner', label: L.sfOwner, value: d.owner });
         const profile = d.profile || {};
         const seen = new Set();
         PROFILE_FIELDS.forEach((f) => {
@@ -429,13 +450,13 @@ export default class CsCandidatePanel extends NavigationMixin(LightningElement) 
             seen.add(f.label);
             rows.push({
                 key: f.field,
-                label: f.label,
-                value: f.date ? formatDate(v) : String(v),
+                label: L[f.label],
+                value: f.date ? formatDate(v, this.lang) : String(v),
                 long: !!f.long
             });
         });
         const p = d.pipeline || {};
-        if (p.label) rows.push({ key: 'pipeline', label: 'On this job', value: p.label });
+        if (p.label) rows.push({ key: 'pipeline', label: L.sfOnThisJob, value: p.label });
         return rows;
     }
 

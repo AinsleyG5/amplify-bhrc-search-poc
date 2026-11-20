@@ -3,7 +3,8 @@ import autocompleteSkills from '@salesforce/apex/CandidateSearchController.autoc
 import suggestProfessions from '@salesforce/apex/CandidateSearchController.suggestProfessions';
 import suggestSkillsForProfession from '@salesforce/apex/CandidateSearchController.suggestSkillsForProfession';
 import suggestSimilarSkills from '@salesforce/apex/CandidateSearchController.suggestSimilarSkills';
-import { ADDABLE_KINDS, WEIGHTS, READ_ONLY_KINDS, clone, kindLabel, weightShort, nextChipId, facetLabel, exclusionLabel, normalizeError } from 'c/csUtils';
+import { addableKinds, weights, READ_ONLY_KINDS, clone, kindLabel, weightShort, nextChipId, facetLabel, exclusionLabel, normalizeError } from 'c/csUtils';
+import { labels, tr } from 'c/csI18n';
 
 const AUTOCOMPLETE_DEBOUNCE_MS = 250;
 const TYPEAHEAD_DEBOUNCE_MS = 300;
@@ -30,6 +31,13 @@ export default class CsSearchBar extends LightningElement {
     /** A search has started (results, an error or one in flight): Clear search is offered. */
     @api active = false;
     @api defaultRadius = 15;
+
+    /** 'en' or 'fr' (csI18n). */
+    @api lang;
+
+    get L() {
+        return labels(this.lang);
+    }
 
     _criteria;
     @api
@@ -123,7 +131,7 @@ export default class CsSearchBar extends LightningElement {
     }
 
     aiRow(text) {
-        return { key: 'ai', kind: 'ai', label: text, sub: 'Search with AI', selectable: true };
+        return { key: 'ai', kind: 'ai', label: text, sub: this.L.searchWithAi, selectable: true };
     }
 
     queueTypeahead(value) {
@@ -142,24 +150,36 @@ export default class CsSearchBar extends LightningElement {
     }
 
     async fetchTypeahead(t, seq) {
-        const [prof, skill] = await Promise.allSettled([suggestProfessions({ prefix: t }), autocompleteSkills({ prefix: t })]);
+        const [prof, skill] = await Promise.allSettled([
+            suggestProfessions({ prefix: t, lang: this.lang }),
+            autocompleteSkills({ prefix: t, lang: this.lang })
+        ]);
         if (seq !== this._taSeq) return;
         const rows = [this.aiRow(t)];
         if (prof.status === 'fulfilled') {
             JSON.parse(prof.value || '[]')
                 .slice(0, 4)
-                .forEach((p) => rows.push({ key: `p${p.codeId}`, kind: 'profession', label: p.description, sub: 'Job title', data: p, selectable: true }));
+                .forEach((p) =>
+                    rows.push({ key: `p${p.codeId}`, kind: 'profession', label: p.description, sub: this.L.jobTitleSub, data: p, selectable: true })
+                );
         }
         if (skill.status === 'fulfilled') {
             JSON.parse(skill.value || '[]')
                 .slice(0, 4)
-                .forEach((k) => rows.push({ key: `s${k.id}`, kind: 'skill', label: k.description, sub: k.category || 'Skill', data: k, selectable: true }));
+                .forEach((k) =>
+                    rows.push({ key: `s${k.id}`, kind: 'skill', label: k.description, sub: k.category || this.L.skillSub, data: k, selectable: true })
+                );
         }
         const failed = [prof, skill].filter((r) => r.status === 'rejected');
         if (failed.length) {
-            rows.push({ key: 'err', kind: 'status', label: `Suggestions unavailable: ${normalizeError(failed[0].reason)}`, selectable: false });
+            rows.push({
+                key: 'err',
+                kind: 'status',
+                label: tr('suggestionsUnavailable', { error: normalizeError(failed[0].reason) }, this.lang),
+                selectable: false
+            });
         } else if (rows.length === 1) {
-            rows.push({ key: 'none', kind: 'status', label: 'No matching job titles or skills', selectable: false });
+            rows.push({ key: 'none', kind: 'status', label: this.L.noTitlesOrSkills, selectable: false });
         }
         this.ta = { open: this.ta.open, rows, active: 0, loading: false };
     }
@@ -225,11 +245,11 @@ export default class CsSearchBar extends LightningElement {
                 origin: 'user',
                 professionCode: row.data.codeId
             });
-            this.emitChange(c, `Added job title ${row.label}`);
+            this.emitChange(c, tr('addedJobTitle', { label: row.label }, this.lang));
             this.loadStrip('profession', row.data.codeId, row.label);
         } else if (row.kind === 'skill') {
             c.items.push({ id: nextChipId(c), kind: 'skill', label: row.label, value: row.label, code: row.data.id, weight: 'preferred', origin: 'user' });
-            this.emitChange(c, `Added skill ${row.label}`);
+            this.emitChange(c, tr('addedSkill', { label: row.label }, this.lang));
             this.loadStrip('skill', row.data.id, row.label);
         }
     }
@@ -249,12 +269,12 @@ export default class CsSearchBar extends LightningElement {
 
     async loadStrip(kind, key, label) {
         const seq = ++this._stripSeq;
-        this.strip = { title: kind === 'profession' ? `Suggested skills for ${label}` : `Similar to ${label}`, items: [], loading: true, error: null };
+        this.strip = { title: tr(kind === 'profession' ? 'suggestedSkillsFor' : 'similarTo', { label }, this.lang), items: [], loading: true, error: null };
         try {
             const res =
                 kind === 'profession'
-                    ? await suggestSkillsForProfession({ professionCodeId: key })
-                    : await suggestSimilarSkills({ skillIdsJson: JSON.stringify([key]) });
+                    ? await suggestSkillsForProfession({ professionCodeId: key, lang: this.lang })
+                    : await suggestSimilarSkills({ skillIdsJson: JSON.stringify([key]), lang: this.lang });
             if (seq !== this._stripSeq) return;
             const items = JSON.parse(res || '[]').map((k) => ({ id: k.id, label: k.description }));
             this.strip = { ...this.strip, items, loading: false };
@@ -270,15 +290,15 @@ export default class CsSearchBar extends LightningElement {
     get stripItems() {
         const items = (this._criteria && this._criteria.items) || [];
         const codes = new Set(items.map((i) => i.code).filter(Boolean));
-        const labels = new Set(items.map((i) => String(i.label || '').toLowerCase()));
+        const chipLabels = new Set(items.map((i) => String(i.label || '').toLowerCase()));
         return ((this.strip && this.strip.items) || []).map((k) => {
-            const added = codes.has(k.id) || labels.has(k.label.toLowerCase());
+            const added = codes.has(k.id) || chipLabels.has(k.label.toLowerCase());
             return {
                 ...k,
                 added,
                 cls: `sugg${added ? ' sugg-added' : ''}`,
                 icon: added ? 'check' : 'plus',
-                title: added ? `${k.label} is in the search` : `Add ${k.label}`
+                title: tr(added ? 'isInSearch' : 'addLabel', { label: k.label }, this.lang)
             };
         });
     }
@@ -295,12 +315,12 @@ export default class CsSearchBar extends LightningElement {
         const id = event.currentTarget.dataset.id;
         const k = this.stripItems.find((x) => x.id === id);
         if (!k || k.added) return;
-        this.addSkills([k], `Added skill ${k.label}`);
+        this.addSkills([k], tr('addedSkill', { label: k.label }, this.lang));
     }
 
     addAllSuggested() {
         const todo = this.stripItems.filter((k) => !k.added);
-        if (todo.length) this.addSkills(todo, `Added ${todo.length} suggested skill${todo.length === 1 ? '' : 's'}`);
+        if (todo.length) this.addSkills(todo, tr('addedSuggestedSkills', { n: todo.length }, this.lang));
     }
 
     addSkills(list, summary) {
@@ -361,7 +381,7 @@ export default class CsSearchBar extends LightningElement {
             .map((i) => i.label)
             .slice(0, 3)
             .join(', ');
-        return (c.naturalLanguage || fromChips || 'My search').slice(0, 80);
+        return (c.naturalLanguage || fromChips || this.L.mySearch).slice(0, 80);
     }
 
     handleSave() {
@@ -408,7 +428,7 @@ export default class CsSearchBar extends LightningElement {
     }
 
     get searchLabel() {
-        return this.loading ? 'Searching' : 'Search';
+        return this.loading ? this.L.searchingWord : this.L.search;
     }
 
     handleClear() {
@@ -438,15 +458,15 @@ export default class CsSearchBar extends LightningElement {
             return {
                 id: it.id,
                 label: it.label || it.value,
-                kind: kindLabel(it.kind),
-                weight: weightShort(weight),
+                kind: kindLabel(it.kind, this.lang),
+                weight: weightShort(weight, this.lang),
                 dotCls: `dot dot-${weight}`,
                 readOnly,
                 title: readOnly
-                    ? `${kindLabel(it.kind)} from the Textkernel job document${it.raw && it.raw.field ? ` (${it.raw.field})` : ''}. It can be removed but not edited.`
-                    : `${kindLabel(it.kind)}: ${it.label || it.value}. Click to edit.`,
+                    ? tr('chipFromJobDoc', { kind: kindLabel(it.kind, this.lang), field: it.raw && it.raw.field ? ` (${it.raw.field})` : '' }, this.lang)
+                    : tr('chipClickToEdit', { kind: kindLabel(it.kind, this.lang), label: it.label || it.value }, this.lang),
                 cls: `chip chip-${weight}${readOnly ? ' chip-readonly' : ''}${this.editor && this.editor.id === it.id ? ' chip-active' : ''}`,
-                removeLabel: `Remove ${it.label || it.value}`
+                removeLabel: tr('removeLabel', { label: it.label || it.value }, this.lang)
             };
         });
     }
@@ -460,8 +480,8 @@ export default class CsSearchBar extends LightningElement {
                     key: `${field}|${v}`,
                     field,
                     value: v,
-                    label: `${facetLabel(field)}: ${v}`,
-                    removeLabel: `Remove filter ${facetLabel(field)} ${v}`
+                    label: `${facetLabel(field, this.lang)}: ${v}`,
+                    removeLabel: tr('removeFilter', { facet: facetLabel(field, this.lang), value: v }, this.lang)
                 });
             });
         });
@@ -474,15 +494,15 @@ export default class CsSearchBar extends LightningElement {
         if (x.placedWithinDays) {
             out.push({
                 key: 'placedWithinDays',
-                label: `Not ${exclusionLabel('placedWithinDays', x.placedWithinDays).replace('anyone ', '')}`,
-                removeLabel: 'Stop excluding recent placements'
+                label: tr('notPlacedDays', { n: x.placedWithinDays }, this.lang),
+                removeLabel: this.L.stopExcludingRecent
             });
         }
         if (x.pipelineForJob) {
             out.push({
                 key: 'pipelineForJob',
-                label: 'Hiding candidates already on this job',
-                removeLabel: 'Show candidates already on this job'
+                label: this.L.hidingOnJob,
+                removeLabel: this.L.showOnJob
             });
         }
         return out;
@@ -541,7 +561,7 @@ export default class CsSearchBar extends LightningElement {
         const removed = c.items.find((x) => x.id === id);
         c.items = c.items.filter((x) => x.id !== id);
         if (this.editor && this.editor.id === id) this.editor = null;
-        this.emitChange(c, `Removed ${removed ? removed.label : 'a criterion'}`);
+        this.emitChange(c, tr('removeLabel', { label: removed ? removed.label : this.L.aCriterion }, this.lang));
     }
 
     removeFilter(event) {
@@ -550,7 +570,7 @@ export default class CsSearchBar extends LightningElement {
         const left = [].concat(c.filters[field] || []).filter((v) => v !== value);
         if (left.length) c.filters[field] = left;
         else delete c.filters[field];
-        this.emitChange(c, `Removed filter ${facetLabel(field)}: ${value}`);
+        this.emitChange(c, tr('removedFilter', { facet: facetLabel(field, this.lang), value }, this.lang));
     }
 
     removeExclusion(event) {
@@ -558,7 +578,7 @@ export default class CsSearchBar extends LightningElement {
         const c = clone(this._criteria);
         c.exclusions = c.exclusions || {};
         delete c.exclusions[key];
-        this.emitChange(c, `Stopped excluding ${exclusionLabel(key)}`);
+        this.emitChange(c, tr('diffStopExcluding', { what: exclusionLabel(key, null, this.lang) }, this.lang));
     }
 
     handlePlacedDays(event) {
@@ -568,7 +588,12 @@ export default class CsSearchBar extends LightningElement {
         if (Number.isFinite(n) && n > 0) c.exclusions.placedWithinDays = Math.min(n, 3650);
         else delete c.exclusions.placedWithinDays;
         if ((c.exclusions.placedWithinDays || null) === (this.placedDays || null)) return;
-        this.emitChange(c, n > 0 ? `Excluding anyone placed in the last ${n} days` : 'Stopped excluding recent placements');
+        this.emitChange(
+            c,
+            n > 0
+                ? tr('excludingPlacedDays', { n }, this.lang)
+                : tr('diffStopExcluding', { what: exclusionLabel('placedWithinDays', null, this.lang) }, this.lang)
+        );
     }
 
     togglePipeline(event) {
@@ -576,7 +601,7 @@ export default class CsSearchBar extends LightningElement {
         c.exclusions = c.exclusions || {};
         if (event.target.checked) c.exclusions.pipelineForJob = true;
         else delete c.exclusions.pipelineForJob;
-        this.emitChange(c, event.target.checked ? 'Hiding candidates already on this job' : 'Showing candidates already on this job');
+        this.emitChange(c, event.target.checked ? this.L.hidingOnJob : this.L.showingOnJob);
     }
 
     // ─── Editor (add or edit one chip) ──────────────
@@ -603,16 +628,24 @@ export default class CsSearchBar extends LightningElement {
         });
     }
 
+    get stripErrorText() {
+        return tr('suggestionsUnavailable', { error: this.strip && this.strip.error }, this.lang);
+    }
+
+    get suggestErrorText() {
+        return tr('skillSuggestionsUnavailable', { error: this.suggestError }, this.lang);
+    }
+
     get hasEditor() {
         return !!this.editor;
     }
 
     get editorTitle() {
-        return this.editor && this.editor.mode === 'add' ? 'Add criterion' : 'Edit criterion';
+        return this.editor && this.editor.mode === 'add' ? this.L.addCriterion : this.L.editCriterion;
     }
 
     get editorSaveLabel() {
-        return this.editor && this.editor.mode === 'add' ? 'Add' : 'Save';
+        return this.editor && this.editor.mode === 'add' ? this.L.add : this.L.save;
     }
 
     get isAdd() {
@@ -621,12 +654,12 @@ export default class CsSearchBar extends LightningElement {
 
     get kindOptions() {
         const kind = this.editor && this.editor.kind;
-        return ADDABLE_KINDS.map((k) => ({ ...k, selected: k.value === kind }));
+        return addableKinds(this.lang).map((k) => ({ ...k, selected: k.value === kind }));
     }
 
     get weightOptions() {
         const weight = this.editor && this.editor.weight;
-        return WEIGHTS.map((w) => ({ label: w.label, value: w.value, pressed: w.value === weight ? 'true' : 'false' }));
+        return weights(this.lang).map((w) => ({ label: w.label, value: w.value, pressed: w.value === weight ? 'true' : 'false' }));
     }
 
     handleWeight(event) {
@@ -646,10 +679,9 @@ export default class CsSearchBar extends LightningElement {
     }
 
     get valueLabel() {
-        if (!this.editor) return 'Value';
-        if (this.editor.kind === 'location') return 'Town or postcode';
-        if (this.editor.kind === 'skill' || this.editor.kind === 'certification') return kindLabel(this.editor.kind);
-        return kindLabel(this.editor.kind);
+        if (!this.editor) return this.L.value;
+        if (this.editor.kind === 'location') return this.L.townOrPostcode;
+        return kindLabel(this.editor.kind, this.lang);
     }
 
     get hasSuggestions() {
@@ -680,7 +712,7 @@ export default class CsSearchBar extends LightningElement {
 
     async suggest(prefix) {
         try {
-            const list = JSON.parse(await autocompleteSkills({ prefix }));
+            const list = JSON.parse(await autocompleteSkills({ prefix, lang: this.lang }));
             if (!this.editor || (this.editor.value || '').trim() !== prefix) return;
             this.suggestions = (list || []).map((s) => ({
                 id: s.id,
@@ -721,17 +753,17 @@ export default class CsSearchBar extends LightningElement {
         if (!e) return;
         const value = (e.value || '').trim();
         if (e.kind !== 'availability' && !value) {
-            this.editorError = 'Enter a value.';
+            this.editorError = this.L.enterValue;
             return;
         }
         const radius = Number(e.radius);
         if (e.kind === 'location' && (!Number.isFinite(radius) || radius < 0)) {
-            this.editorError = 'Enter a radius in miles.';
+            this.editorError = this.L.enterRadius;
             return;
         }
         const days = parseInt(e.withinDays, 10);
         if (e.kind === 'availability' && !(days > 0)) {
-            this.editorError = 'Enter a number of days.';
+            this.editorError = this.L.enterDays;
             return;
         }
 
@@ -755,7 +787,7 @@ export default class CsSearchBar extends LightningElement {
         } else if (e.kind === 'availability') {
             item.withinDays = days;
             item.value = String(days);
-            item.label = `Available within ${days} days`;
+            item.label = tr('availableWithinDays', { n: days }, this.lang);
         } else {
             item.value = value;
             item.label = value;
@@ -764,7 +796,7 @@ export default class CsSearchBar extends LightningElement {
         if (e.mode === 'add') c.items.push(item);
         this.editor = null;
         this.suggestions = [];
-        this.emitChange(c, `${e.mode === 'add' ? 'Added' : 'Changed'} ${item.label}`);
+        this.emitChange(c, tr(e.mode === 'add' ? 'addedItem' : 'changedItem', { label: item.label }, this.lang));
     }
 
     emitChange(criteria, summary) {

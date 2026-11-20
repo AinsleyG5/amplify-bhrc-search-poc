@@ -3,6 +3,7 @@ import { NavigationMixin } from 'lightning/navigation';
 import matchCandidateToJobs from '@salesforce/apex/CandidateSearchController.matchCandidateToJobs';
 import bulkAddToJob from '@salesforce/apex/CandidateSearchController.bulkAddToJob';
 import { ring, normalizeError } from 'c/csUtils';
+import { labels, tr } from 'c/csI18n';
 
 /**
  * csJobMatches: jobs that match the open candidate, ranked by Textkernel (searchWithUrl in the job environment
@@ -10,6 +11,13 @@ import { ring, normalizeError } from 'c/csUtils';
  */
 export default class CsJobMatches extends NavigationMixin(LightningElement) {
     @api contactId;
+
+    /** 'en' or 'fr' (csI18n). */
+    @api lang;
+
+    get L() {
+        return labels(this.lang);
+    }
 
     _docId;
     @api
@@ -62,8 +70,8 @@ export default class CsJobMatches extends NavigationMixin(LightningElement) {
                 note: this.done[j.jobId] || '',
                 busy: this.busyJob === j.jobId,
                 shortlistDisabled: !this.contactId || !!this.done[j.jobId] || this.busyJob === j.jobId,
-                openLabel: `Open job ${j.name}`,
-                shortlistLabel: `Shortlist on ${j.name}`
+                openLabel: tr('openJobName', { name: j.name }, this.lang),
+                shortlistLabel: tr('shortlistOnName', { name: j.name }, this.lang)
             };
         });
     }
@@ -77,7 +85,7 @@ export default class CsJobMatches extends NavigationMixin(LightningElement) {
     }
 
     get countText() {
-        return `${this.jobs.length} matching job${this.jobs.length === 1 ? '' : 's'}`;
+        return tr('rankedByTk', { count: tr('matchingJobsN', { n: this.jobs.length }, this.lang) }, this.lang);
     }
 
     openJob(event) {
@@ -92,8 +100,8 @@ export default class CsJobMatches extends NavigationMixin(LightningElement) {
         if (!this.contactId) return;
         this.busyJob = jobId;
         try {
-            const res = JSON.parse(await bulkAddToJob({ jobId, contactIdsJson: JSON.stringify([this.contactId]), auditId: null }));
-            this.done = { ...this.done, [jobId]: res.added ? 'Shortlisted' : res.message };
+            const res = JSON.parse(await bulkAddToJob({ jobId, contactIdsJson: JSON.stringify([this.contactId]), auditId: null, lang: this.lang }));
+            this.done = { ...this.done, [jobId]: res.added ? this.L.shortlisted : res.message };
         } catch (e) {
             this.done = { ...this.done, [jobId]: normalizeError(e) };
         } finally {

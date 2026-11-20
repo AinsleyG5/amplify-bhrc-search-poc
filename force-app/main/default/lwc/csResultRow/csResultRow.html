@@ -32,12 +32,12 @@
                         ></template
                     >
                     <template lwc:if={item.pipelineLabel}><span class="tag tag-amber">{item.pipelineLabel}</span></template>
-                    <template lwc:if={item.placedRecently}><span class="tag tag-violet">Placed recently</span></template>
+                    <template lwc:if={item.placedRecently}><span class="tag tag-violet">{L.placedRecently}</span></template>
                 </div>
             </div>
         </div>
 
-        <div class="crit" aria-label="Criteria met">
+        <div class="crit" aria-label={L.criteriaMet}>
             <template for:each={item.criteria} for:item="c">
                 <span key={c.id} class={c.cls} title={c.title}>
                     <c-cs-icon name={c.icon} size="11" stroke-width="3"></c-cs-icon>
@@ -60,16 +60,16 @@
 
         <div class="why">
             <template lwc:if={explainPending}>
-                <div class="shimmer" aria-label="Explanation loading"><span></span><span></span></div>
+                <div class="shimmer" aria-label={L.explanationLoading}><span></span><span></span></div>
             </template>
             <template lwc:if={explainDone}>
                 <p class="summary" title={summary}>{summary}</p>
             </template>
             <template lwc:if={explainError}>
-                <p class="why-muted" title={errorText}>Couldn't explain. <button class="link" onclick={handleExplain}>Retry</button></p>
+                <p class="why-muted" title={errorText}>{L.couldntExplain} <button class="link" onclick={handleExplain}>{L.retry}</button></p>
             </template>
             <template lwc:if={explainAvailable}>
-                <button class="explain-btn" onclick={handleExplain}>Explain</button>
+                <button class="explain-btn" onclick={handleExplain}>{L.explain}</button>
             </template>
         </div>
 
@@ -91,11 +91,11 @@
             <div id="match-pop" class={matchPopCls} role="tooltip">
                 <div class="mp-head">
                     <span class="mp-score">{item.ringText}</span>
-                    <span class="mp-sub">Textkernel match · {item.match.summary}</span>
+                    <span class="mp-sub">{matchSub}</span>
                 </div>
                 <template lwc:if={item.match.hasMet}>
                     <div class="mp-group">
-                        <div class="mp-label mp-label-met">Matches</div>
+                        <div class="mp-label mp-label-met">{L.matches}</div>
                         <ul class="mp-list">
                             <template for:each={item.match.met} for:item="m">
                                 <li key={m.id} class="mp-item mp-met">
@@ -109,7 +109,7 @@
                 </template>
                 <template lwc:if={item.match.hasNotMet}>
                     <div class="mp-group">
-                        <div class="mp-label mp-label-not">Doesn't match</div>
+                        <div class="mp-label mp-label-not">{L.doesntMatch}</div>
                         <ul class="mp-list">
                             <template for:each={item.match.notMet} for:item="m">
                                 <li key={m.id} class="mp-item mp-not">
@@ -123,7 +123,7 @@
                 </template>
                 <template lwc:if={item.match.hasNa}>
                     <div class="mp-group">
-                        <div class="mp-label">Not scored separately</div>
+                        <div class="mp-label">{L.notScoredSeparately}</div>
                         <ul class="mp-list">
                             <template for:each={item.match.na} for:item="m">
                                 <li key={m.id} class="mp-item mp-na">

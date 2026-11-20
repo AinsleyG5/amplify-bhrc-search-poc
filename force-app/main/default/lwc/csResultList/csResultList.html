@@ -1,8 +1,8 @@
 <template>
     <div class="list">
         <div class="head">
-            <label class="head-sel" title="Select all loaded candidates">
-                <input class="checkbox" type="checkbox" checked={pageSelected} onchange={handleSelectPage} aria-label="Select all loaded candidates" />
+            <label class="head-sel" title={L.selectAllLoaded}>
+                <input class="checkbox" type="checkbox" checked={pageSelected} onchange={handleSelectPage} aria-label={L.selectAllLoaded} />
             </label>
             <div class="count" aria-live="polite">{countText}</div>
             <template lwc:if={hiddenCount}>
@@ -15,11 +15,11 @@
                     <span>{columnsLabel}</span>
                 </button>
                 <template lwc:if={columnsOpen}>
-                    <div class="columns-pop" role="dialog" aria-label="Choose columns" onkeydown={handleColumnsKeydown}>
+                    <div class="columns-pop" role="dialog" aria-label={L.chooseColumns} onkeydown={handleColumnsKeydown}>
                         <div class="columns-head">
-                            <span class="columns-title">Columns</span>
-                            <button class="link" onclick={resetColumns}>Reset</button>
-                            <button class="btn-icon sm" onclick={closeColumns} aria-label="Close"><c-cs-icon name="x" size="14"></c-cs-icon></button>
+                            <span class="columns-title">{L.columns}</span>
+                            <button class="link" onclick={resetColumns}>{L.reset}</button>
+                            <button class="btn-icon sm" onclick={closeColumns} aria-label={L.close}><c-cs-icon name="x" size="14"></c-cs-icon></button>
                         </div>
                         <template for:each={columnGroups} for:item="g">
                             <fieldset key={g.id} class="columns-group">
@@ -86,7 +86,7 @@
         </template>
 
         <template lwc:if={loading}>
-            <div class="loading-rows" aria-label="Searching">
+            <div class="loading-rows" aria-label={L.searching}>
                 <div class="ghost"><span class="g-av"></span><span class="g-l"></span><span class="g-m"></span><span class="g-r"></span></div>
                 <div class="ghost"><span class="g-av"></span><span class="g-l"></span><span class="g-m"></span><span class="g-r"></span></div>
                 <div class="ghost"><span class="g-av"></span><span class="g-l"></span><span class="g-m"></span><span class="g-r"></span></div>
@@ -98,8 +98,8 @@
             <template lwc:if={showColumnHeader}>
                 <div class="col-head" style={gridStyle}>
                     <span></span>
-                    <span class="col-label">Candidate</span>
-                    <span class="col-label">Criteria</span>
+                    <span class="col-label">{L.colCandidate}</span>
+                    <span class="col-label">{L.colCriteria}</span>
                     <template for:each={headerCols} for:item="c">
                         <span key={c.key} class="col-label col-chosen">
                             <span class="col-text" title={c.label}>{c.label}</span>
@@ -109,7 +109,7 @@
                                 role="separator"
                                 aria-orientation="vertical"
                                 aria-label={c.resizeLabel}
-                                title="Drag to resize. Double-click for the default width."
+                                title={L.dragToResize}
                                 tabindex="0"
                                 onpointerdown={startResize}
                                 onpointermove={moveResize}
@@ -120,8 +120,8 @@
                             ></span>
                         </span>
                     </template>
-                    <span class="col-label">Summary</span>
-                    <span class="col-label col-score">Match</span>
+                    <span class="col-label">{L.colSummary}</span>
+                    <span class="col-label col-score">{L.colMatch}</span>
                 </div>
             </template>
             <div class="rows" role="list" style={gridStyle}>
@@ -131,6 +131,7 @@
                         role="listitem"
                         data-doc-id={it.docId}
                         item={it}
+                        lang={lang}
                         onrowopen={handleRowOpen}
                         onrowselect={handleRowSelect}
                         onexplain={handleExplain}
@@ -141,23 +142,23 @@
             <template lwc:if={showEmpty}>
                 <div class="empty">
                     <div class="empty-icon"><c-cs-icon name="search" size="26"></c-cs-icon></div>
-                    <p class="empty-title">No matches</p>
-                    <p>Widen the radius or relax a must-have.</p>
+                    <p class="empty-title">{L.noMatches}</p>
+                    <p>{L.noMatchesHint}</p>
                 </div>
             </template>
 
             <template lwc:if={hasMore}>
                 <div class="sentinel">
                     <template lwc:if={loadingMore}>
-                        <span class="spinner" role="status" aria-label="Loading more candidates"></span>
+                        <span class="spinner" role="status" aria-label={L.loadingMore}></span>
                     </template>
                     <template lwc:else>
-                        <button class="btn btn-sm" onclick={loadMoreClick}>Load more</button>
+                        <button class="btn btn-sm" onclick={loadMoreClick}>{L.loadMore}</button>
                     </template>
                 </div>
             </template>
             <template lwc:if={showEnd}>
-                <div class="end"><span>End of results</span></div>
+                <div class="end"><span>{L.endOfResults}</span></div>
             </template>
         </template>
 
@@ -166,13 +167,13 @@
                 <button class="req-toggle" onclick={toggleRequest} aria-expanded={requestOpen}>
                     <c-cs-icon name={requestIcon} size="14"></c-cs-icon>
                     <c-cs-icon name="code" size="14"></c-cs-icon>
-                    <span class="req-toggle-label">Search sent to Textkernel</span>
+                    <span class="req-toggle-label">{L.searchSentToTk}</span>
                 </button>
                 <template lwc:if={requestOpen}>
                     <div class="req-panel">
                         <div class="req-bar">
-                            <span class="req-note">Password masked</span>
-                            <button class="btn-icon sm req-copy" onclick={copyRequest} aria-label="Copy request" title="Copy request">
+                            <span class="req-note">{L.passwordMasked}</span>
+                            <button class="btn-icon sm req-copy" onclick={copyRequest} aria-label={L.copyRequest} title={L.copyRequest}>
                                 <c-cs-icon name="copy" size="14"></c-cs-icon>
                             </button>
                         </div>

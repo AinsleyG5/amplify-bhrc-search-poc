@@ -26,10 +26,10 @@ public with sharing class PipelineStatusService {
         /** Row tag text, for example "Applied (Interview), Placed 3 Nov". */
         public String label() {
             List<String> parts = new List<String>();
-            if (applied) parts.add('Applied' + (String.isBlank(stage) ? '' : ' (' + stage + ')'));
-            if (shortlisted) parts.add('Shortlisted');
+            if (applied) parts.add(CsI18n.t('pipeApplied') + (String.isBlank(stage) ? '' : ' (' + stage + ')'));
+            if (shortlisted) parts.add(CsI18n.t('pipeShortlisted'));
             if (placed) {
-                parts.add('Placed' + (placedDate == null ? '' : ' ' + Datetime.newInstance(placedDate.year(), placedDate.month(), placedDate.day()).format('d MMM')));
+                parts.add(CsI18n.t('pipePlaced') + (placedDate == null ? '' : ' ' + Datetime.newInstance(placedDate.year(), placedDate.month(), placedDate.day()).format('d MMM')));
             }
             return String.join(parts, ', ');
         }

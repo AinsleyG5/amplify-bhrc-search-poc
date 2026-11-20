@@ -1,6 +1,7 @@
 import { createElement } from 'lwc';
 import CandidateSearchApp from 'c/candidateSearchApp';
 import { CurrentPageReference } from 'lightning/navigation';
+import { setLang } from 'c/csI18n';
 
 import parseQuery from '@salesforce/apex/CandidateSearchController.parseQuery';
 import runSearch from '@salesforce/apex/CandidateSearchController.runSearch';
@@ -188,6 +189,7 @@ describe('c-candidate-search-app', () => {
         logAction.mockResolvedValue(null);
         getColumnOptions.mockResolvedValue(JSON.stringify([{ path: 'MobilePhone', label: 'Mobile', type: 'phone' }]));
         getColumnValues.mockResolvedValue('{}');
+        setLang('en');
         window.localStorage.clear();
         element = createElement('c-candidate-search-app', {
             is: CandidateSearchApp
@@ -216,7 +218,8 @@ describe('c-candidate-search-app', () => {
     it('runs c__q: parse, search, explain, rows render with met flags and summaries', async () => {
         await searchFromUrl();
         expect(parseQuery).toHaveBeenCalledWith({
-            text: 'forklift operatives near Dagenham'
+            text: 'forklift operatives near Dagenham',
+            lang: 'en'
         });
         const sent = JSON.parse(runSearch.mock.calls[0][0].criteriaJson);
         expect(sent.trace.searchType).toBe('Natural language');
@@ -248,7 +251,8 @@ describe('c-candidate-search-app', () => {
         expect(panel).not.toBeNull();
         expect(getCandidateDetail).toHaveBeenCalledWith({
             contactId: '003000000000100AAA',
-            auditId: 'a0X000000000001AAA'
+            auditId: 'a0X000000000001AAA',
+            lang: 'en'
         });
         expect(panel.shadowRoot.querySelector('.p-name').textContent).toBe('Candidate 0');
         expect(panel.shadowRoot.querySelector('.why-evidence').textContent).toContain('forklift licence');
@@ -359,7 +363,7 @@ describe('c-candidate-search-app', () => {
         );
         CurrentPageReference.emit({ state: { c__jobId: 'a1w000000000001AAA' } });
         await flush(12);
-        expect(startJobMatch).toHaveBeenCalledWith({ jobId: 'a1w000000000001AAA' });
+        expect(startJobMatch).toHaveBeenCalledWith({ jobId: 'a1w000000000001AAA', lang: 'en' });
         const chat = shadow(element, 'c-cs-refine-chat');
         expect(chat).not.toBeNull();
         expect(chat.shadowRoot.querySelector('.bubble').textContent).toContain('Built from the Textkernel job document for J-0142.');
@@ -430,7 +434,8 @@ describe('c-candidate-search-app', () => {
         expect(bulkAddToJob).toHaveBeenCalledWith({
             jobId: 'a1w000000000001AAA',
             contactIdsJson: JSON.stringify([row(0).contactId]),
-            auditId: 'a0X000000000001AAA'
+            auditId: 'a0X000000000001AAA',
+            lang: 'en'
         });
         const tag = list.shadowRoot.querySelector('c-cs-result-row').shadowRoot.querySelector('.tag-amber');
         expect(tag.textContent).toBe('Shortlisted');
@@ -499,7 +504,8 @@ describe('c-candidate-search-app', () => {
         expect(bulkAddToTalentPool).toHaveBeenCalledWith({
             poolId: 'a0P000000000001AAA',
             contactIdsJson: JSON.stringify([row(0).contactId]),
-            auditId: 'a0X000000000001AAA'
+            auditId: 'a0X000000000001AAA',
+            lang: 'en'
         });
         expect(shadow(element, 'c-cs-selection-tray')).toBeNull();
     });
@@ -566,7 +572,7 @@ describe('c-candidate-search-app', () => {
         jest.advanceTimersByTime(350);
         jest.useRealTimers();
         await flush(8);
-        expect(suggestProfessions).toHaveBeenCalledWith({ prefix: 'forklift op' });
+        expect(suggestProfessions).toHaveBeenCalledWith({ prefix: 'forklift op', lang: 'en' });
         const labels = [...bar.shadowRoot.querySelectorAll('.ta-row .ta-label')].map((l) => l.textContent);
         expect(labels).toEqual(['forklift op', 'Forklift Operator', 'Forklift Truck Operation']);
 
@@ -575,7 +581,7 @@ describe('c-candidate-search-app', () => {
         const sent = JSON.parse(runSearch.mock.calls[0][0].criteriaJson);
         expect(sent.items[0]).toEqual(expect.objectContaining({ kind: 'title', value: 'Forklift Operator', professionCode: 2357, weight: 'required' }));
         expect(shadow(element, 'c-cs-result-list')).not.toBeNull();
-        expect(suggestSkillsForProfession).toHaveBeenCalledWith({ professionCodeId: 2357 });
+        expect(suggestSkillsForProfession).toHaveBeenCalledWith({ professionCodeId: 2357, lang: 'en' });
         expect(bar.shadowRoot.querySelector('.strip-title').textContent).toBe('Suggested skills for Forklift Operator');
 
         bar.shadowRoot.querySelector('.strip-all').click();
@@ -704,6 +710,30 @@ describe('c-candidate-search-app', () => {
         expect(texts('.mp-met')).toEqual(['Warehouse Operative', 'Dagenham + 15 mi']);
         expect(texts('.mp-not')).toEqual(['Forklift']);
         expect(pop.querySelector('.mp-sub').textContent).toContain('2 of 3 criteria met');
+    });
+
+    it('switches to French from the banner: the page, the Apex calls and the saved choice follow', async () => {
+        await flush();
+        expect(shadow(element, '.hero-sub').textContent).toContain('in your own words');
+        shadow(element, '[data-action="language"]').click();
+        await flush();
+        const options = [...element.shadowRoot.querySelectorAll('.lang-opt')].map((o) => o.textContent);
+        expect(options).toEqual(['English', 'Français']);
+        element.shadowRoot.querySelector('.lang-opt[data-value="fr"]').click();
+        await flush();
+        expect(shadow(element, '.lang-btn').textContent).toContain('Français');
+        expect(shadow(element, '.hero-sub').textContent).toBe('Recherchez par poste, habilitations, lieu et disponibilité, avec vos propres mots.');
+        expect(shadow(element, 'c-cs-home-panels').shadowRoot.querySelector('.eyebrow').textContent).toBe('Essayez une recherche');
+        expect(window.localStorage.getItem('amp.candidateSearch.lang')).toBe('fr');
+
+        await searchFromUrl();
+        expect(parseQuery).toHaveBeenCalledWith({ text: 'forklift operatives near Dagenham', lang: 'fr' });
+        expect(runSearch.mock.calls[0][0].lang).toBe('fr');
+        const list = shadow(element, 'c-cs-result-list').shadowRoot;
+        expect(list.querySelector('.count').textContent).toBe('3 candidats');
+        expect(shadow(element, '[data-action="open-chat"]').textContent).toContain("Affiner avec l'IA");
+        const weights = [...shadow(element, 'c-cs-search-bar').shadowRoot.querySelectorAll('.chip')].map((c) => c.textContent);
+        expect(weights.join(' ')).toContain('Requis');
     });
 
     it('Refine with AI bounces after the first search only', async () => {

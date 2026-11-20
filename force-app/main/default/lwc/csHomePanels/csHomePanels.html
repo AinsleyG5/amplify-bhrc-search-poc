@@ -5,7 +5,7 @@
         </template>
 
         <section class="examples">
-            <div class="eyebrow">Try a search</div>
+            <div class="eyebrow">{L.tryASearch}</div>
             <div class="ex-list">
                 <template for:each={examples} for:item="e">
                     <button key={e.id} class="ex" data-text={e.text} onclick={handleExample}>
@@ -33,14 +33,14 @@
                 <template lwc:if={hasFavourites}>
                     <section class="col">
                         <h2 class="col-title">
-                            <span class="col-icon fav"><c-cs-icon name="star" size="14" filled></c-cs-icon></span>Favourites
+                            <span class="col-icon fav"><c-cs-icon name="star" size="14" filled></c-cs-icon></span>{L.favourites}
                         </h2>
                         <ul class="items">
                             <template for:each={favourites} for:item="s">
                                 <li key={s.key} class="item">
                                     <button class="item-main" data-id={s.id} data-saved={s.saved} onclick={handleRun} aria-label={s.runLabel}>
                                         <span class="item-name"
-                                            >{s.name}<template lwc:if={s.isJob}><span class="tag tag-blue job-tag">Job</span></template></span
+                                            >{s.name}<template lwc:if={s.isJob}><span class="tag tag-blue job-tag">{L.jobTag}</span></template></span
                                         >
                                         <span class="item-detail">{s.detail}</span>
                                     </button>
@@ -63,14 +63,14 @@
                 <template lwc:if={hasSaved}>
                     <section class="col">
                         <h2 class="col-title">
-                            <span class="col-icon saved"><c-cs-icon name="bookmark" size="14"></c-cs-icon></span>Saved searches
+                            <span class="col-icon saved"><c-cs-icon name="bookmark" size="14"></c-cs-icon></span>{L.savedSearches}
                         </h2>
                         <ul class="items">
                             <template for:each={saved} for:item="s">
                                 <li key={s.key} class="item">
                                     <button class="item-main" data-id={s.id} data-saved={s.saved} onclick={handleRun} aria-label={s.runLabel}>
                                         <span class="item-name"
-                                            >{s.name}<template lwc:if={s.isJob}><span class="tag tag-blue job-tag">Job</span></template></span
+                                            >{s.name}<template lwc:if={s.isJob}><span class="tag tag-blue job-tag">{L.jobTag}</span></template></span
                                         >
                                         <span class="item-detail">{s.detail}</span>
                                     </button>
@@ -93,14 +93,14 @@
                 <template lwc:if={hasRecent}>
                     <section class="col">
                         <h2 class="col-title">
-                            <span class="col-icon recent"><c-cs-icon name="history" size="14"></c-cs-icon></span>Recent searches
+                            <span class="col-icon recent"><c-cs-icon name="history" size="14"></c-cs-icon></span>{L.recentSearches}
                         </h2>
                         <ul class="items">
                             <template for:each={recent} for:item="s">
                                 <li key={s.key} class="item">
                                     <button class="item-main" data-id={s.id} data-saved={s.saved} onclick={handleRun} aria-label={s.runLabel}>
                                         <span class="item-name"
-                                            >{s.name}<template lwc:if={s.isJob}><span class="tag tag-blue job-tag">Job</span></template></span
+                                            >{s.name}<template lwc:if={s.isJob}><span class="tag tag-blue job-tag">{L.jobTag}</span></template></span
                                         >
                                         <span class="item-detail">{s.detail}</span>
                                     </button>
@@ -114,7 +114,7 @@
         </template>
 
         <template lwc:if={isEmpty}>
-            <p class="h-hint">Your recent and saved searches will appear here. To match a job, use <strong>Match Candidates</strong> on the job record.</p>
+            <p class="h-hint">{L.homeHintBefore} <strong>{L.matchCandidates}</strong> {L.homeHintAfter}</p>
         </template>
     </div>
 </template>

@@ -150,7 +150,6 @@
 
 /* Parse a CV: large modal around the existing c-tx-resume-parser component */
 .btn-parse {
-    margin-left: auto;
     background: var(--amp-surface);
     color: var(--amp-blue-600);
     border-color: transparent;
@@ -209,6 +208,8 @@
     bottom: 64px;
     transform: translateX(-50%);
     z-index: 50;
+    /* Without this, left: 50% caps the tray at half the window and the buttons wrap */
+    width: max-content;
     max-width: calc(100vw - 32px);
 }
 
@@ -395,4 +396,75 @@
     .btn-refine-ai.bounce {
         animation: none;
     }
+}
+
+/* Language switcher (top right of the banner, like the Textkernel portal) */
+.lang {
+    position: relative;
+    margin-left: auto;
+}
+
+.lang-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: var(--amp-r-pill);
+    background: transparent;
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.lang-btn:hover,
+.lang-btn[aria-expanded='true'] {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.lang-btn:focus-visible {
+    outline: 0;
+    box-shadow: 0 0 0 2px #fff;
+}
+
+.lang-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 20;
+    min-width: 150px;
+    margin: 0;
+    padding: 6px 0;
+    list-style: none;
+    background: var(--amp-navy);
+    border-radius: var(--amp-r);
+    box-shadow: var(--amp-shadow-lg);
+}
+
+.lang-opt {
+    display: block;
+    width: 100%;
+    padding: 10px 18px;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.lang-opt:hover,
+.lang-opt:focus-visible {
+    outline: 0;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.lang-opt-on {
+    background: rgba(255, 255, 255, 0.08);
+    font-weight: 700;
 }

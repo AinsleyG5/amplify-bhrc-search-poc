@@ -2,6 +2,7 @@ import { LightningElement, api } from 'lwc';
 import getCandidateCv from '@salesforce/apex/CandidateSearchController.getCandidateCv';
 import getCandidateCvLink from '@salesforce/apex/CandidateSearchController.getCandidateCvLink';
 import { normalizeError } from 'c/csUtils';
+import { labels, tr } from 'c/csI18n';
 
 /** Tags kept as they are (formatting only). Anything else is unwrapped (its text kept) or, if listed in DROP, removed. */
 const ALLOWED = new Set([
@@ -152,6 +153,13 @@ export default class CsCvViewer extends LightningElement {
     @api terms = [];
     @api contactId;
 
+    /** 'en' or 'fr' (csI18n). */
+    @api lang;
+
+    get L() {
+        return labels(this.lang);
+    }
+
     _docId;
     @api
     get docId() {
@@ -250,9 +258,9 @@ export default class CsCvViewer extends LightningElement {
     }
 
     get summary() {
-        if (!this.total) return 'No search terms found in this CV';
-        const pos = this.current >= 0 ? `${this.current + 1} of ` : '';
-        return `${pos}${this.total} match${this.total === 1 ? '' : 'es'}`;
+        if (!this.total) return this.L.noTermsInCv;
+        const matches = tr('cvMatches', { n: this.total }, this.lang);
+        return this.current >= 0 ? tr('cvPosOf', { pos: this.current + 1, matches }, this.lang) : matches;
     }
 
     get navDisabled() {

@@ -1,12 +1,8 @@
 import { LightningElement, api } from 'lwc';
 import { formatDateTime } from 'c/csUtils';
+import { labels, tr } from 'c/csI18n';
 
-const EXAMPLES = [
-    'Forklift-certified warehouse operatives within 15 miles of Dagenham',
-    'Reach truck drivers near Thurrock who can start this week',
-    'HGV Class 1 drivers in Birmingham who can do nights',
-    'Pickers and packers within 10 miles of Milton Keynes, no placement in the last month'
-];
+const EXAMPLES = ['example1', 'example2', 'example3', 'example4'];
 
 /**
  * csHomePanels: recent searches, saved searches and favourites (screen 1), from getRecentAndSaved.
@@ -18,24 +14,31 @@ export default class CsHomePanels extends LightningElement {
     @api loading = false;
     @api error;
 
+    /** 'en' or 'fr' (csI18n). */
+    @api lang;
+
+    get L() {
+        return labels(this.lang);
+    }
+
     map(list, saved) {
         return (list || []).map((s) => ({
             id: s.Id,
             key: `${saved ? 's' : 'r'}-${s.Id}`,
-            name: s.Name || s.Natural_Language__c || 'Untitled search',
+            name: s.Name || s.Natural_Language__c || this.L.untitledSearch,
             detail: [
                 s.Natural_Language__c && s.Natural_Language__c !== s.Name ? s.Natural_Language__c : null,
-                s.Last_Run__c ? `Last run ${formatDateTime(s.Last_Run__c)}` : null
+                s.Last_Run__c ? tr('lastRun', { when: formatDateTime(s.Last_Run__c, this.lang) }, this.lang) : null
             ]
                 .filter(Boolean)
                 .join(' · '),
-            runs: s.Run_Count__c ? `${s.Run_Count__c} run${s.Run_Count__c === 1 ? '' : 's'}` : '',
+            runs: s.Run_Count__c ? tr('runsN', { n: s.Run_Count__c }, this.lang) : '',
             isJob: !!s.Job__c,
             saved: saved ? 'true' : 'false',
             favourite: s.Is_Favourite__c === true ? 'true' : 'false',
             starIcon: s.Is_Favourite__c ? 'utility:favorite' : 'utility:favorite_alt',
-            starLabel: s.Is_Favourite__c ? `Remove ${s.Name} from favourites` : `Add ${s.Name} to favourites`,
-            runLabel: `Run ${s.Name || 'search'}`
+            starLabel: tr(s.Is_Favourite__c ? 'removeFavourite' : 'addFavourite', { name: s.Name }, this.lang),
+            runLabel: tr('runSearchName', { name: s.Name || this.L.searchWord }, this.lang)
         }));
     }
 
@@ -71,7 +74,7 @@ export default class CsHomePanels extends LightningElement {
     }
 
     get examples() {
-        return EXAMPLES.map((text, i) => ({ id: `e${i}`, text }));
+        return EXAMPLES.map((key, i) => ({ id: `e${i}`, text: this.L[key] }));
     }
 
     get hasAny() {

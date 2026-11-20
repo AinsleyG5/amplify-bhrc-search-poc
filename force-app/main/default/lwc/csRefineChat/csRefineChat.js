@@ -1,11 +1,7 @@
 import { LightningElement, api } from 'lwc';
+import { labels } from 'c/csI18n';
 
-const SUGGESTIONS = [
-    'Widen the radius to 25 miles',
-    'Drop anyone placed in the last month',
-    'Prefer people who can do nights',
-    'Why is the top candidate first?'
-];
+const SUGGESTIONS = ['chatSuggest1', 'chatSuggest2', 'chatSuggest3', 'chatSuggest4'];
 
 /**
  * csRefineChat: docked refine-by-conversation panel. One message changes the criteria; each turn shows its diff,
@@ -18,6 +14,13 @@ export default class CsRefineChat extends LightningElement {
     @api turns = [];
     @api busy = false;
     @api canUndo = false;
+
+    /** 'en' or 'fr' (csI18n). */
+    @api lang;
+
+    get L() {
+        return labels(this.lang);
+    }
 
     message = '';
     _lastCount = 0;
@@ -51,7 +54,7 @@ export default class CsRefineChat extends LightningElement {
     }
 
     get suggestions() {
-        return SUGGESTIONS.map((s, i) => ({ id: `s${i}`, text: s }));
+        return SUGGESTIONS.map((s, i) => ({ id: `s${i}`, text: this.L[s] }));
     }
 
     get sendDisabled() {

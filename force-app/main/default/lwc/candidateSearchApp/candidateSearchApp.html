@@ -4,15 +4,38 @@
             <div class="hero-top">
                 <c-cs-brand logo-url={logoUrl} tone="light"></c-cs-brand>
                 <div class="hero-title">
-                    <h1 class="h1">{heading}</h1>
-                    <p class="hero-sub">Search by role, tickets, location and availability, in your own words.</p>
+                    <h1 class="h1">{headingText}</h1>
+                    <p class="hero-sub">{L.heroSub}</p>
                 </div>
-                <button class="btn btn-parse" data-action="parse" onclick={openParser} title="Parse a CV into a new candidate">
-                    <c-cs-icon name="file-plus" size="15"></c-cs-icon>Parse a CV
+                <div class="lang" onkeydown={langKeydown} onfocusout={langFocusOut}>
+                    <button
+                        class="lang-btn"
+                        data-action="language"
+                        onclick={toggleLangMenu}
+                        aria-haspopup="listbox"
+                        aria-expanded={langMenuOpen}
+                        aria-label={L.chooseLanguage}
+                        title={L.language}
+                    >
+                        <span>{langLabel}</span><c-cs-icon name="chevron-down" size="14"></c-cs-icon>
+                    </button>
+                    <template lwc:if={langMenuOpen}>
+                        <ul class="lang-menu" role="listbox" aria-label={L.language}>
+                            <template for:each={langOptions} for:item="o">
+                                <li key={o.value} role="option" aria-selected={o.current}>
+                                    <button class={o.cls} data-value={o.value} lang={o.value} onclick={chooseLang}>{o.label}</button>
+                                </li>
+                            </template>
+                        </ul>
+                    </template>
+                </div>
+                <button class="btn btn-parse" data-action="parse" onclick={openParser} title={L.parseCvTitle}>
+                    <c-cs-icon name="file-plus" size="15"></c-cs-icon>{L.parseCv}
                 </button>
             </div>
             <div class="search-card">
                 <c-cs-search-bar
+                    lang={lang}
                     criteria={criteria}
                     initial-text={initialText}
                     loading={loading}
@@ -29,6 +52,7 @@
         <template lwc:if={showHome}>
             <div class="home-wrap">
                 <c-cs-home-panels
+                    lang={lang}
                     data={homeData}
                     loading={homeLoading}
                     error={homeError}
@@ -45,17 +69,11 @@
                         <div class="toolbar-title">{resultTitle}</div>
                         <div class="toolbar-actions">
                             <template lwc:if={canUndo}>
-                                <button class="btn btn-sm btn-ghost" data-action="undo" onclick={handleUndo} disabled={busy} title="Undo the last change">
-                                    <c-cs-icon name="undo" size="14"></c-cs-icon>Undo
+                                <button class="btn btn-sm btn-ghost" data-action="undo" onclick={handleUndo} disabled={busy} title={L.undoLastChange}>
+                                    <c-cs-icon name="undo" size="14"></c-cs-icon>{L.undo}
                                 </button>
-                                <button
-                                    class="btn btn-sm"
-                                    data-action="reset"
-                                    onclick={handleReset}
-                                    disabled={busy}
-                                    title="Go back to the search as it was first run, before any edits or refine turns"
-                                >
-                                    <c-cs-icon name="reset" size="14"></c-cs-icon>Reset changes
+                                <button class="btn btn-sm" data-action="reset" onclick={handleReset} disabled={busy} title={L.resetChangesTitle}>
+                                    <c-cs-icon name="reset" size="14"></c-cs-icon>{L.resetChanges}
                                 </button>
                             </template>
                             <template lwc:if={showChatToggle}>
@@ -64,15 +82,16 @@
                                     data-action="open-chat"
                                     onclick={openChat}
                                     onanimationend={endRefineBounce}
-                                    title="Tell the AI what to change, in your own words, and get suggestions"
+                                    title={L.refineWithAiTitle}
                                 >
-                                    <c-cs-icon name="sparkles" size="15"></c-cs-icon>Refine with AI
+                                    <c-cs-icon name="sparkles" size="15"></c-cs-icon>{L.refineWithAi}
                                 </button>
                             </template>
                         </div>
                     </div>
                     <div class="list-wrap">
                         <c-cs-result-list
+                            lang={lang}
                             rows={rows}
                             criteria={criteria}
                             explanations={explanations}
@@ -102,6 +121,7 @@
                     <template lwc:if={panelRow}>
                         <div class="panel-wrap">
                             <c-cs-candidate-panel
+                                lang={lang}
                                 row={panelRow}
                                 criteria={criteria}
                                 explanation={panelExplanation}
@@ -121,6 +141,7 @@
                 <template lwc:if={chatOpen}>
                     <div class="chat-wrap">
                         <c-cs-refine-chat
+                            lang={lang}
                             turns={chatTurns}
                             busy={busy}
                             can-undo={canUndo}
@@ -136,6 +157,7 @@
         <template lwc:if={hasSelection}>
             <div class="tray-wrap">
                 <c-cs-selection-tray
+                    lang={lang}
                     selected={selectedList}
                     job-id={jobId}
                     busy={bulkBusy}
@@ -154,6 +176,7 @@
             <div class="backdrop" onclick={closeCompare}>
                 <div class="modal" onclick={stopBackdrop}>
                     <c-cs-compare
+                        lang={lang}
                         data={compareData}
                         loading={compareLoading}
                         error={compareError}
@@ -166,10 +189,10 @@
 
         <template lwc:if={parserOpen}>
             <div class="backdrop">
-                <section class="parser-modal" role="dialog" aria-modal="true" aria-label="Parse a new candidate" onkeydown={parserKeydown}>
+                <section class="parser-modal" role="dialog" aria-modal="true" aria-label={L.parseNewCandidate} onkeydown={parserKeydown}>
                     <header class="parser-head">
-                        <h2>Parse a new candidate</h2>
-                        <button class="btn-icon parser-close" onclick={closeParser} aria-label="Close" title="Close">
+                        <h2>{L.parseNewCandidate}</h2>
+                        <button class="btn-icon parser-close" onclick={closeParser} aria-label={L.close} title={L.close}>
                             <c-cs-icon name="x" size="18"></c-cs-icon>
                         </button>
                     </header>
@@ -185,7 +208,7 @@
                 <section class="parser-modal" role="dialog" aria-modal="true" aria-label={flowTitle} onkeydown={flowKeydown}>
                     <header class="parser-head">
                         <h2>{flowTitle}</h2>
-                        <button class="btn-icon flow-close" onclick={closeFlow} aria-label="Close" title="Close">
+                        <button class="btn-icon flow-close" onclick={closeFlow} aria-label={L.close} title={L.close}>
                             <c-cs-icon name="x" size="18"></c-cs-icon>
                         </button>
                     </header>
@@ -205,7 +228,7 @@
                             <div class="toast-title">{t.title}</div>
                             <div class="toast-msg">{t.message}</div>
                         </div>
-                        <button class="btn-icon sm toast-x" data-id={t.id} onclick={dismissToast} aria-label="Dismiss">
+                        <button class="btn-icon sm toast-x" data-id={t.id} onclick={dismissToast} aria-label={L.dismiss}>
                             <c-cs-icon name="x" size="13"></c-cs-icon>
                         </button>
                     </div>

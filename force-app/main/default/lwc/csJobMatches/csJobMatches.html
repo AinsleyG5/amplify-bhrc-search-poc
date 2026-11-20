@@ -1,14 +1,14 @@
 <template>
     <div class="jm">
         <template lwc:if={loading}>
-            <div class="shimmer jm-loading" aria-label="Matching jobs"><span></span><span></span><span></span><span></span></div>
+            <div class="shimmer jm-loading" aria-label={L.matchingJobs}><span></span><span></span><span></span><span></span></div>
         </template>
         <template lwc:if={error}>
-            <div class="jm-error" role="alert">{error} <button class="link" onclick={load}>Retry</button></div>
+            <div class="jm-error" role="alert">{error} <button class="link" onclick={load}>{L.retry}</button></div>
         </template>
-        <template lwc:if={showEmpty}><p class="jm-muted">No matching jobs found.</p></template>
+        <template lwc:if={showEmpty}><p class="jm-muted">{L.noMatchingJobs}</p></template>
         <template lwc:if={hasJobs}>
-            <div class="jm-count">{countText}, ranked by Textkernel</div>
+            <div class="jm-count">{countText}</div>
             <ul class="jm-list">
                 <template for:each={items} for:item="j">
                     <li key={j.jobId} class="jm-item">
@@ -31,7 +31,7 @@
                                 >
                                     <template lwc:if={j.busy}><span class="spinner sm"></span></template>
                                     <template lwc:else><c-cs-icon name="plus" size="13"></c-cs-icon></template>
-                                    Shortlist
+                                    {L.shortlist}
                                 </button>
                             </template>
                         </div>

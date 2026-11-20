@@ -4,7 +4,11 @@
  * - normalizeError: same handling as amplifyRecordEnrichmentPanel (body.message, pageErrors, fieldErrors, arrays).
  * - prettyXmlLines: same formatter as the callListMatchViewer request viewer.
  * - Criteria helpers: labels for kinds and weights, chip ids, met / not met per row, rank change tags.
+ *
+ * Text comes from csI18n. Helpers that return text take an optional lang (default: the page's language); components
+ * pass this.lang so they re-render when the language changes.
  */
+import { tr, localeFor } from 'c/csI18n';
 
 export const PAGE_SIZE = 20;
 /**
@@ -17,67 +21,75 @@ export const COMPARE_MIN = 2;
 export const COMPARE_MAX = 4;
 
 export const WEIGHTS = [
-    { value: 'required', label: 'Must have', short: 'Must' },
-    { value: 'strongly_preferred', label: 'Strongly preferred', short: 'Strong' },
-    { value: 'preferred', label: 'Nice to have', short: 'Nice' },
-    { value: 'excluded', label: 'Exclude', short: 'Exclude' }
+    { value: 'required', labelKey: 'weightRequired', shortKey: 'weightRequiredShort' },
+    { value: 'strongly_preferred', labelKey: 'weightStrong', shortKey: 'weightStrongShort' },
+    { value: 'preferred', labelKey: 'weightPreferred', shortKey: 'weightPreferredShort' },
+    { value: 'excluded', labelKey: 'weightExcluded', shortKey: 'weightExcludedShort' }
 ];
 
 /** Kinds a recruiter can add by hand. fingerprint and tk_raw only come from a job document. */
 export const ADDABLE_KINDS = [
-    { value: 'title', label: 'Job title' },
-    { value: 'skill', label: 'Skill' },
-    { value: 'certification', label: 'Certification' },
-    { value: 'location', label: 'Location' },
-    { value: 'keyword', label: 'Keyword' },
-    { value: 'language', label: 'Language' },
-    { value: 'shift', label: 'Shift' },
-    { value: 'availability', label: 'Available within (days)' }
+    { value: 'title', labelKey: 'addKindTitle' },
+    { value: 'skill', labelKey: 'addKindSkill' },
+    { value: 'certification', labelKey: 'addKindCertification' },
+    { value: 'location', labelKey: 'addKindLocation' },
+    { value: 'keyword', labelKey: 'addKindKeyword' },
+    { value: 'language', labelKey: 'addKindLanguage' },
+    { value: 'shift', labelKey: 'addKindShift' },
+    { value: 'availability', labelKey: 'addKindAvailability' }
 ];
 
-const KIND_LABELS = {
-    title: 'Title',
-    skill: 'Skill',
-    certification: 'Certification',
-    location: 'Location',
-    keyword: 'Keyword',
-    language: 'Language',
-    shift: 'Shift',
-    availability: 'Availability',
-    fingerprint: 'Job description',
-    tk_raw: 'Textkernel'
+const KIND_KEYS = {
+    title: 'kindTitle',
+    skill: 'kindSkill',
+    certification: 'kindCertification',
+    location: 'kindLocation',
+    keyword: 'kindKeyword',
+    language: 'kindLanguage',
+    shift: 'kindShift',
+    availability: 'kindAvailability',
+    fingerprint: 'kindFingerprint',
+    tk_raw: 'kindTkRaw'
 };
 
-const FACET_LABELS = {
-    candidate_status: 'Status',
-    owner_name: 'Owner',
-    owner_id: 'Owner',
-    city: 'City',
-    jobtitles: 'Job titles',
-    recent_jobtitles: 'Recent titles',
-    it_skills: 'IT skills',
-    profskills: 'Skills',
-    languages: 'Languages'
+const FACET_KEYS = {
+    candidate_status: 'facetStatus',
+    owner_name: 'facetOwner',
+    owner_id: 'facetOwner',
+    city: 'facetCity',
+    jobtitles: 'facetJobtitles',
+    recent_jobtitles: 'facetRecentTitles',
+    it_skills: 'facetItSkills',
+    profskills: 'facetSkills',
+    languages: 'facetLanguages'
 };
 
 export const READ_ONLY_KINDS = new Set(['fingerprint', 'tk_raw']);
 
-export function kindLabel(kind) {
-    return KIND_LABELS[kind] || kind || '';
+export function weights(lang) {
+    return WEIGHTS.map((w) => ({ value: w.value, label: tr(w.labelKey, null, lang), short: tr(w.shortKey, null, lang) }));
 }
 
-export function weightLabel(weight) {
+export function addableKinds(lang) {
+    return ADDABLE_KINDS.map((k) => ({ value: k.value, label: tr(k.labelKey, null, lang) }));
+}
+
+export function kindLabel(kind, lang) {
+    return KIND_KEYS[kind] ? tr(KIND_KEYS[kind], null, lang) : kind || '';
+}
+
+export function weightLabel(weight, lang) {
     const w = WEIGHTS.find((x) => x.value === weight);
-    return w ? w.label : weight || '';
+    return w ? tr(w.labelKey, null, lang) : weight || '';
 }
 
-export function weightShort(weight) {
+export function weightShort(weight, lang) {
     const w = WEIGHTS.find((x) => x.value === weight);
-    return w ? w.short : weight || '';
+    return w ? tr(w.shortKey, null, lang) : weight || '';
 }
 
-export function facetLabel(field) {
-    if (FACET_LABELS[field]) return FACET_LABELS[field];
+export function facetLabel(field, lang) {
+    if (FACET_KEYS[field]) return tr(FACET_KEYS[field], null, lang);
     return String(field || '')
         .replace(/_/g, ' ')
         .replace(/^\w/, (c) => c.toUpperCase());
@@ -130,36 +142,44 @@ export function metAndNotMet(row) {
 }
 
 /** "Up 2", "Down 1", "New" against the previous page-1 ranks (docId to rank). */
-export function changeTag(prevRanks, docId, rank) {
+export function changeTag(prevRanks, docId, rank, lang) {
     if (!prevRanks) return null;
-    if (!(docId in prevRanks)) return { label: 'New', cls: 'tag tag-blue', icon: 'plus' };
+    if (!(docId in prevRanks)) return { label: tr('tagNew', null, lang), cls: 'tag tag-blue', icon: 'plus' };
     const diff = prevRanks[docId] - rank;
-    if (diff > 0) return { label: `Up ${diff}`, cls: 'tag tag-green', icon: 'arrow-up' };
-    if (diff < 0) return { label: `Down ${-diff}`, cls: 'tag tag-red', icon: 'arrow-down' };
+    if (diff > 0) return { label: tr('tagUp', { n: diff }, lang), cls: 'tag tag-green', icon: 'arrow-up' };
+    if (diff < 0) return { label: tr('tagDown', { n: -diff }, lang), cls: 'tag tag-red', icon: 'arrow-down' };
     return null;
 }
 
 /** One line per refine diff entry (CriteriaService.applyPatch). */
-export function diffLines(diff) {
+export function diffLines(diff, lang) {
     return (diff || []).map((d, i) => {
         const label = d.label || d.key || d.id || '';
         let text;
         if (d.op === 'add') {
-            text = `Added ${label}` + (d.after && d.after.weight ? ` (${weightLabel(d.after.weight).toLowerCase()})` : '');
+            text =
+                d.after && d.after.weight
+                    ? tr('diffAddedWeight', { label, weight: weightLabel(d.after.weight, lang).toLowerCase() }, lang)
+                    : tr('diffAdded', { label }, lang);
         } else if (d.op === 'remove') {
-            text = `Removed ${label}`;
+            text = tr('diffRemoved', { label }, lang);
         } else if (d.op === 'update') {
             const parts = [];
             const b = d.before || {};
             const a = d.after || {};
-            if (b.weight !== a.weight) parts.push(`${weightLabel(b.weight)} → ${weightLabel(a.weight)}`);
+            if (b.weight !== a.weight) parts.push(`${weightLabel(b.weight, lang)} → ${weightLabel(a.weight, lang)}`);
             if (b.radius !== a.radius && a.radius !== undefined) parts.push(`${b.radius ?? '?'} → ${a.radius} ${a.unit || 'mi'}`);
             if (b.value !== a.value && a.value !== undefined && a.kind !== 'location') parts.push(`"${b.value}" → "${a.value}"`);
-            text = `Changed ${label}` + (parts.length ? `: ${parts.join(', ')}` : '');
+            text = parts.length ? tr('diffChangedParts', { label, parts: parts.join(', ') }, lang) : tr('diffChanged', { label }, lang);
         } else if (d.op === 'setExclusion') {
-            text = d.after === undefined || d.after === null ? `Stopped excluding ${exclusionLabel(d.key)}` : `Excluding ${exclusionLabel(d.key, d.after)}`;
+            text =
+                d.after === undefined || d.after === null
+                    ? tr('diffStopExcluding', { what: exclusionLabel(d.key, null, lang) }, lang)
+                    : tr('diffExcluding', { what: exclusionLabel(d.key, d.after, lang) }, lang);
         } else if (d.op === 'setFilter') {
-            text = d.after ? `Filter ${facetLabel(d.key)}: ${[].concat(d.after).join(', ')}` : `Cleared filter ${facetLabel(d.key)}`;
+            text = d.after
+                ? tr('diffFilter', { facet: facetLabel(d.key, lang), values: [].concat(d.after).join(', ') }, lang)
+                : tr('diffClearedFilter', { facet: facetLabel(d.key, lang) }, lang);
         } else {
             text = `${d.op} ${label}`;
         }
@@ -171,28 +191,28 @@ export function diffLines(diff) {
     });
 }
 
-export function exclusionLabel(key, value) {
-    if (key === 'placedWithinDays') return value ? `anyone placed in the last ${value} days` : 'recent placements';
-    if (key === 'pipelineForJob') return 'candidates already on this job';
+export function exclusionLabel(key, value, lang) {
+    if (key === 'placedWithinDays') return value ? tr('exclPlacedDays', { n: value }, lang) : tr('exclRecentPlacements', null, lang);
+    if (key === 'pipelineForJob') return tr('exclPipeline', null, lang);
     return key;
 }
 
-export function formatDate(value) {
+export function formatDate(value, lang) {
     if (!value) return '';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value);
-    return d.toLocaleDateString(undefined, {
+    return d.toLocaleDateString(localeFor(lang), {
         day: 'numeric',
         month: 'short',
         year: 'numeric'
     });
 }
 
-export function formatDateTime(value) {
+export function formatDateTime(value, lang) {
     if (!value) return '';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value);
-    return d.toLocaleString(undefined, {
+    return d.toLocaleString(localeFor(lang), {
         day: 'numeric',
         month: 'short',
         hour: '2-digit',
@@ -226,7 +246,7 @@ export function normalizeError(err) {
         if (err && err.message) return err.message;
         return JSON.stringify(err);
     } catch {
-        return 'Unexpected error';
+        return tr('unexpectedError');
     }
 }
 
@@ -337,19 +357,19 @@ function decode(s) {
  * CandidateSearchConfig.PROFILE_RESULT_FIELDS), so they cost no extra call.
  */
 export const TK_COLUMNS = [
-    { key: 'tk:recent', label: 'Recent position', fields: ['recent_jobtitles', 'lastjobtitle'] },
-    { key: 'tk:workfield', label: 'Work field', fields: ['workfield'] },
-    { key: 'tk:employers', label: 'Employers', fields: ['employers'] },
-    { key: 'tk:experience', label: 'Experience', fields: ['experience_years'], suffix: ' yrs' },
-    { key: 'tk:education', label: 'Education level', fields: ['educationlevel_international'] },
-    { key: 'tk:degree', label: 'Degree', fields: ['degree_name'] },
-    { key: 'tk:status', label: 'Candidate status', fields: ['candidate_status'] },
-    { key: 'tk:owner', label: 'Owner', fields: ['owner_name'] },
-    { key: 'tk:available', label: 'Date available', fields: ['date_available'], date: true },
-    { key: 'tk:modified', label: 'CV last modified', fields: ['documentdate'], date: true },
-    { key: 'tk:salary', label: 'Current salary', fields: ['current_salary'], number: true },
-    { key: 'tk:desired', label: 'Desired salary', fields: ['salary'], number: true },
-    { key: 'tk:applications', label: 'Applications', fields: ['job_submissions'] }
+    { key: 'tk:recent', labelKey: 'colRecent', fields: ['recent_jobtitles', 'lastjobtitle'] },
+    { key: 'tk:workfield', labelKey: 'colWorkfield', fields: ['workfield'] },
+    { key: 'tk:employers', labelKey: 'colEmployers', fields: ['employers'] },
+    { key: 'tk:experience', labelKey: 'colExperience', fields: ['experience_years'], years: true },
+    { key: 'tk:education', labelKey: 'colEducation', fields: ['educationlevel_international'] },
+    { key: 'tk:degree', labelKey: 'colDegree', fields: ['degree_name'] },
+    { key: 'tk:status', labelKey: 'colStatus', fields: ['candidate_status'] },
+    { key: 'tk:owner', labelKey: 'colOwner', fields: ['owner_name'] },
+    { key: 'tk:available', labelKey: 'colAvailable', fields: ['date_available'], date: true },
+    { key: 'tk:modified', labelKey: 'colModified', fields: ['documentdate'], date: true },
+    { key: 'tk:salary', labelKey: 'colSalary', fields: ['current_salary'], number: true },
+    { key: 'tk:desired', labelKey: 'colDesired', fields: ['salary'], number: true },
+    { key: 'tk:applications', labelKey: 'colApplications', fields: ['job_submissions'] }
 ];
 export const DEFAULT_COLUMNS = ['tk:experience', 'tk:education', 'tk:available'];
 export const MAX_COLUMNS = 6;
@@ -357,7 +377,7 @@ export const MAX_COLUMNS = 6;
 const COLUMN_JUNK = /^(custom_(text|date|numeric)_\d+|true|false)$/i;
 
 /** Plain text of one Textkernel column for a row: values deduplicated, the first two joined, "+N" for the rest. */
-export function tkColumnText(row, col) {
+export function tkColumnText(row, col, lang) {
     const fields = (row && row.fields) || {};
     const seen = new Set();
     const values = [];
@@ -374,20 +394,22 @@ export function tkColumnText(row, col) {
     );
     if (!values.length) return '';
     const shown = values.slice(0, 2).map((v) => {
-        if (col.date) return formatDate(v.substring(0, 10)) || v;
-        if (col.number && !Number.isNaN(Number(v))) return Number(v).toLocaleString();
-        return col.suffix && !Number.isNaN(Number(v)) ? `${v}${col.suffix}` : v;
+        if (col.date) return formatDate(v.substring(0, 10), lang) || v;
+        if (col.number && !Number.isNaN(Number(v))) return Number(v).toLocaleString(localeFor(lang));
+        return col.years && !Number.isNaN(Number(v)) ? tr('colExperienceYears', { n: v }, lang) : v;
     });
     const more = values.length - shown.length;
     return `${shown.join(', ')}${more > 0 ? ` +${more}` : ''}`;
 }
 
 /** Display text of a Salesforce column value (getColumnValues returns dates as yyyy-MM-dd). */
-export function sfColumnText(value, type) {
+export function sfColumnText(value, type, lang) {
     if (value === null || value === undefined || value === '') return '';
-    if (type === 'date' || type === 'datetime') return formatDate(value);
+    if (type === 'date' || type === 'datetime') return formatDate(value, lang);
     if ((type === 'currency' || type === 'double' || type === 'integer' || type === 'percent') && !Number.isNaN(Number(value))) {
-        return Number(value).toLocaleString() + (type === 'percent' ? '%' : '');
+        return Number(value).toLocaleString(localeFor(lang)) + (type === 'percent' ? '%' : '');
     }
+    if (value === 'Yes') return tr('yes', null, lang);
+    if (value === 'No') return tr('no', null, lang);
     return String(value);
 }

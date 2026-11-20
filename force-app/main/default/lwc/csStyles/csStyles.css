@@ -139,6 +139,8 @@
 }
 
 .btn-search:hover {
+    /* Keeps the gradient: .btn:hover would otherwise paint it white */
+    background: var(--amp-grad-search);
     filter: brightness(1.07);
 }
 

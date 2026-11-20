@@ -1,4 +1,5 @@
 import { LightningElement, api } from 'lwc';
+import { labels, tr } from 'c/csI18n';
 
 /**
  * csResultRow: one candidate row (screen 2A). Below 900px it renders as a card (screen 2B layout).
@@ -8,6 +9,13 @@ import { LightningElement, api } from 'lwc';
  */
 export default class CsResultRow extends LightningElement {
     @api item;
+
+    /** 'en' or 'fr' (csI18n). */
+    @api lang;
+
+    get L() {
+        return labels(this.lang);
+    }
 
     matchOpen = false;
     /** Opens the breakdown upwards when there is no room below the score. */
@@ -35,11 +43,11 @@ export default class CsResultRow extends LightningElement {
     }
 
     get selectLabel() {
-        return `Select ${this.item && this.item.name}`;
+        return tr('selectName', { name: this.item && this.item.name }, this.lang);
     }
 
     get openLabel() {
-        return `Open ${this.item && this.item.name}`;
+        return tr('openName', { name: this.item && this.item.name }, this.lang);
     }
 
     get explainPending() {
@@ -72,12 +80,17 @@ export default class CsResultRow extends LightningElement {
     }
 
     get checkboxTitle() {
-        return this.item && this.item.selectable ? this.selectLabel : 'This result has no Salesforce candidate record';
+        return this.item && this.item.selectable ? this.selectLabel : tr('noSfRecord', null, this.lang);
     }
 
     get scoreLabel() {
         const i = this.item || {};
-        return `Match ${i.ringText || ''}: ${(i.match && i.match.summary) || ''}. Press Enter to open the candidate.`;
+        return tr('scoreLabel', { score: i.ringText || '', summary: (i.match && i.match.summary) || '' }, this.lang);
+    }
+
+    get matchSub() {
+        const i = this.item || {};
+        return `${this.L.tkMatch} · ${(i.match && i.match.summary) || ''}`;
     }
 
     get matchPopCls() {

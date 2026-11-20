@@ -1,21 +1,21 @@
 <template>
-    <section class="compare" role="dialog" aria-label="Compare candidates" onkeydown={handleKeydown}>
+    <section class="compare" role="dialog" aria-label={L.compareCandidates} onkeydown={handleKeydown}>
         <header class="cmp-head">
             <div class="cmp-title-wrap">
                 <span class="cmp-badge"><c-cs-icon name="columns" size="16"></c-cs-icon></span>
                 <div>
-                    <h2 class="cmp-title">Compare candidates</h2>
-                    <div class="cmp-sub">Against the current search</div>
+                    <h2 class="cmp-title">{L.compareCandidates}</h2>
+                    <div class="cmp-sub">{L.againstCurrentSearch}</div>
                 </div>
             </div>
-            <button class="btn-icon close-btn" onclick={handleClose} aria-label="Close" title="Close (Escape)">
+            <button class="btn-icon close-btn" onclick={handleClose} aria-label={L.close} title={L.closeEscape}>
                 <c-cs-icon name="x" size="18"></c-cs-icon>
             </button>
         </header>
 
         <div class="cmp-body">
             <template lwc:if={loading}>
-                <div class="cmp-loading"><span class="spinner" role="status" aria-label="Loading the comparison"></span></div>
+                <div class="cmp-loading"><span class="spinner" role="status" aria-label={L.loadingComparison}></span></div>
             </template>
             <template lwc:if={error}>
                 <div class="cmp-error" role="alert"><c-cs-icon name="alert" size="16"></c-cs-icon>{error}</div>
@@ -27,7 +27,7 @@
             </template>
 
             <template lwc:if={hasData}>
-                <div class="grid" style={gridStyle} role="table" aria-label="Candidates side by side">
+                <div class="grid" style={gridStyle} role="table" aria-label={L.sideBySide}>
                     <div class="g-corner" role="columnheader"></div>
                     <template for:each={heads} for:item="h">
                         <div key={h.key} class="g-head" role="columnheader">

@@ -1,5 +1,6 @@
 import { LightningElement, api } from 'lwc';
 import searchRecords from '@salesforce/apex/CandidateSearchController.searchRecords';
+import { labels, tr } from 'c/csI18n';
 import { COMPARE_MIN, COMPARE_MAX, initials, avatarClass, normalizeError } from 'c/csUtils';
 
 const SEARCH_DEBOUNCE_MS = 250;
@@ -18,6 +19,13 @@ export default class CsSelectionTray extends LightningElement {
     /** The job of a job match: preselected in the job picker. */
     @api jobId;
 
+    /** 'en' or 'fr' (csI18n). */
+    @api lang;
+
+    get L() {
+        return labels(this.lang);
+    }
+
     mode = null; // null | 'job' | 'pool'
     query = '';
     results = [];
@@ -31,7 +39,7 @@ export default class CsSelectionTray extends LightningElement {
     }
 
     get countText() {
-        return `${this.count} selected`;
+        return tr('nSelected', { n: this.count }, this.lang);
     }
 
     get people() {
@@ -39,7 +47,7 @@ export default class CsSelectionTray extends LightningElement {
             ...s,
             initials: initials(s.name),
             avatarCls: `${avatarClass(s.contactId || s.docId)} mini`,
-            removeLabel: `Remove ${s.name} from the selection`
+            removeLabel: tr('removeFromSelection', { name: s.name }, this.lang)
         }));
     }
 
@@ -53,9 +61,9 @@ export default class CsSelectionTray extends LightningElement {
     }
 
     get compareTitle() {
-        if (this.count < COMPARE_MIN) return `Select ${COMPARE_MIN} to ${COMPARE_MAX} candidates to compare`;
-        if (this.count > COMPARE_MAX) return `Compare takes at most ${COMPARE_MAX} candidates`;
-        return 'Compare side by side';
+        if (this.count < COMPARE_MIN) return tr('compareSelectRange', { min: COMPARE_MIN, max: COMPARE_MAX }, this.lang);
+        if (this.count > COMPARE_MAX) return tr('compareAtMost', { max: COMPARE_MAX }, this.lang);
+        return this.L.compareSideBySide;
     }
 
     // ─── Picker ─────────────────────────────────────
@@ -65,16 +73,15 @@ export default class CsSelectionTray extends LightningElement {
     }
 
     get pickerTitle() {
-        return this.mode === 'job' ? 'Shortlist on a job' : 'Add to a talent pool';
+        return this.mode === 'job' ? this.L.shortlistOnJob : this.L.addToPoolTitle;
     }
 
     get pickerPlaceholder() {
-        return this.mode === 'job' ? 'Search jobs by name or title' : 'Search talent pools';
+        return this.mode === 'job' ? this.L.searchJobsPh : this.L.searchPoolsPh;
     }
 
     get confirmLabel() {
-        const n = `${this.count} candidate${this.count === 1 ? '' : 's'}`;
-        return this.mode === 'job' ? `Shortlist ${n}` : `Add ${n}`;
+        return tr(this.mode === 'job' ? 'shortlistN' : 'addN', { n: this.count }, this.lang);
     }
 
     get confirmDisabled() {

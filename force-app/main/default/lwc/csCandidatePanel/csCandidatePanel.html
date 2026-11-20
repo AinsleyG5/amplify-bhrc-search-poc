@@ -3,15 +3,15 @@
         <header class="p-head">
             <div class="p-top">
                 <div class="p-nav">
-                    <button class="btn-icon sm" onclick={handlePrev} aria-label="Previous candidate" title="Previous candidate (Up arrow)">
+                    <button class="btn-icon sm" onclick={handlePrev} aria-label={L.prevCandidate} title={L.prevCandidateKey}>
                         <c-cs-icon name="chevron-up" size="16"></c-cs-icon>
                     </button>
-                    <button class="btn-icon sm" onclick={handleNext} aria-label="Next candidate" title="Next candidate (Down arrow)">
+                    <button class="btn-icon sm" onclick={handleNext} aria-label={L.nextCandidate} title={L.nextCandidateKey}>
                         <c-cs-icon name="chevron-down" size="16"></c-cs-icon>
                     </button>
                     <template lwc:if={position}><span class="p-pos">{position}</span></template>
                 </div>
-                <button class="btn-icon sm close-btn" onclick={handleClose} aria-label="Close" title="Close (Escape)">
+                <button class="btn-icon sm close-btn" onclick={handleClose} aria-label={L.close} title={L.closeEscape}>
                     <c-cs-icon name="x" size="16"></c-cs-icon>
                 </button>
             </div>
@@ -23,36 +23,30 @@
                     <div class="p-sub">{subtitle}</div>
                     <template lwc:if={pipelineLabel}><span class="tag tag-amber p-tag">{pipelineLabel}</span></template>
                 </div>
-                <div class="p-score" title="Textkernel match score">
+                <div class="p-score" title={L.tkScoreTitle}>
                     <div class={score.cls} style={score.style}><span class="ring-num">{score.text}</span></div>
-                    <span class="p-score-label">match</span>
+                    <span class="p-score-label">{L.matchWord}</span>
                 </div>
             </div>
 
             <div class="p-actions">
                 <button class="btn btn-sm" data-action="open-record" onclick={openRecord} disabled={noRecord}>
-                    <c-cs-icon name="external" size="14"></c-cs-icon>Open record
+                    <c-cs-icon name="external" size="14"></c-cs-icon>{L.openRecord}
                 </button>
                 <template lwc:if={canShortlist}>
                     <button class="btn btn-sm btn-soft" data-action="shortlist" onclick={handleShortlist} disabled={shortlistDisabled}>
-                        <c-cs-icon name="plus" size="14"></c-cs-icon>Shortlist on job
+                        <c-cs-icon name="plus" size="14"></c-cs-icon>{L.shortlistOnJobBtn}
                     </button>
                 </template>
                 <button class="btn btn-sm btn-ghost" data-action="dismiss" onclick={handleDismiss}>
-                    <c-cs-icon name="eye-off" size="14"></c-cs-icon>Dismiss
+                    <c-cs-icon name="eye-off" size="14"></c-cs-icon>{L.dismiss}
                 </button>
-                <button
-                    class="btn btn-sm btn-soft"
-                    data-action="match-jobs"
-                    onclick={matchToJobs}
-                    disabled={noRecord}
-                    title="Find open jobs that match this candidate"
-                >
-                    <c-cs-icon name="briefcase" size="14"></c-cs-icon>Match to jobs
+                <button class="btn btn-sm btn-soft" data-action="match-jobs" onclick={matchToJobs} disabled={noRecord} title={L.findJobsTitle}>
+                    <c-cs-icon name="briefcase" size="14"></c-cs-icon>{L.matchToJobs}
                 </button>
             </div>
 
-            <div class="seg tabs" role="tablist" aria-label="Candidate details" onkeydown={handleTabKeydown}>
+            <div class="seg tabs" role="tablist" aria-label={L.candidateDetails} onkeydown={handleTabKeydown}>
                 <template for:each={tabs} for:item="t">
                     <button
                         key={t.value}
@@ -73,23 +67,23 @@
         <div class="p-body" role="tabpanel">
             <template lwc:if={isWhy}>
                 <div class="ai-card">
-                    <div class="ai-head">Why they match</div>
+                    <div class="ai-head">{L.whyTheyMatch}</div>
                     <template lwc:if={explainPending}>
-                        <div class="shimmer" aria-label="Explanation loading"><span></span><span></span><span></span></div>
+                        <div class="shimmer" aria-label={L.explanationLoading}><span></span><span></span><span></span></div>
                     </template>
                     <template lwc:if={summary}>
                         <p class="p-summary">{summary}</p>
                     </template>
                     <template lwc:if={explainMissing}>
                         <div class="p-explain">
-                            <span>Not explained yet.</span>
-                            <button class="btn btn-sm btn-ai" data-action="explain" onclick={handleExplain}>Explain</button>
+                            <span>{L.notExplainedYet}</span>
+                            <button class="btn btn-sm btn-ai" data-action="explain" onclick={handleExplain}>{L.explain}</button>
                         </div>
                         <template lwc:if={explainErrorText}><div class="p-muted">{explainErrorText}</div></template>
                     </template>
                 </div>
 
-                <h3 class="eyebrow p-section">Criteria, as scored by Textkernel</h3>
+                <h3 class="eyebrow p-section">{L.criteriaScoredByTk}</h3>
                 <ul class="why-list">
                     <template for:each={whyCriteria} for:item="c">
                         <li key={c.id} class={c.cls}>
@@ -112,7 +106,7 @@
                 </ul>
 
                 <template lwc:if={hasHighlights}>
-                    <h3 class="eyebrow p-section">Matched text</h3>
+                    <h3 class="eyebrow p-section">{L.matchedText}</h3>
                     <ul class="hl-list">
                         <template for:each={highlights} for:item="h">
                             <li key={h.id} class="hl">
@@ -127,16 +121,16 @@
             </template>
 
             <template lwc:if={isCv}>
-                <c-cs-cv-viewer doc-id={docId} contact-id={contactId} terms={cvTerms}></c-cs-cv-viewer>
+                <c-cs-cv-viewer doc-id={docId} contact-id={contactId} terms={cvTerms} lang={lang}></c-cs-cv-viewer>
             </template>
 
             <template lwc:if={isJobs}>
-                <c-cs-job-matches doc-id={docId} contact-id={contactId}></c-cs-job-matches>
+                <c-cs-job-matches doc-id={docId} contact-id={contactId} lang={lang}></c-cs-job-matches>
             </template>
 
             <template lwc:if={isProfile}>
                 <template lwc:if={hasTkProfile}>
-                    <h3 class="eyebrow p-section tk-head">From the Textkernel profile</h3>
+                    <h3 class="eyebrow p-section tk-head">{L.fromTkProfile}</h3>
                     <dl class="tk-profile">
                         <template for:each={tkProfile} for:item="r">
                             <div key={r.key} class="tk-row">
@@ -156,11 +150,11 @@
                             </div>
                         </template>
                     </dl>
-                    <h3 class="eyebrow p-section">From Salesforce</h3>
+                    <h3 class="eyebrow p-section">{L.fromSalesforce}</h3>
                 </template>
-                <template lwc:if={noRecord}><p class="p-muted">This result has no Salesforce candidate record.</p></template>
+                <template lwc:if={noRecord}><p class="p-muted">{L.noSfRecordDot}</p></template>
                 <template lwc:if={detailLoading}
-                    ><div class="p-loading"><span class="spinner" role="status" aria-label="Loading profile"></span></div
+                    ><div class="p-loading"><span class="spinner" role="status" aria-label={L.loadingProfile}></span></div
                 ></template>
                 <template lwc:if={detailError}><div class="p-error" role="alert">{detailError}</div></template>
                 <dl class="facts">
@@ -175,7 +169,7 @@
 
             <template lwc:if={isSkills}>
                 <template lwc:if={detailLoading}
-                    ><div class="p-loading"><span class="spinner" role="status" aria-label="Loading skills"></span></div
+                    ><div class="p-loading"><span class="spinner" role="status" aria-label={L.loadingSkills}></span></div
                 ></template>
                 <template lwc:if={detailError}><div class="p-error" role="alert">{detailError}</div></template>
                 <template lwc:if={hasSkills}>
@@ -185,12 +179,12 @@
                         </template>
                     </div>
                 </template>
-                <template lwc:elseif={showDetailEmpty}><p class="p-muted">No skills on record.</p></template>
+                <template lwc:elseif={showDetailEmpty}><p class="p-muted">{L.noSkills}</p></template>
             </template>
 
             <template lwc:if={isActivity}>
                 <template lwc:if={detailLoading}
-                    ><div class="p-loading"><span class="spinner" role="status" aria-label="Loading activity"></span></div
+                    ><div class="p-loading"><span class="spinner" role="status" aria-label={L.loadingActivity}></span></div
                 ></template>
                 <template lwc:if={detailError}><div class="p-error" role="alert">{detailError}</div></template>
                 <template lwc:if={hasNotes}>
@@ -204,7 +198,7 @@
                         </template>
                     </ol>
                 </template>
-                <template lwc:elseif={showDetailEmpty}><p class="p-muted">No recent notes.</p></template>
+                <template lwc:elseif={showDetailEmpty}><p class="p-muted">{L.noRecentNotes}</p></template>
             </template>
         </div>
     </section>

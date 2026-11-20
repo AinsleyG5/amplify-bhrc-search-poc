@@ -1,6 +1,7 @@
 import { LightningElement, api } from 'lwc';
 import getColumnOptions from '@salesforce/apex/CandidateSearchController.getColumnOptions';
 import getColumnValues from '@salesforce/apex/CandidateSearchController.getColumnValues';
+import { labels, tr } from 'c/csI18n';
 import {
     metAndNotMet,
     changeTag,
@@ -82,6 +83,13 @@ export default class CsResultList extends LightningElement {
     @api requestXml;
     @api error;
 
+    /** 'en' or 'fr' (csI18n). */
+    @api lang;
+
+    get L() {
+        return labels(this.lang);
+    }
+
     facetsOpen = false;
     requestOpen = false;
     _observer;
@@ -158,7 +166,12 @@ export default class CsResultList extends LightningElement {
 
     get headerCols() {
         const { widths } = this.layout;
-        return this.columnDefs.map((c) => ({ key: c.key, label: c.label, width: widths[c.key], resizeLabel: `Resize the ${c.label} column` }));
+        return this.columnDefs.map((c) => ({
+            key: c.key,
+            label: c.label,
+            width: widths[c.key],
+            resizeLabel: tr('resizeColumn', { label: c.label }, this.lang)
+        }));
     }
 
     // Column resizing: drag the edge in the header; double-click puts the default width back
@@ -223,7 +236,7 @@ export default class CsResultList extends LightningElement {
         const tk = new Map(TK_COLUMNS.map((c) => [c.key, c]));
         return this.columnKeys
             .map((key) => {
-                if (tk.has(key)) return { key, label: tk.get(key).label, tk: tk.get(key) };
+                if (tk.has(key)) return { key, label: tr(tk.get(key).labelKey, null, this.lang), tk: tk.get(key) };
                 if (sf.has(key)) return { key, label: sf.get(key).label, sf: sf.get(key) };
                 return null;
             })
@@ -267,7 +280,7 @@ export default class CsResultList extends LightningElement {
     }
 
     get columnsLabel() {
-        return this.columnDefs.length ? `Columns (${this.columnDefs.length})` : 'Columns';
+        return this.columnDefs.length ? tr('columnsCount', { n: this.columnDefs.length }, this.lang) : this.L.columns;
     }
 
     get columnGroups() {
@@ -279,15 +292,15 @@ export default class CsResultList extends LightningElement {
             checked: chosen.has(key),
             disabled: !chosen.has(key) && full
         });
-        const groups = [{ id: 'tk', label: 'From Textkernel', options: TK_COLUMNS.map((c) => opt(c.key, c.label)) }];
+        const groups = [{ id: 'tk', label: this.L.fromTextkernel, options: TK_COLUMNS.map((c) => opt(c.key, tr(c.labelKey, null, this.lang))) }];
         if (this.sfOptions.length) {
-            groups.push({ id: 'sf', label: 'From Salesforce', options: this.sfOptions.map((o) => opt(`sf:${o.path}`, o.label)) });
+            groups.push({ id: 'sf', label: this.L.fromSalesforce, options: this.sfOptions.map((o) => opt(`sf:${o.path}`, o.label)) });
         }
         return groups;
     }
 
     get columnsHint() {
-        return `Pick up to ${MAX_COLUMNS}. Your admin chooses the Salesforce fields (Contact field set "Candidate Search Columns").`;
+        return tr('columnsHint', { n: MAX_COLUMNS }, this.lang);
     }
 
     toggleColumns() {
@@ -331,13 +344,13 @@ export default class CsResultList extends LightningElement {
     factsFor(r, defs) {
         const vals = (r.contactId && this.sfValues[r.contactId]) || {};
         return defs.map((c) => {
-            const text = c.tk ? tkColumnText(r, c.tk) : sfColumnText(vals[c.sf.path], c.sf.type);
+            const text = c.tk ? tkColumnText(r, c.tk, this.lang) : sfColumnText(vals[c.sf.path], c.sf.type, this.lang);
             return {
                 key: c.key,
                 label: c.label,
                 text: text || '–',
                 cls: text ? 'fact-val' : 'fact-val fact-empty',
-                title: text ? `${c.label}: ${text}` : `${c.label}: not recorded`
+                title: text ? `${c.label}: ${text}` : tr('notRecorded', { label: c.label }, this.lang)
             };
         });
     }
@@ -398,16 +411,16 @@ export default class CsResultList extends LightningElement {
                 const isMet = met.has(c.id);
                 const isNotMet = notMet.has(c.id);
                 const status = isMet ? 'met' : isNotMet ? 'notmet' : 'na';
-                const label = READ_ONLY_KINDS.has(c.kind) ? c.label || 'Job description' : c.label || c.value;
+                const label = READ_ONLY_KINDS.has(c.kind) ? c.label || this.L.jobDescription : c.label || c.value;
                 return {
                     id: c.id,
                     label,
                     status,
-                    weight: weightLabel(c.weight),
+                    weight: weightLabel(c.weight, this.lang),
                     cls: `crit-item crit-${status}`,
                     icon: isMet ? 'check' : isNotMet ? 'x' : 'minus',
-                    statusText: isMet ? 'Met' : isNotMet ? 'Not met' : 'Not scored',
-                    title: `${label}: ${isMet ? 'met' : isNotMet ? 'not met' : 'not scored separately'} (per Textkernel)`
+                    statusText: isMet ? this.L.statusMet : isNotMet ? this.L.statusNotMet : this.L.statusNotScored,
+                    title: tr(isMet ? 'critTitleMet' : isNotMet ? 'critTitleNotMet' : 'critTitleNa', { label }, this.lang)
                 };
             });
             const pick = (status) => criteria.filter((c) => c.status === status).map((c) => ({ id: c.id, label: c.label, weight: c.weight }));
@@ -424,7 +437,7 @@ export default class CsResultList extends LightningElement {
                 docId: r.docId,
                 contactId: r.contactId,
                 rank: r.rank,
-                name: r.name || 'Unnamed candidate',
+                name: r.name || this.L.unnamedCandidate,
                 title: r.title,
                 city: r.city,
                 scorePct: r.scorePct,
@@ -434,13 +447,13 @@ export default class CsResultList extends LightningElement {
                     hasMet: match.met.length > 0,
                     hasNotMet: match.notMet.length > 0,
                     hasNa: match.na.length > 0,
-                    summary: `${match.met.length} of ${criteria.length} criteria met`
+                    summary: tr('criteriaMetSummary', { met: match.met.length, total: criteria.length }, this.lang)
                 },
                 facts: defs.length ? this.factsFor(r, defs) : null,
                 factsCls,
                 pipelineLabel: p.label || null,
                 placedRecently: p.placedRecently === true,
-                changeTag: changeTag(this.prevRanks, r.docId, r.rank),
+                changeTag: changeTag(this.prevRanks, r.docId, r.rank, this.lang),
                 explanation: ex[r.docId] || null,
                 selected: selected.has(r.docId),
                 selectable: !!r.contactId,
@@ -459,16 +472,17 @@ export default class CsResultList extends LightningElement {
 
     get countText() {
         const shown = (this.rows || []).length;
-        if (!this.total) return shown ? `${shown} candidates` : 'No candidates';
-        return `${this.total} candidate${this.total === 1 ? '' : 's'}${shown < this.total ? `, showing ${shown}` : ''}`;
+        if (!this.total) return shown ? tr('candidatesCount', { n: shown }, this.lang) : this.L.noCandidates;
+        const total = tr('candidatesCount', { n: this.total }, this.lang);
+        return shown < this.total ? tr('showingN', { total, shown }, this.lang) : total;
     }
 
     get hiddenText() {
-        return `Show ${this.hiddenCount} hidden`;
+        return tr('showHidden', { n: this.hiddenCount }, this.lang);
     }
 
     get removedText() {
-        return `${this.removedCount} removed since the last search`;
+        return tr('removedSince', { n: this.removedCount }, this.lang);
     }
 
     get hasNotices() {
@@ -536,7 +550,7 @@ export default class CsResultList extends LightningElement {
                 const chosen = new Set([].concat(filters[f.field] || []));
                 return {
                     field: f.field,
-                    label: facetLabel(f.field),
+                    label: facetLabel(f.field, this.lang),
                     values: f.values.slice(0, 12).map((v) => ({
                         key: `${f.field}|${v.value}`,
                         value: v.value,
@@ -554,7 +568,7 @@ export default class CsResultList extends LightningElement {
     }
 
     get facetToggleLabel() {
-        return this.activeFilterCount ? `Filters (${this.activeFilterCount})` : 'Filters';
+        return this.activeFilterCount ? tr('filtersCount', { n: this.activeFilterCount }, this.lang) : this.L.filters;
     }
 
     toggleFacets() {

@@ -17,14 +17,14 @@ private class CandidateSearchControllerTest {
         CandidateSearchTestMocks.install();
 
         Test.startTest();
-        String criteriaJson = CandidateSearchController.parseQuery('Forklift-certified warehouse operatives within 15 miles of Dagenham, available only');
+        String criteriaJson = CandidateSearchController.parseQuery('Forklift-certified warehouse operatives within 15 miles of Dagenham, available only', null);
         Map<String, Object> criteria = obj(criteriaJson);
         System.assertEquals(3, ((List<Object>) criteria.get('items')).size());
         Map<String, Object> trace = (Map<String, Object>) criteria.get('trace');
         System.assertEquals('Natural language', trace.get('searchType'));
         System.assertEquals(120, trace.get('inputTokens'));
 
-        Map<String, Object> res = obj(CandidateSearchController.runSearch(criteriaJson, 0, null));
+        Map<String, Object> res = obj(CandidateSearchController.runSearch(criteriaJson, 0, null, null));
         Test.stopTest();
 
         System.assertEquals(null, res.get('error'));
@@ -94,7 +94,7 @@ private class CandidateSearchControllerTest {
 
         Test.startTest();
         List<Object> out = (List<Object>) System.JSON.deserializeUntyped(
-            CandidateSearchController.explainResults(auditId, System.JSON.serialize(CandidateSearchTestMocks.docIds))
+            CandidateSearchController.explainResults(auditId, System.JSON.serialize(CandidateSearchTestMocks.docIds), null)
         );
         Test.stopTest();
 
@@ -119,15 +119,15 @@ private class CandidateSearchControllerTest {
 
     @isTest
     static void explainResultsHandlesEmptyAndBadInput() {
-        System.assertEquals('[]', CandidateSearchController.explainResults(UserInfo.getUserId(), '[]'));
+        System.assertEquals('[]', CandidateSearchController.explainResults(UserInfo.getUserId(), '[]', null));
         try {
-            CandidateSearchController.explainResults(null, '[]');
+            CandidateSearchController.explainResults(null, '[]', null);
             System.assert(false, 'expected an error');
         } catch (AuraHandledException e) {
             System.assert(e.getMessage().contains('Run the search'));
         }
         try {
-            CandidateSearchController.explainResults(UserInfo.getUserId(), '{bad');
+            CandidateSearchController.explainResults(UserInfo.getUserId(), '{bad', null);
             System.assert(false, 'expected an error');
         } catch (AuraHandledException e) {
             System.assert(e.getMessage().contains('JSON list'));
@@ -144,7 +144,7 @@ private class CandidateSearchControllerTest {
         CandidateSearchTestMocks.install();
 
         Test.startTest();
-        Map<String, Object> res = obj(CandidateSearchController.runSearch(CandidateSearchTestMocks.criteriaJson(), 20, auditId));
+        Map<String, Object> res = obj(CandidateSearchController.runSearch(CandidateSearchTestMocks.criteriaJson(), 20, auditId, null));
         Test.stopTest();
 
         System.assertEquals(auditId, (Id) res.get('auditId'));
@@ -169,7 +169,7 @@ private class CandidateSearchControllerTest {
         CandidateSearchTestMocks.install();
 
         Test.startTest();
-        Map<String, Object> res = obj(CandidateSearchController.refine(CandidateSearchTestMocks.criteriaJson(), 'drop anyone we placed in the last month', '[]', auditId));
+        Map<String, Object> res = obj(CandidateSearchController.refine(CandidateSearchTestMocks.criteriaJson(), 'drop anyone we placed in the last month', '[]', auditId, null));
         Test.stopTest();
 
         System.assertEquals('Done. Anyone placed in the last 30 days is excluded.', res.get('reply'));
@@ -188,7 +188,7 @@ private class CandidateSearchControllerTest {
         CandidateSearchTestMocks.install();
         Test.startTest();
         try {
-            CandidateSearchController.refine(CandidateSearchTestMocks.criteriaJson(), 'add nights', null, null);
+            CandidateSearchController.refine(CandidateSearchTestMocks.criteriaJson(), 'add nights', null, null, null);
             System.assert(false, 'expected an error');
         } catch (AuraHandledException e) {
             System.assert(e.getMessage().contains('edit the chips directly'), e.getMessage());
@@ -202,7 +202,7 @@ private class CandidateSearchControllerTest {
         CandidateSearchTestMocks.anthropicStatus = 500;
         CandidateSearchTestMocks.install();
         Test.startTest();
-        Map<String, Object> criteria = obj(CandidateSearchController.parseQuery('reach truck drivers'));
+        Map<String, Object> criteria = obj(CandidateSearchController.parseQuery('reach truck drivers', null));
         Test.stopTest();
         Map<String, Object> chip = (Map<String, Object>) ((List<Object>) criteria.get('items'))[0];
         System.assertEquals('keyword', chip.get('kind'));
@@ -215,7 +215,7 @@ private class CandidateSearchControllerTest {
         CandidateSearchTestMocks.tkFault = true;
         CandidateSearchTestMocks.install();
         Test.startTest();
-        Map<String, Object> res = obj(CandidateSearchController.runSearch(CandidateSearchTestMocks.criteriaJson(), 0, null));
+        Map<String, Object> res = obj(CandidateSearchController.runSearch(CandidateSearchTestMocks.criteriaJson(), 0, null, null));
         Test.stopTest();
         System.assert(((String) res.get('error')).contains('Document not found'));
         Id auditId = (Id) res.get('auditId');
@@ -229,7 +229,7 @@ private class CandidateSearchControllerTest {
         CandidateSearchTestMocks.docIds.add('00Dfo000004ft2e_003fo000005QaEkAAK');
         CandidateSearchTestMocks.install();
         Test.startTest();
-        Map<String, Object> res = obj(CandidateSearchController.runSearch(CandidateSearchTestMocks.criteriaJson(), 0, null));
+        Map<String, Object> res = obj(CandidateSearchController.runSearch(CandidateSearchTestMocks.criteriaJson(), 0, null, null));
         Test.stopTest();
         System.assertEquals(1, ((List<Object>) res.get('rows')).size());
         System.assert(String.valueOf(res.get('notices')).contains('another Salesforce org'), String.valueOf(res.get('notices')));
@@ -251,7 +251,7 @@ private class CandidateSearchControllerTest {
     @isTest
     static void invalidCriteriaAreRejected() {
         try {
-            CandidateSearchController.runSearch('{"version":1,"items":[]}', 0, null);
+            CandidateSearchController.runSearch('{"version":1,"items":[]}', 0, null, null);
             System.assert(false, 'expected an error');
         } catch (AuraHandledException e) {
             System.assert(e.getMessage().contains('at least one criterion'), e.getMessage());
@@ -276,7 +276,7 @@ private class CandidateSearchControllerTest {
         CandidateSearchTestMocks.install();
 
         Test.startTest();
-        Map<String, Object> res = obj(CandidateSearchController.startJobMatch(jobId));
+        Map<String, Object> res = obj(CandidateSearchController.startJobMatch(jobId, null));
         Test.stopTest();
 
         // searchWithUrl, then one search because the title was softened and the job location added
@@ -304,7 +304,7 @@ private class CandidateSearchControllerTest {
         CandidateSearchTestMocks.install();
 
         Test.startTest();
-        Map<String, Object> res = obj(CandidateSearchController.startJobMatch(jobId));
+        Map<String, Object> res = obj(CandidateSearchController.startJobMatch(jobId, null));
         Test.stopTest();
 
         System.assertEquals(null, res.get('error'));
@@ -337,9 +337,9 @@ private class CandidateSearchControllerTest {
     @isTest
     static void autocompleteNeedsTwoCharacters() {
         CandidateSearchTestMocks.install();
-        System.assertEquals('[]', CandidateSearchController.autocompleteSkills('f'));
+        System.assertEquals('[]', CandidateSearchController.autocompleteSkills('f', null));
         Test.startTest();
-        List<Object> skills = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.autocompleteSkills('fork'));
+        List<Object> skills = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.autocompleteSkills('fork', null));
         Test.stopTest();
         System.assertEquals('KS120076FGP5WGWYMP0F', ((Map<String, Object>) skills[0]).get('id'));
     }
@@ -409,17 +409,17 @@ private class CandidateSearchControllerTest {
     static void professionAndSkillSuggestionsComeFromTheTxOntology() {
         CandidateSearchTestMocks.install();
         Test.startTest();
-        List<Object> profs = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.suggestProfessions('forklift'));
-        List<Object> fromProf = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.suggestSkillsForProfession(2357));
-        List<Object> similar = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.suggestSimilarSkills('["KS120076FGP5WGWYMP0F"]'));
+        List<Object> profs = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.suggestProfessions('forklift', null));
+        List<Object> fromProf = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.suggestSkillsForProfession(2357, null));
+        List<Object> similar = (List<Object>) System.JSON.deserializeUntyped(CandidateSearchController.suggestSimilarSkills('["KS120076FGP5WGWYMP0F"]', null));
         Test.stopTest();
         System.assertEquals(2357, ((Map<String, Object>) profs[0]).get('codeId'));
         System.assertEquals('Forklift Truck Operation', ((Map<String, Object>) fromProf[0]).get('description'));
         System.assertEquals(2, similar.size());
         Map<String, Object> sent = (Map<String, Object>) System.JSON.deserializeUntyped(CandidateSearchTestMocks.requests[1].getBody());
         System.assertEquals(new List<Object>{ 2357 }, sent.get('ProfessionCodeIds'));
-        System.assertEquals('[]', CandidateSearchController.suggestProfessions('f'));
-        System.assertEquals('[]', CandidateSearchController.suggestSimilarSkills('[]'));
+        System.assertEquals('[]', CandidateSearchController.suggestProfessions('f', null));
+        System.assertEquals('[]', CandidateSearchController.suggestSimilarSkills('[]', null));
     }
 
     @isTest

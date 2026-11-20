@@ -1,10 +1,10 @@
 <template>
-    <aside class="chat" aria-label="Refine the search">
+    <aside class="chat" aria-label={L.refineTheSearch}>
         <header class="c-head">
             <div class="c-title">
                 <div>
-                    <div class="c-name">Refine search</div>
-                    <div class="c-sub">One change at a time. Undo any step.</div>
+                    <div class="c-name">{L.refineSearch}</div>
+                    <div class="c-sub">{L.oneChangeAtATime}</div>
                 </div>
             </div>
             <div class="c-actions">
@@ -13,12 +13,12 @@
                     data-action="undo"
                     onclick={handleUndo}
                     disabled={undoDisabled}
-                    aria-label="Undo the last change"
-                    title="Undo the last change"
+                    aria-label={L.undoLastChange}
+                    title={L.undoLastChange}
                 >
                     <c-cs-icon name="undo" size="15"></c-cs-icon>
                 </button>
-                <button class="btn-icon sm" data-action="close" onclick={handleClose} aria-label="Close the chat" title="Close the chat">
+                <button class="btn-icon sm" data-action="close" onclick={handleClose} aria-label={L.closeChat} title={L.closeChat}>
                     <c-cs-icon name="x" size="15"></c-cs-icon>
                 </button>
             </div>
@@ -27,7 +27,7 @@
         <div class="log" aria-live="polite">
             <template lwc:if={isEmpty}>
                 <div class="intro">
-                    <p>Try one of these, or type your own:</p>
+                    <p>{L.tryOneOfThese}</p>
                     <div class="sugs">
                         <template for:each={suggestions} for:item="s">
                             <button key={s.id} class="sug" data-text={s.text} onclick={useSuggestion}>{s.text}</button>
@@ -46,12 +46,12 @@
                         </ul>
                     </template>
                     <template lwc:if={t.undone}
-                        ><div class="undone"><c-cs-icon name="undo" size="11"></c-cs-icon>Undone</div></template
+                        ><div class="undone"><c-cs-icon name="undo" size="11"></c-cs-icon>{L.undone}</div></template
                     >
                 </div>
             </template>
             <template lwc:if={busy}>
-                <div class="working" role="status"><span class="spinner sm"></span>Updating the search…</div>
+                <div class="working" role="status"><span class="spinner sm"></span>{L.updatingSearch}</div>
             </template>
         </div>
 
@@ -60,12 +60,12 @@
                 <textarea
                     class="msg"
                     rows="1"
-                    placeholder="e.g. Only people who can start this week"
-                    aria-label="Message to refine the search"
+                    placeholder={L.chatPlaceholder}
+                    aria-label={L.chatMessageLabel}
                     oninput={handleInput}
                     onkeydown={handleKeydown}
                 ></textarea>
-                <button class="send" data-action="send" onclick={send} disabled={sendDisabled} aria-label="Send" title="Send">
+                <button class="send" data-action="send" onclick={send} disabled={sendDisabled} aria-label={L.send} title={L.send}>
                     <c-cs-icon name="send" size="15"></c-cs-icon>
                 </button>
             </div>

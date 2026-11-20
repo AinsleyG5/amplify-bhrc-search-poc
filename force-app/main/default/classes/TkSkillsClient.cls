@@ -19,14 +19,24 @@ public with sharing class TkSkillsClient {
 
     public class SkillsException extends Exception {}
 
+    /** Languages the typed prefix may be in: French first when the page is in French, then the configured ones. */
+    @TestVisible
+    private static List<String> inputLanguages(CandidateSearchConfig cfg) {
+        List<String> out = new List<String>();
+        if (CsI18n.isFrench()) out.add('fr');
+        for (String l : cfg.autocompleteLanguages) if (!out.contains(l) && out.size() < 5) out.add(l);
+        return out;
+    }
+
     public static List<Skill> autocomplete(String prefix, List<String> languages, Integer limitCount) {
         CandidateSearchConfig cfg = CandidateSearchConfig.get();
         if (String.isBlank(prefix) || prefix.trim().length() < 2) return new List<Skill>();
 
         Map<String, Object> body = new Map<String, Object>{
             'Prefix' => prefix.trim(),
-            'Languages' => languages == null || languages.isEmpty() ? cfg.autocompleteLanguages : languages,
-            'Limit' => limitCount == null ? 10 : Math.min(limitCount, 50)
+            'Languages' => languages == null || languages.isEmpty() ? inputLanguages(cfg) : languages,
+            'Limit' => limitCount == null ? 10 : Math.min(limitCount, 50),
+            'OutputLanguage' => CsI18n.txOutputLanguage()
         };
 
         HttpRequest req = new HttpRequest();
@@ -75,9 +85,9 @@ public with sharing class TkSkillsClient {
         CandidateSearchConfig cfg = CandidateSearchConfig.get();
         Map<String, Object> value = post('/v10/professions/autocomplete', new Map<String, Object>{
             'Prefix' => prefix.trim(),
-            'Languages' => cfg.autocompleteLanguages,
+            'Languages' => inputLanguages(cfg),
             'Limit' => limitCount == null ? 5 : Math.min(limitCount, 20),
-            'OutputLanguage' => 'en'
+            'OutputLanguage' => CsI18n.txOutputLanguage()
         });
         for (Object o : listOf(value, 'Professions')) {
             Map<String, Object> m = (Map<String, Object>) o;
@@ -95,7 +105,7 @@ public with sharing class TkSkillsClient {
         return suggested(post('/v10/ontology/v2/suggest-skills-from-professions', new Map<String, Object>{
             'ProfessionCodeIds' => professionCodeIds,
             'Limit' => limitCount == null ? 12 : Math.min(limitCount, 25),
-            'OutputLanguage' => 'en',
+            'OutputLanguage' => CsI18n.txOutputLanguage(),
             'Types' => new List<String>{ 'Professional', 'Certification', 'IT' }
         }));
     }
@@ -110,7 +120,7 @@ public with sharing class TkSkillsClient {
         return suggested(post('/v10/ontology/v2/suggest-skills-from-skills', new Map<String, Object>{
             'Skills' => skills,
             'Limit' => limitCount == null ? 12 : Math.min(limitCount, 25),
-            'OutputLanguage' => 'en',
+            'OutputLanguage' => CsI18n.txOutputLanguage(),
             'Types' => new List<String>{ 'Professional', 'Certification', 'IT' }
         }));
     }
@@ -126,7 +136,7 @@ public with sharing class TkSkillsClient {
             if (String.isNotBlank(id) && ids.size() < 100 && !ids.contains(id)) ids.add(id);
         }
         if (ids.isEmpty()) return out;
-        Map<String, Object> value = post('/v10/skills/v2/lookup', new Map<String, Object>{ 'SkillIds' => ids, 'OutputLanguage' => 'en' });
+        Map<String, Object> value = post('/v10/skills/v2/lookup', new Map<String, Object>{ 'SkillIds' => ids, 'OutputLanguage' => CsI18n.txOutputLanguage() });
         List<Object> items = listOf(value, 'Skills');
         if (items.isEmpty()) {
             for (Object v : value.values()) if (v instanceof List<Object> && items.isEmpty()) items = (List<Object>) v;

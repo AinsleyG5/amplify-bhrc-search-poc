@@ -2,6 +2,7 @@ import { LightningElement, api, wire } from 'lwc';
 import { CurrentPageReference } from 'lightning/navigation';
 import { loadStyle } from 'lightning/platformResourceLoader';
 import MONTSERRAT from '@salesforce/resourceUrl/Montserrat';
+import { labels, tr, getLang, setLang, LANGUAGES } from 'c/csI18n';
 
 import parseQuery from '@salesforce/apex/CandidateSearchController.parseQuery';
 import startJobMatch from '@salesforce/apex/CandidateSearchController.startJobMatch';
@@ -52,11 +53,81 @@ export default class CandidateSearchApp extends LightningElement {
     /** App Builder: logo image URL (for example /resource/AmplifyLogo). Blank shows the Amplify wordmark. */
     @api logoUrl;
     /** App Builder: page title under the logo. */
-    @api heading = 'Candidate Search';
+    /** App Builder: page title under the logo. Blank shows "Candidate Search" in the page's language. */
+    @api heading;
     /** App Builder: the packaged screen flow that composes and sends email (template or from scratch). */
     @api emailFlowApiName = 'TR1__AEF_Send_Email';
     /** App Builder: the packaged screen flow that adds a task or note (Power Note) for the selected candidates. */
     @api taskFlowApiName = 'TR1__AEF_Create_Power_Note';
+
+    // ─── Language (English or French; csI18n) ─────────
+    lang = getLang();
+    langMenuOpen = false;
+
+    get L() {
+        return labels(this.lang);
+    }
+
+    get headingText() {
+        // The App Builder default (English) shows in the page's language
+        return this.heading && this.heading !== 'Candidate Search' ? this.heading : this.L.candidateSearch;
+    }
+
+    get langLabel() {
+        return (LANGUAGES.find((l) => l.value === this.lang) || LANGUAGES[0]).label;
+    }
+
+    get langOptions() {
+        return LANGUAGES.map((l) => ({ ...l, current: l.value === this.lang, cls: `lang-opt${l.value === this.lang ? ' lang-opt-on' : ''}` }));
+    }
+
+    toggleLangMenu() {
+        if (this.langMenuOpen) {
+            this.closeLangMenu();
+            return;
+        }
+        this.langMenuOpen = true;
+        // A click anywhere outside the switcher closes the menu
+        this._langOutside = (e) => {
+            const wrap = this.template.querySelector('.lang');
+            if (wrap && !e.composedPath().includes(wrap)) this.closeLangMenu();
+        };
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => window.addEventListener('click', this._langOutside), 0);
+        Promise.resolve().then(() => {
+            const opt = this.template.querySelector('.lang-opt-on') || this.template.querySelector('.lang-opt');
+            if (opt) opt.focus();
+        });
+    }
+
+    closeLangMenu() {
+        this.langMenuOpen = false;
+        if (this._langOutside) window.removeEventListener('click', this._langOutside);
+        this._langOutside = null;
+    }
+
+    /** New searches, explanations and suggestions use the new language; text already on screen from the AI stays as it was. */
+    chooseLang(event) {
+        this.lang = setLang(event.currentTarget.dataset.value);
+        this.closeLangMenu();
+        const btn = this.template.querySelector('.lang-btn');
+        if (btn) btn.focus();
+    }
+
+    langKeydown(event) {
+        if (event.key === 'Escape' && this.langMenuOpen) {
+            event.stopPropagation();
+            this.closeLangMenu();
+            const btn = this.template.querySelector('.lang-btn');
+            if (btn) btn.focus();
+        }
+    }
+
+    /** Tabbing out of the menu closes it. */
+    langFocusOut(event) {
+        const wrap = this.template.querySelector('.lang');
+        if (this.langMenuOpen && event.relatedTarget && wrap && !wrap.contains(event.relatedTarget)) this.closeLangMenu();
+    }
 
     /** [{ id, title, message, variant, cls, icon }] */
     toasts = [];
@@ -120,6 +191,7 @@ export default class CandidateSearchApp extends LightningElement {
 
     disconnectedCallback() {
         if (this._onResize) window.removeEventListener('resize', this._onResize);
+        if (this._langOutside) window.removeEventListener('click', this._langOutside);
     }
 
     /**
@@ -202,7 +274,7 @@ export default class CandidateSearchApp extends LightningElement {
 
     get panelPosition() {
         const i = this.rows.findIndex((r) => r.docId === this.panelDocId);
-        return i < 0 ? '' : `${i + 1} of ${this.total || this.rows.length}`;
+        return i < 0 ? '' : tr('positionOf', { pos: i + 1, total: this.total || this.rows.length }, this.lang);
     }
 
     get canShortlist() {
@@ -270,14 +342,14 @@ export default class CandidateSearchApp extends LightningElement {
         const d = this.homeData || {};
         const rec = [...(d.saved || []), ...(d.recent || [])].find((s) => s.Id === id);
         if (!rec || !rec.Criteria_JSON__c) {
-            this.toast('Search not found', 'That search has no criteria to run.', 'warning');
+            this.toast(this.L.searchNotFound, this.L.searchNoCriteria, 'warning');
             return;
         }
         let criteria;
         try {
             criteria = JSON.parse(rec.Criteria_JSON__c);
         } catch (e) {
-            this.toast('Search could not be read', normalizeError(e), 'error');
+            this.toast(this.L.searchCouldNotBeRead, normalizeError(e), 'error');
             return;
         }
         criteria.trace = saved ? { searchType: 'Saved search', savedSearchId: id } : { searchType: 'Manual' };
@@ -292,7 +364,7 @@ export default class CandidateSearchApp extends LightningElement {
             await setFavourite({ savedSearchId: id, favourite });
             await this.loadHome();
         } catch (e) {
-            this.toast('Favourite not changed', normalizeError(e), 'error');
+            this.toast(this.L.favouriteNotChanged, normalizeError(e), 'error');
         }
     }
 
@@ -301,10 +373,10 @@ export default class CandidateSearchApp extends LightningElement {
         if (!this.criteria || !name) return;
         try {
             await saveSearch({ name, criteriaJson: JSON.stringify(withoutTrace(this.criteria)), favourite: false });
-            this.toast('Search saved', `"${name}" is in your saved searches.`, 'success');
+            this.toast(this.L.searchSaved, tr('searchSavedMsg', { name }, this.lang), 'success');
             this.loadHome();
         } catch (e) {
-            this.toast('Search not saved', normalizeError(e), 'error');
+            this.toast(this.L.searchNotSaved, normalizeError(e), 'error');
         }
     }
 
@@ -366,7 +438,7 @@ export default class CandidateSearchApp extends LightningElement {
         this.chatTurns = [];
         this.loading = true;
         try {
-            const criteria = JSON.parse(await parseQuery({ text }));
+            const criteria = JSON.parse(await parseQuery({ text, lang: this.lang }));
             if (seq !== this._seq) return;
             this.criteria = criteria;
             await this.execute(criteria, { seq, compare: false });
@@ -384,20 +456,20 @@ export default class CandidateSearchApp extends LightningElement {
         this.initialText = '';
         this.criteria = null;
         this.chatOpen = true;
-        this.chatTurns = [this.turn('system', 'Matching candidates to the job…')];
+        this.chatTurns = [this.turn('system', this.L.matchingToJob)];
         this.loading = true;
         try {
-            const res = JSON.parse(await startJobMatch({ jobId }));
+            const res = JSON.parse(await startJobMatch({ jobId, lang: this.lang }));
             if (seq !== this._seq) return;
             this.applyFirstPage(res, null, seq);
             const lines = [...(res.notices || [])];
-            lines.push(res.error ? res.error : `${res.total || 0} candidate${res.total === 1 ? '' : 's'}.`);
+            lines.push(res.error ? res.error : `${tr('candidatesCount', { n: res.total || 0 }, this.lang)}.`);
             this.chatTurns = [this.turn('system', lines.join('\n'))];
         } catch (e) {
             if (seq !== this._seq) return;
             this.error = normalizeError(e);
             this.loading = false;
-            this.chatTurns = [this.turn('system', `The job match could not run: ${this.error}`)];
+            this.chatTurns = [this.turn('system', tr('jobMatchFailed', { error: this.error }, this.lang))];
         }
     }
 
@@ -415,7 +487,8 @@ export default class CandidateSearchApp extends LightningElement {
                 await runSearch({
                     criteriaJson: JSON.stringify(criteria),
                     offset: 0,
-                    auditId: null
+                    auditId: null,
+                    lang: this.lang
                 })
             );
             if (seq !== this._seq) return null;
@@ -489,12 +562,13 @@ export default class CandidateSearchApp extends LightningElement {
                 await runSearch({
                     criteriaJson: JSON.stringify(withoutTrace(this.criteria)),
                     offset: this.nextOffset,
-                    auditId: this.auditId
+                    auditId: this.auditId,
+                    lang: this.lang
                 })
             );
             if (seq !== this._seq) return;
             if (res.error) {
-                this.toast('More results could not load', res.error, 'error');
+                this.toast(this.L.moreCouldNotLoad, res.error, 'error');
                 this.hasMore = false;
                 return;
             }
@@ -510,7 +584,7 @@ export default class CandidateSearchApp extends LightningElement {
             again = res.autoLoadMore === true;
         } catch (e) {
             if (seq === this._seq) {
-                this.toast('More results could not load', normalizeError(e), 'error');
+                this.toast(this.L.moreCouldNotLoad, normalizeError(e), 'error');
                 this.hasMore = false;
             }
         } finally {
@@ -548,14 +622,19 @@ export default class CandidateSearchApp extends LightningElement {
         c.filters = c.filters || {};
         if (values.length) c.filters[field] = values;
         else delete c.filters[field];
-        this.changeCriteria(c, values.length ? `Filter ${facetLabel(field)}: ${values.join(', ')}` : `Cleared filter ${facetLabel(field)}`);
+        this.changeCriteria(
+            c,
+            values.length
+                ? tr('diffFilter', { facet: facetLabel(field, this.lang), values: values.join(', ') }, this.lang)
+                : tr('diffClearedFilter', { facet: facetLabel(field, this.lang) }, this.lang)
+        );
     }
 
     handleShowHidden() {
         const c = clone(this.criteria);
         c.exclusions = c.exclusions || {};
         delete c.exclusions.pipelineForJob;
-        this.changeCriteria(c, 'Showing candidates already on this job');
+        this.changeCriteria(c, this.L.showingOnJob);
     }
 
     handleUndo() {
@@ -569,7 +648,7 @@ export default class CandidateSearchApp extends LightningElement {
                 break;
             }
         }
-        this.chatTurns = [...turns, this.turn('system', 'Undid the last change.')];
+        this.chatTurns = [...turns, this.turn('system', this.L.undidLast)];
         const next = clone(prev);
         next.trace = { searchType: 'Manual', parentAuditId: this.auditId };
         this.execute(next, { seq: ++this._seq, compare: true });
@@ -580,7 +659,7 @@ export default class CandidateSearchApp extends LightningElement {
         if (!this.history.length || this.busy) return;
         const first = this.history[0];
         this.pushHistory();
-        this.chatTurns = [...this.chatTurns, this.turn('system', 'Reset to the original search.', { change: true })];
+        this.chatTurns = [...this.chatTurns, this.turn('system', this.L.resetToOriginal, { change: true })];
         const next = clone(first);
         next.trace = { searchType: 'Manual', parentAuditId: this.auditId };
         this.execute(next, { seq: ++this._seq, compare: true });
@@ -619,14 +698,15 @@ export default class CandidateSearchApp extends LightningElement {
                     criteriaJson: JSON.stringify(withoutTrace(this.criteria)),
                     message,
                     historyJson: JSON.stringify(history),
-                    auditId: this.auditId
+                    auditId: this.auditId,
+                    lang: this.lang
                 })
             );
             const changed = !res.needsClarification && (res.patch || []).length > 0;
             this.chatTurns = [
                 ...this.chatTurns,
-                this.turn('assistant', res.reply || (changed ? 'Done.' : ''), {
-                    diff: diffLines(res.diff),
+                this.turn('assistant', res.reply || (changed ? this.L.done : ''), {
+                    diff: diffLines(res.diff, this.lang),
                     change: changed
                 })
             ];
@@ -639,7 +719,7 @@ export default class CandidateSearchApp extends LightningElement {
                 if (out) {
                     this.chatTurns = [
                         ...this.chatTurns,
-                        this.turn('system', out.error ? out.error : `${out.total || 0} candidate${out.total === 1 ? '' : 's'}.`)
+                        this.turn('system', out.error ? out.error : `${tr('candidatesCount', { n: out.total || 0 }, this.lang)}.`)
                     ];
                 }
             }
@@ -691,7 +771,7 @@ export default class CandidateSearchApp extends LightningElement {
     async explainBatch(docIds, seq, auditId, attempt) {
         if (!docIds.length) return;
         try {
-            const list = JSON.parse(await explainResults({ auditId, docIdsJson: JSON.stringify(docIds) }));
+            const list = JSON.parse(await explainResults({ auditId, docIdsJson: JSON.stringify(docIds), lang: this.lang }));
             if (seq !== this._seq) return;
             const got = {};
             (list || []).forEach((e) => {
@@ -894,7 +974,8 @@ export default class CandidateSearchApp extends LightningElement {
             this.compareData = JSON.parse(
                 await getCompareData({
                     contactIdsJson: JSON.stringify(list.map((s) => s.contactId)),
-                    auditId: this.auditId
+                    auditId: this.auditId,
+                    lang: this.lang
                 })
             );
         } catch (e) {
@@ -941,7 +1022,8 @@ export default class CandidateSearchApp extends LightningElement {
                 await bulkAddToJob({
                     jobId,
                     contactIdsJson: JSON.stringify(people.map((p) => p.contactId)),
-                    auditId: this.auditId
+                    auditId: this.auditId,
+                    lang: this.lang
                 })
             );
             this.bulkToast(res);
@@ -955,14 +1037,14 @@ export default class CandidateSearchApp extends LightningElement {
                         pipeline: {
                             ...p,
                             shortlisted: true,
-                            label: p.label ? `${p.label}, Shortlisted` : 'Shortlisted'
+                            label: p.label ? tr('shortlistedLabel', { label: p.label }, this.lang) : this.L.shortlisted
                         }
                     };
                 });
             }
             if ((res.addedIds || []).length) this.clearAdded(res.addedIds);
         } catch (e) {
-            this.toast('Not added to the job', normalizeError(e), 'error');
+            this.toast(this.L.notAddedToJob, normalizeError(e), 'error');
         } finally {
             this.bulkBusy = false;
         }
@@ -978,13 +1060,14 @@ export default class CandidateSearchApp extends LightningElement {
                 await bulkAddToTalentPool({
                     poolId,
                     contactIdsJson: JSON.stringify(people.map((p) => p.contactId)),
-                    auditId: this.auditId
+                    auditId: this.auditId,
+                    lang: this.lang
                 })
             );
             this.bulkToast(res);
             if ((res.addedIds || []).length) this.clearAdded(res.addedIds);
         } catch (e) {
-            this.toast('Not added to the talent pool', normalizeError(e), 'error');
+            this.toast(this.L.notAddedToPool, normalizeError(e), 'error');
         } finally {
             this.bulkBusy = false;
         }
@@ -1006,7 +1089,7 @@ export default class CandidateSearchApp extends LightningElement {
             .map((f) => `${f.name || f.contactId}: ${f.error}`)
             .join('\n');
         this.toast(
-            res.added ? 'Added' : 'Nothing added',
+            res.added ? this.L.added : this.L.nothingAdded,
             details ? `${res.message}\n${details}` : res.message,
             failed ? 'warning' : res.added ? 'success' : 'info'
         );
@@ -1055,8 +1138,7 @@ export default class CandidateSearchApp extends LightningElement {
 
     get flowTitle() {
         const n = this.flowPeople.length;
-        const who = `${n} candidate${n === 1 ? '' : 's'}`;
-        return this.flowAction === 'task' ? `Add a task for ${who}` : `Email ${who}`;
+        return tr(this.flowAction === 'task' ? 'addTaskFor' : 'emailN', { n }, this.lang);
     }
 
     /**
@@ -1126,13 +1208,9 @@ export default class CandidateSearchApp extends LightningElement {
         if (status === 'FINISHED' || status === 'FINISHED_SCREEN') {
             const n = this.flowPeople.length;
             this.closeFlow();
-            if (action === 'email') this.toast('Email sent', `Sent to ${n} candidate${n === 1 ? '' : 's'}.`, 'success');
+            if (action === 'email') this.toast(this.L.emailSent, tr('sentToN', { n }, this.lang), 'success');
         } else if (status === 'ERROR') {
-            this.toast(
-                action === 'task' ? 'Task not added' : 'Email not sent',
-                'The flow stopped with an error. Check the flow in Setup, then try again.',
-                'error'
-            );
+            this.toast(action === 'task' ? this.L.taskNotAdded : this.L.emailNotSent, this.L.flowError, 'error');
         }
     }
 
@@ -1161,9 +1239,9 @@ export default class CandidateSearchApp extends LightningElement {
     }
 
     get resultTitle() {
-        if (this.loading) return 'Searching…';
+        if (this.loading) return this.L.searchingEllipsis;
         if (!this.criteria) return '';
-        if (this.criteria.jobId) return 'Job match';
-        return 'Results';
+        if (this.criteria.jobId) return this.L.jobMatch;
+        return this.L.results;
     }
 }

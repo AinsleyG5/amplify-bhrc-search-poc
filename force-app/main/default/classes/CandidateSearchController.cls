@@ -26,7 +26,8 @@ public with sharing class CandidateSearchController {
      * chip and trace.aiError says why.
      */
     @AuraEnabled
-    public static String parseQuery(String text) {
+    public static String parseQuery(String text, String lang) {
+        CsI18n.use(lang);
         if (String.isBlank(text)) throw fail('Type what you are looking for first.');
         Map<String, Object> trace = new Map<String, Object>{
             'searchType' => 'Natural language',
@@ -45,7 +46,7 @@ public with sharing class CandidateSearchController {
                 'id' => 'c1', 'kind' => 'keyword', 'label' => text.trim().abbreviate(CriteriaService.MAX_LABEL),
                 'value' => text.trim(), 'weight' => 'required', 'origin' => 'nl'
             });
-            trace.put('aiError', 'The AI could not read that search, so it runs as plain keywords. ' + e.getMessage());
+            trace.put('aiError', CsI18n.t('aiParseFailed', new List<Object>{ e.getMessage() }));
         }
         criteria.put('trace', trace);
         return CriteriaService.serialize(criteria);
@@ -57,7 +58,8 @@ public with sharing class CandidateSearchController {
 
     /** Runs the criteria. auditId null = page 1 (new audit); otherwise appends the page at offset to that audit. */
     @AuraEnabled
-    public static String runSearch(String criteriaJson, Integer offset, Id auditId) {
+    public static String runSearch(String criteriaJson, Integer offset, Id auditId, String lang) {
+        CsI18n.use(lang);
         Map<String, Object> criteria;
         Map<String, Object> trace;
         try {
@@ -97,7 +99,8 @@ public with sharing class CandidateSearchController {
      * from the job record when the job is not indexed or the doc:// URL is wrong.
      */
     @AuraEnabled
-    public static String startJobMatch(Id jobId) {
+    public static String startJobMatch(Id jobId, String lang) {
+        CsI18n.use(lang);
         if (jobId == null) throw fail('No job was given.');
         SObject job;
         try {
@@ -126,9 +129,9 @@ public with sharing class CandidateSearchController {
                 Boolean changed = CriteriaService.refineFromJob(criteria, job);
                 CriteriaService.BuildResult built = CriteriaService.toQueryParts(criteria);
                 run.notices.addAll(built.notices);
-                run.notices.add('Built from the Textkernel job document for ' + jobLabel + '.');
+                run.notices.add(CsI18n.t('jobDocNotice', new List<Object>{ jobLabel }));
                 if (changed) {
-                    run.notices.add('Adjusted the generated query (location, skill cap or softer title) and searched again.');
+                    run.notices.add(CsI18n.t('adjustedQuery'));
                     run.criteriaIds = built.criteriaIds;
                     run.queryCriteriaIds = built.queryCriteriaIds;
         run.excludedCriteriaIds = built.excludedCriteriaIds;
@@ -136,7 +139,7 @@ public with sharing class CandidateSearchController {
                         run.result = TkSearchClient.search(built.parts, built.options());
                     } catch (TkSearchClient.TkException e) {
                         // The indexed result is still good: show it rather than fail the match
-                        run.notices.add('The adjusted search failed (' + e.getMessage() + '), so these are the unadjusted results.');
+                        run.notices.add(CsI18n.t('adjustedFailed', new List<Object>{ e.getMessage() }));
                         run.result = indexed;
                         run.criteriaIds = idsInOrder(criteria);
                         run.queryCriteriaIds = new List<String>();
@@ -167,7 +170,7 @@ public with sharing class CandidateSearchController {
             run.queryCriteriaIds = built.queryCriteriaIds;
         run.excludedCriteriaIds = built.excludedCriteriaIds;
             run.notices.addAll(built.notices);
-            run.notices.add('Could not use the Textkernel job document (' + indexError + '). Built the search from the job record for ' + jobLabel + ' instead.');
+            run.notices.add(CsI18n.t('jobDocFallback', new List<Object>{ indexError, jobLabel }));
             try {
                 run.result = TkSearchClient.search(built.parts, built.options());
             } catch (TkSearchClient.TkException e) {
@@ -188,7 +191,8 @@ public with sharing class CandidateSearchController {
      * so the next runSearch is audited as a Refine with this audit as its parent.
      */
     @AuraEnabled
-    public static String refine(String criteriaJson, String message, String historyJson, Id auditId) {
+    public static String refine(String criteriaJson, String message, String historyJson, Id auditId, String lang) {
+        CsI18n.use(lang);
         Map<String, Object> criteria;
         try {
             criteria = CriteriaService.parse(criteriaJson);
@@ -257,7 +261,8 @@ public with sharing class CandidateSearchController {
 
     /** Explains up to Explain_Batch_Size__c candidates of an audit. Returns [{docId, summary, criteria[]}]. */
     @AuraEnabled
-    public static String explainResults(Id auditId, String docIdsJson) {
+    public static String explainResults(Id auditId, String docIdsJson, String lang) {
+        CsI18n.use(lang);
         if (auditId == null) throw fail('Run the search before asking for explanations.');
         List<String> docIds;
         try {
@@ -377,7 +382,8 @@ public with sharing class CandidateSearchController {
     // ═════════════════════════════════════════════════════════════
 
     @AuraEnabled(cacheable=true)
-    public static String autocompleteSkills(String prefix) {
+    public static String autocompleteSkills(String prefix, String lang) {
+        CsI18n.use(lang);
         if (String.isBlank(prefix) || prefix.trim().length() < 2) return '[]';
         try {
             return System.JSON.serialize(TkSkillsClient.autocomplete(prefix, null, 10));
@@ -388,7 +394,8 @@ public with sharing class CandidateSearchController {
 
     /** Type-ahead: Textkernel professions (job titles) for the typed text. Returns [{ codeId, description }]. */
     @AuraEnabled
-    public static String suggestProfessions(String prefix) {
+    public static String suggestProfessions(String prefix, String lang) {
+        CsI18n.use(lang);
         if (String.isBlank(prefix) || prefix.trim().length() < 2) return '[]';
         try {
             return System.JSON.serialize(TkSkillsClient.autocompleteProfessions(prefix, 5));
@@ -399,7 +406,8 @@ public with sharing class CandidateSearchController {
 
     /** Names for Textkernel skill codes (KS ids, JSON list), for the Profile tab. Cacheable per Textkernel's terms. */
     @AuraEnabled(cacheable=true)
-    public static String describeSkills(String skillIdsJson) {
+    public static String describeSkills(String skillIdsJson, String lang) {
+        CsI18n.use(lang);
         List<String> ids;
         try {
             ids = (List<String>) System.JSON.deserialize(String.isBlank(skillIdsJson) ? '[]' : skillIdsJson, List<String>.class);
@@ -415,7 +423,8 @@ public with sharing class CandidateSearchController {
 
     /** Skills and certifications Textkernel associates with a profession. Returns [{ id, description, score }]. */
     @AuraEnabled
-    public static String suggestSkillsForProfession(Integer professionCodeId) {
+    public static String suggestSkillsForProfession(Integer professionCodeId, String lang) {
+        CsI18n.use(lang);
         if (professionCodeId == null) return '[]';
         try {
             return System.JSON.serialize(TkSkillsClient.suggestSkillsFromProfessions(new List<Integer>{ professionCodeId }, 12));
@@ -426,7 +435,8 @@ public with sharing class CandidateSearchController {
 
     /** Skills related to the given skill codes (KS ids, JSON list). Returns [{ id, description, score }]. */
     @AuraEnabled
-    public static String suggestSimilarSkills(String skillIdsJson) {
+    public static String suggestSimilarSkills(String skillIdsJson, String lang) {
+        CsI18n.use(lang);
         List<String> ids;
         try {
             ids = (List<String>) System.JSON.deserialize(String.isBlank(skillIdsJson) ? '[]' : skillIdsJson, List<String>.class);
@@ -539,7 +549,8 @@ public with sharing class CandidateSearchController {
      * Without an auditId (or for a candidate not in it) the TK and AI parts are empty. Logs "Compared" on the audit.
      */
     @AuraEnabled
-    public static String getCompareData(String contactIdsJson, Id auditId) {
+    public static String getCompareData(String contactIdsJson, Id auditId, String lang) {
+        CsI18n.use(lang);
         List<Id> ids = contactIdList(contactIdsJson, COMPARE_MAX);
         if (ids.size() < COMPARE_MIN) throw fail('Pick ' + COMPARE_MIN + ' to ' + COMPARE_MAX + ' candidates to compare.');
         return System.JSON.serialize(candidateData(ids, auditId, 'compared'));
@@ -550,7 +561,8 @@ public with sharing class CandidateSearchController {
      * candidate, as { auditId, jobId, criteria, candidate, notices }. Logs "Opened" on the audit.
      */
     @AuraEnabled
-    public static String getCandidateDetail(Id contactId, Id auditId) {
+    public static String getCandidateDetail(Id contactId, Id auditId, String lang) {
+        CsI18n.use(lang);
         if (contactId == null || contactId.getSObjectType() != Contact.SObjectType) throw fail('This result has no Salesforce candidate record.');
         Map<String, Object> data = candidateData(new List<Id>{ contactId }, auditId, 'opened');
         List<Object> candidates = (List<Object>) data.remove('candidates');
@@ -726,7 +738,7 @@ public with sharing class CandidateSearchController {
             try {
                 criteria = CriteriaService.parse(audits[0].Criteria_JSON__c);
             } catch (Exception e) {
-                notices.add('The criteria for this search could not be read, so met and not met are not shown.');
+                notices.add(CsI18n.t('compareCriteriaUnreadable'));
             }
             for (Search_Audit_Result__c r : [
                 SELECT Contact__c, TK_Doc_Id__c, Rank__c, TK_Score__c, TK_Score_Pct__c, TK_Query_Part_Scores__c,
@@ -750,7 +762,7 @@ public with sharing class CandidateSearchController {
         for (Id cid : ids) {
             SObject c = contacts.get(cid);
             if (c == null) {
-                notices.add('A candidate could not be found or you do not have access to it (' + cid + ').');
+                notices.add(CsI18n.t('candidateNoAccess', new List<Object>{ cid }));
                 continue;
             }
             Search_Audit_Result__c r = rowByContact.get(cid);
@@ -823,7 +835,8 @@ public with sharing class CandidateSearchController {
      * Returns { added, addedIds, skipped: [{contactId, name, reason}], failed: [{contactId, name, error}], message }.
      */
     @AuraEnabled
-    public static String bulkAddToJob(Id jobId, String contactIdsJson, Id auditId) {
+    public static String bulkAddToJob(Id jobId, String contactIdsJson, Id auditId, String lang) {
+        CsI18n.use(lang);
         if (jobId == null) throw fail('Pick a job first.');
         List<Id> ids = contactIdList(contactIdsJson, BULK_MAX);
         if (ids.isEmpty()) throw fail('Select at least one candidate.');
@@ -839,12 +852,12 @@ public with sharing class CandidateSearchController {
         List<SObject> records = new List<SObject>();
         for (Id cid : ids) {
             if (!names.containsKey(cid)) {
-                out.skip(cid, 'Not found, or you do not have access to this candidate.');
+                out.skip(cid, CsI18n.t('skipNoAccess'), false);
                 continue;
             }
             PipelineStatusService.Flags f = flags.get(cid);
             if (f != null && f.hasAny()) {
-                out.skip(cid, 'Already on this job: ' + f.label() + '.');
+                out.skip(cid, CsI18n.t('skipOnJob', new List<Object>{ f.label() }), true);
                 continue;
             }
             toAdd.add(cid);
@@ -852,7 +865,7 @@ public with sharing class CandidateSearchController {
         }
         out.insertAll(toAdd, records);
         out.logTo(auditId, 'shortlisted');
-        return out.toJson('Added', 'to ' + jobs[0].Name, 'already on the job');
+        return out.toJson(jobs[0].Name, 'alreadyOnJobCount');
     }
 
     /**
@@ -861,7 +874,8 @@ public with sharing class CandidateSearchController {
      * Returns the same shape as bulkAddToJob.
      */
     @AuraEnabled
-    public static String bulkAddToTalentPool(Id poolId, String contactIdsJson, Id auditId) {
+    public static String bulkAddToTalentPool(Id poolId, String contactIdsJson, Id auditId, String lang) {
+        CsI18n.use(lang);
         if (poolId == null) throw fail('Pick a talent pool first.');
         List<Id> ids = contactIdList(contactIdsJson, BULK_MAX);
         if (ids.isEmpty()) throw fail('Select at least one candidate.');
@@ -882,9 +896,9 @@ public with sharing class CandidateSearchController {
         List<SObject> records = new List<SObject>();
         for (Id cid : ids) {
             if (!names.containsKey(cid)) {
-                out.skip(cid, 'Not found, or you do not have access to this candidate.');
+                out.skip(cid, CsI18n.t('skipNoAccess'), false);
             } else if (members.contains(cid)) {
-                out.skip(cid, 'Already in this talent pool.');
+                out.skip(cid, CsI18n.t('skipInPool'), true);
             } else {
                 toAdd.add(cid);
                 records.add(new TR1__Call_List_Member__c(TR1__Call_List__c = poolId, TR1__Contact__c = cid));
@@ -892,7 +906,7 @@ public with sharing class CandidateSearchController {
         }
         out.insertAll(toAdd, records);
         out.logTo(auditId, 'added to pool');
-        return out.toJson('Added', 'to ' + pools[0].Name, 'already in the pool');
+        return out.toJson(pools[0].Name, 'alreadyInPoolCount');
     }
 
     /** Objects the tray's job and talent pool pickers may search, with the extra field shown under the name. */
@@ -953,8 +967,8 @@ public with sharing class CandidateSearchController {
             this.names = names;
         }
 
-        public void skip(Id cid, String reason) {
-            skipped.add(new Map<String, Object>{ 'contactId' => cid, 'name' => nameOf(cid), 'reason' => reason });
+        public void skip(Id cid, String reason, Boolean already) {
+            skipped.add(new Map<String, Object>{ 'contactId' => cid, 'name' => nameOf(cid), 'reason' => reason, 'already' => already });
         }
 
         public void insertAll(List<Id> cids, List<SObject> records) {
@@ -996,18 +1010,17 @@ public with sharing class CandidateSearchController {
             return names.containsKey(cid) ? names.get(cid).Name : null;
         }
 
-        /** For example "Added 3 to J-0142. 1 already on the job. 1 could not be added." */
-        public String toJson(String verb, String target, String skippedText) {
-            List<String> parts = new List<String>{
-                verb + ' ' + addedIds.size() + ' candidate' + (addedIds.size() == 1 ? '' : 's') + ' ' + target + '.'
-            };
+        /** For example "Added 3 candidates to J-0142. 1 already on the job. 1 could not be added." (CsI18n.lang) */
+        public String toJson(String target, String alreadyKey) {
+            List<String> parts = new List<String>{ CsI18n.plural('addedToJob', addedIds.size(), new List<Object>{ addedIds.size(), target }) };
             Integer already = 0;
             for (Object o : skipped) {
-                if (String.valueOf(((Map<String, Object>) o).get('reason')).startsWith('Already')) already++;
+                Object flag = ((Map<String, Object>) o).get('already');
+                if (flag instanceof Boolean && (Boolean) flag) already++;
             }
-            if (already > 0) parts.add(already + ' ' + skippedText + '.');
-            if (skipped.size() > already) parts.add((skipped.size() - already) + ' not found.');
-            if (!failed.isEmpty()) parts.add(failed.size() + ' could not be added.');
+            if (already > 0) parts.add(CsI18n.t(alreadyKey, new List<Object>{ already }));
+            if (skipped.size() > already) parts.add(CsI18n.t('notFoundCount', new List<Object>{ skipped.size() - already }));
+            if (!failed.isEmpty()) parts.add(CsI18n.t('couldNotAddCount', new List<Object>{ failed.size() }));
             return System.JSON.serialize(new Map<String, Object>{
                 'added' => addedIds.size(),
                 'addedIds' => addedIds,
@@ -1138,7 +1151,7 @@ public with sharing class CandidateSearchController {
             if (h.contactId != null && !contacts.containsKey(h.contactId)) h.contactId = null;
         }
         if (!foreign.isEmpty()) {
-            s.notices.add(foreign.size() + ' result' + (foreign.size() == 1 ? '' : 's') + ' from another Salesforce org ' + (foreign.size() == 1 ? 'was' : 'were') + ' hidden.');
+            s.notices.add(CsI18n.plural('foreignHidden', foreign.size(), new List<Object>{ foreign.size() }));
         }
 
         Map<Id, PipelineStatusService.Flags> flags = PipelineStatusService.flagsFor(jobId, contacts.keySet());
@@ -1163,7 +1176,7 @@ public with sharing class CandidateSearchController {
                 s.auditId = a.Id;
             } catch (Exception e) {
                 System.debug(LoggingLevel.ERROR, 'Search audit not created: ' + e.getMessage());
-                s.notices.add('This search could not be audited: ' + e.getMessage());
+                s.notices.add(CsI18n.t('notAudited', new List<Object>{ e.getMessage() }));
             }
         }
 

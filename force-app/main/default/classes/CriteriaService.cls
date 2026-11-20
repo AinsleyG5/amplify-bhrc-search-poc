@@ -327,7 +327,7 @@ public with sharing class CriteriaService {
             if (str(item, 'weight') == 'excluded') {
                 String term = excludedTerm(item, cfg);
                 if (term == null) {
-                    out.notices.add('"' + str(item, 'label') + '" was not sent: it cannot be excluded yet.');
+                    out.notices.add(CsI18n.t('notExcludable', new List<Object>{ str(item, 'label') }));
                 } else {
                     out.queryTerms.add(term);
                     out.excludedCriteriaIds.add(id);
@@ -354,7 +354,7 @@ public with sharing class CriteriaService {
             } else if (kind == 'location') {
                 String label = str(item, 'label');
                 if (str(item, 'weight') != 'required') {
-                    out.notices.add('"' + label + '" is applied as a filter: Textkernel cannot weight a location.');
+                    out.notices.add(CsI18n.t('locationFilter', new List<Object>{ label }));
                 }
                 if (String.isNotBlank(str(item, 'geo'))) {
                     // A TK-generated location keeps its coordinates and stays a part, as TK produced it
@@ -375,7 +375,7 @@ public with sharing class CriteriaService {
                 add(out, part(f, condition, textValue(f, value)), id);
             } else if (kind == 'availability') {
                 if (String.isBlank(cfg.tkAvailabilityField)) {
-                    out.notices.add('"' + str(item, 'label') + '" was not sent to Textkernel: the availability date field is not configured yet.');
+                    out.notices.add(CsI18n.t('availabilityNotConfigured', new List<Object>{ str(item, 'label') }));
                     continue;
                 }
                 add(out, part(cfg.tkAvailabilityField, condition, availabilityRange(item)), id);

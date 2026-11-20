@@ -4,7 +4,7 @@
             <div class="picker" role="dialog" aria-label={pickerTitle} onkeydown={handlePickerKeydown}>
                 <div class="picker-head">
                     <div class="picker-title">{pickerTitle}</div>
-                    <button class="btn-icon sm" onclick={closePicker} aria-label="Close"><c-cs-icon name="x" size="14"></c-cs-icon></button>
+                    <button class="btn-icon sm" onclick={closePicker} aria-label={L.close}><c-cs-icon name="x" size="14"></c-cs-icon></button>
                 </div>
                 <div class="picker-search">
                     <c-cs-icon name="search" size="15"></c-cs-icon>
@@ -32,16 +32,16 @@
                         </li>
                     </template>
                 </ul>
-                <template lwc:if={showNoResults}><div class="picker-empty">Nothing found</div></template>
+                <template lwc:if={showNoResults}><div class="picker-empty">{L.nothingFound}</div></template>
                 <div class="picker-actions">
-                    <button class="btn btn-ghost btn-sm" onclick={closePicker}>Cancel</button>
+                    <button class="btn btn-ghost btn-sm" onclick={closePicker}>{L.cancel}</button>
                     <button class="btn btn-primary btn-sm" data-action="confirm" onclick={confirm} disabled={confirmDisabled}>{confirmLabel}</button>
                 </div>
             </div>
         </template>
 
-        <div class="tray" role="region" aria-label="Selected candidates">
-            <div class="t-count"><span class="t-num">{count}</span><span class="t-label">selected</span></div>
+        <div class="tray" role="region" aria-label={L.selectedCandidates}>
+            <div class="t-count"><span class="t-num">{count}</span><span class="t-label">{L.selectedWord}</span></div>
             <div class="t-people">
                 <template for:each={people} for:item="p">
                     <button key={p.docId} class="person" data-id={p.docId} onclick={handleDeselect} aria-label={p.removeLabel} title={p.removeLabel}>
@@ -54,22 +54,22 @@
             <span class="t-div" aria-hidden="true"></span>
             <div class="t-actions">
                 <button class="btn btn-sm tray-btn" data-action="compare" onclick={handleCompare} disabled={compareDisabled} title={compareTitle}>
-                    <c-cs-icon name="columns" size="14"></c-cs-icon>Compare
+                    <c-cs-icon name="columns" size="14"></c-cs-icon>{L.compare}
                 </button>
                 <button class={jobBtnCls} data-action="add-job" onclick={showJob} disabled={busy} aria-expanded={pickerOpen}>
-                    <c-cs-icon name="briefcase" size="14"></c-cs-icon>Add to job
+                    <c-cs-icon name="briefcase" size="14"></c-cs-icon>{L.addToJob}
                 </button>
                 <button class={poolBtnCls} data-action="add-pool" onclick={showPool} disabled={busy}>
-                    <c-cs-icon name="users" size="14"></c-cs-icon>Add to talent pool
+                    <c-cs-icon name="users" size="14"></c-cs-icon>{L.addToPool}
                 </button>
                 <button class="btn btn-sm tray-btn" data-action="email" onclick={handleEmail} disabled={busy}>
-                    <c-cs-icon name="mail" size="14"></c-cs-icon>Send email
+                    <c-cs-icon name="mail" size="14"></c-cs-icon>{L.sendEmail}
                 </button>
                 <button class="btn btn-sm tray-btn" data-action="task" onclick={handleTask} disabled={busy}>
-                    <c-cs-icon name="task" size="14"></c-cs-icon>Add task
+                    <c-cs-icon name="task" size="14"></c-cs-icon>{L.addTask}
                 </button>
                 <template lwc:if={busy}><span class="spinner sm light"></span></template>
-                <button class="btn-icon sm t-close" data-action="clear" onclick={handleClear} aria-label="Clear the selection" title="Clear the selection">
+                <button class="btn-icon sm t-close" data-action="clear" onclick={handleClear} aria-label={L.clearSelection} title={L.clearSelection}>
                     <c-cs-icon name="x" size="15"></c-cs-icon>
                 </button>
             </div>

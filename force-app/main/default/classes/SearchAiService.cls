@@ -36,6 +36,8 @@ public with sharing class SearchAiService {
             for (String key : inputs.keySet()) {
                 s += '<' + key + '>\n' + (inputs.get(key) == null ? '' : inputs.get(key)) + '\n</' + key + '>\n';
             }
+            String language = CsI18n.aiInstruction();
+            if (language != null) s += '<OutputLanguage>\n' + language + '\n</OutputLanguage>\n';
             if (String.isNotBlank(correction)) {
                 s += '\nYour previous tool call was rejected: ' + correction + '\nCall the tool again with a corrected input.';
             }
