@@ -17,6 +17,12 @@ public with sharing class CandidateSearchConfig {
     public String tkExternalCredential = 'TK_Search_Service_Account';
     public String tkAccessRoles = 'all';
     /**
+     * Authentication parameters on the TK_Search_Service_Account principal. Each Textkernel environment has its own
+     * password: Password for the candidate environment, VacancyPassword for the job (vacancy) environment.
+     */
+    public String tkCandidatePasswordParameter = 'Password';
+    public String tkJobPasswordParameter = 'VacancyPassword';
+    /**
      * Only used to read TK-generated parts back. Exclusions are sent as -field:value in the query string:
      * no condition spelling excludes (tkExclude.apex), they all behave as REQUIRED.
      */

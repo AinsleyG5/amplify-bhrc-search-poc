@@ -171,7 +171,7 @@ public with sharing class TkSearchClient {
         String searcher = String.isBlank(cfg.tkCandidateSearchEngine) ? 'candidates' : cfg.tkCandidateSearchEngine;
         String body = envelope('viewDocument',
             '<environment>' + cfg.tkCandidateEnvironment.escapeXml() + '</environment>'
-            + '<password><![CDATA[{!$Credential.' + cfg.tkExternalCredential + '.Password}]]></password>'
+            + passwordXml(cfg.tkCandidateEnvironment)
             + '<searchEngine>' + searcher.escapeXml() + '</searchEngine>'
             + '<documentID>' + docId.escapeXml() + '</documentID>'
             + '<accessRoles>' + cfg.tkAccessRoles.escapeXml() + '</accessRoles>');
@@ -259,8 +259,16 @@ public with sharing class TkSearchClient {
     private static String credentialXml(String environment) {
         CandidateSearchConfig cfg = CandidateSearchConfig.get();
         return '<environment>' + String.valueOf(environment).escapeXml() + '</environment>'
-            + '<password><![CDATA[{!$Credential.' + cfg.tkExternalCredential + '.Password}]]></password>'
+            + passwordXml(environment)
             + '<accessRoles>' + cfg.tkAccessRoles.escapeXml() + '</accessRoles>';
+    }
+
+    /** The job environment has its own password (VacancyPassword); every other call uses the candidate one. */
+    @TestVisible
+    private static String passwordXml(String environment) {
+        CandidateSearchConfig cfg = CandidateSearchConfig.get();
+        String param = environment == cfg.tkJobEnvironment ? cfg.tkJobPasswordParameter : cfg.tkCandidatePasswordParameter;
+        return '<password><![CDATA[{!$Credential.' + cfg.tkExternalCredential + '.' + param + '}]]></password>';
     }
 
     public static String partXml(QueryPart p) {
@@ -327,7 +335,12 @@ public with sharing class TkSearchClient {
             + (detail == null ? ' (empty response body).' : ': ' + detail);
         if (!msg.endsWith('.')) msg += '.';
 
-        if (code == 404 || code == 405) {
+        if (detail != null && detail.containsIgnoreCase('password')) {
+            CandidateSearchConfig cfg = CandidateSearchConfig.get();
+            msg += ' Each Textkernel environment has its own password, set on the ' + cfg.tkExternalCredential + ' principal:'
+                + ' ' + cfg.tkCandidatePasswordParameter + ' for ' + cfg.tkCandidateEnvironment
+                + ', ' + cfg.tkJobPasswordParameter + ' for ' + cfg.tkJobEnvironment + ' (job match).';
+        } else if (code == 404 || code == 405) {
             msg += ' The URL on that Named Credential does not point at the Textkernel SOAP search service.'
                 + ' Check it in Setup: it should be the same URL as TK_Agent_Search_Endpoint, which the Talent Pool viewer uses.';
         } else if (code == 401 || code == 403) {
