@@ -10,7 +10,7 @@ const OBJECTS = { job: 'TR1__Job__c', pool: 'TR1__Call_List__c' };
  * The job and pool pickers search with CandidateSearchController.searchRecords.
  *
  * selected: [{ docId, contactId, name }]
- * Events: compare {}, addtojob { jobId }, addtopool { poolId }, email {}, deselect { docId }, clear {}.
+ * Events: compare {}, addtojob { jobId }, addtopool { poolId }, email {}, task {}, deselect { docId }, clear {}.
  */
 export default class CsSelectionTray extends LightningElement {
     @api selected = [];
@@ -194,6 +194,11 @@ export default class CsSelectionTray extends LightningElement {
     handleEmail() {
         this.mode = null;
         this.dispatchEvent(new CustomEvent('email'));
+    }
+
+    handleTask() {
+        this.mode = null;
+        this.dispatchEvent(new CustomEvent('task'));
     }
 
     handleDeselect(event) {

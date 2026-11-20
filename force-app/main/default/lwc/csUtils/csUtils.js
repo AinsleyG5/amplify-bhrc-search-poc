@@ -7,7 +7,12 @@
  */
 
 export const PAGE_SIZE = 20;
-export const EXPLAIN_BATCH = 10;
+/**
+ * Candidates per explain call. Small, because a call of 10 could run past the 60-second AI callout timeout and fail
+ * every row in it. Batches run EXPLAIN_CONCURRENCY at a time.
+ */
+export const EXPLAIN_BATCH = 4;
+export const EXPLAIN_CONCURRENCY = 3;
 export const COMPARE_MIN = 2;
 export const COMPARE_MAX = 4;
 

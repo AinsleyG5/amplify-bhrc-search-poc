@@ -65,6 +65,9 @@
                 <button class="btn btn-sm tray-btn" data-action="email" onclick={handleEmail} disabled={busy}>
                     <c-cs-icon name="mail" size="14"></c-cs-icon>Send email
                 </button>
+                <button class="btn btn-sm tray-btn" data-action="task" onclick={handleTask} disabled={busy}>
+                    <c-cs-icon name="task" size="14"></c-cs-icon>Add task
+                </button>
                 <template lwc:if={busy}><span class="spinner sm light"></span></template>
                 <button class="btn-icon sm t-close" data-action="clear" onclick={handleClear} aria-label="Clear the selection" title="Clear the selection">
                     <c-cs-icon name="x" size="15"></c-cs-icon>

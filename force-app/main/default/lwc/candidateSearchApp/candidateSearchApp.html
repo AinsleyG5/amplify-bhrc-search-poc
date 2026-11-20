@@ -143,6 +143,7 @@
                     onaddtojob={handleAddToJob}
                     onaddtopool={handleAddToPool}
                     onemail={openEmail}
+                    ontask={openTask}
                     ondeselect={handleTrayDeselect}
                     onclear={clearSelection}
                 ></c-cs-selection-tray>
@@ -179,21 +180,17 @@
             </div>
         </template>
 
-        <template lwc:if={emailOpen}>
+        <template lwc:if={flowOpen}>
             <div class="backdrop">
-                <section class="parser-modal" role="dialog" aria-modal="true" aria-label={emailTitle} onkeydown={emailKeydown}>
+                <section class="parser-modal" role="dialog" aria-modal="true" aria-label={flowTitle} onkeydown={flowKeydown}>
                     <header class="parser-head">
-                        <h2>{emailTitle}</h2>
-                        <button class="btn-icon email-close" onclick={closeEmail} aria-label="Close" title="Close">
+                        <h2>{flowTitle}</h2>
+                        <button class="btn-icon flow-close" onclick={closeFlow} aria-label="Close" title="Close">
                             <c-cs-icon name="x" size="18"></c-cs-icon>
                         </button>
                     </header>
                     <div class="parser-body">
-                        <lightning-flow
-                            flow-api-name={emailFlowApiName}
-                            flow-input-variables={emailFlowInputs}
-                            onstatuschange={handleEmailStatus}
-                        ></lightning-flow>
+                        <lightning-flow flow-api-name={flowApiName} flow-input-variables={flowInputs} onstatuschange={handleFlowStatus}></lightning-flow>
                     </div>
                 </section>
             </div>

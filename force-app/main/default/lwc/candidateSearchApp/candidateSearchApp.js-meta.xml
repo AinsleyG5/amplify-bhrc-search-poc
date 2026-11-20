@@ -12,6 +12,7 @@
             <property name="heading" type="String" label="Page title" default="Candidate Search" />
             <property name="logoUrl" type="String" label="Logo URL (optional)" description="Image URL for the Amplify logo, for example /resource/AmplifyLogo. Blank shows the Amplify wordmark." />
             <property name="emailFlowApiName" type="String" label="Send email flow" default="TR1__AEF_Send_Email" description="API name of the packaged screen flow that sends email to the selected candidates (input recipientIds)." />
+            <property name="taskFlowApiName" type="String" label="Add task flow" default="TR1__AEF_Create_Power_Note" description="API name of the packaged screen flow that adds a task or note for the selected candidates (input recordIds)." />
         </targetConfig>
     </targetConfigs>
 </LightningComponentBundle>

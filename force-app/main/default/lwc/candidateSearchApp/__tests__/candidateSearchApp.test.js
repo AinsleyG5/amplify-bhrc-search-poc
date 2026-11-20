@@ -616,6 +616,40 @@ describe('c-candidate-search-app', () => {
         expect(shadow(element, '.toast-title').textContent).toBe('Email sent');
     });
 
+    it('splits an explain batch that timed out and retries the halves', async () => {
+        explainResults.mockImplementation(({ docIdsJson }) => {
+            const ids = JSON.parse(docIdsJson);
+            if (ids.length > 1) return Promise.reject({ body: { message: 'Explanations are not available right now: Read timed out' } });
+            return Promise.resolve(JSON.stringify([{ docId: ids[0], summary: `Summary for ${ids[0]}`, criteria: [] }]));
+        });
+        await searchFromUrl();
+        await flush(20);
+        const rows = shadow(element, 'c-cs-result-list').shadowRoot.querySelectorAll('c-cs-result-row');
+        const summaries = [...rows].map((r) => (r.shadowRoot.querySelector('.summary') || {}).textContent);
+        expect(summaries).toEqual([`Summary for ${row(0).docId}`, `Summary for ${row(1).docId}`, `Summary for ${row(2).docId}`]);
+        expect(explainResults.mock.calls.map((c) => JSON.parse(c[0].docIdsJson).length)).toEqual([3, 2, 1, 1, 1]);
+    });
+
+    it('adds a task for the selection through the packaged Power Note flow', async () => {
+        await searchFromUrl();
+        const cb = shadow(element, 'c-cs-result-list').shadowRoot.querySelector('c-cs-result-row').shadowRoot.querySelector('input[type="checkbox"]');
+        cb.checked = true;
+        cb.dispatchEvent(new CustomEvent('change'));
+        await flush();
+        shadow(element, 'c-cs-selection-tray').shadowRoot.querySelector('[data-action="task"]').click();
+        await flush();
+        const flow = shadow(element, 'lightning-flow');
+        expect(flow.flowApiName).toBe('TR1__AEF_Create_Power_Note');
+        expect(flow.flowInputVariables).toEqual([
+            { name: 'recordIds', type: 'String', value: [row(0).contactId] },
+            { name: 'isAsyncSelection', type: 'Boolean', value: false }
+        ]);
+        expect(shadow(element, '.parser-head h2').textContent).toBe('Add a task for 1 candidate');
+        flow.dispatchEvent(new CustomEvent('statuschange', { detail: { status: 'FINISHED' } }));
+        await flush();
+        expect(shadow(element, 'lightning-flow')).toBeNull();
+    });
+
     it('shows the default Textkernel columns, and adds a Salesforce column picked in the column chooser', async () => {
         runSearch.mockResolvedValue(response([row(0, { fields: { experience_years: ['7'], educationlevel_international: ['Secondary'] } }), row(1)]));
         getColumnValues.mockResolvedValue(JSON.stringify({ '003000000000100AAA': { MobilePhone: '07700 900123' } }));

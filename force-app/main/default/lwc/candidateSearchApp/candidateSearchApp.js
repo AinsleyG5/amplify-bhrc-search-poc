@@ -16,7 +16,19 @@ import bulkAddToJob from '@salesforce/apex/CandidateSearchController.bulkAddToJo
 import bulkAddToTalentPool from '@salesforce/apex/CandidateSearchController.bulkAddToTalentPool';
 import logAction from '@salesforce/apex/CandidateSearchController.logAction';
 
-import { PAGE_SIZE, EXPLAIN_BATCH, COMPARE_MIN, COMPARE_MAX, clone, withoutTrace, diffLines, facetLabel, normalizeError, sleep } from 'c/csUtils';
+import {
+    PAGE_SIZE,
+    EXPLAIN_BATCH,
+    EXPLAIN_CONCURRENCY,
+    COMPARE_MIN,
+    COMPARE_MAX,
+    clone,
+    withoutTrace,
+    diffLines,
+    facetLabel,
+    normalizeError,
+    sleep
+} from 'c/csUtils';
 
 /** Montserrat @font-face rules (Static Resource). Fonts are page-wide, so child components inherit them. */
 function loadFont(cmp) {
@@ -43,6 +55,8 @@ export default class CandidateSearchApp extends LightningElement {
     @api heading = 'Candidate Search';
     /** App Builder: the packaged screen flow that composes and sends email (template or from scratch). */
     @api emailFlowApiName = 'TR1__AEF_Send_Email';
+    /** App Builder: the packaged screen flow that adds a task or note (Power Note) for the selected candidates. */
+    @api taskFlowApiName = 'TR1__AEF_Create_Power_Note';
 
     /** [{ id, title, message, variant, cls, icon }] */
     toasts = [];
@@ -651,11 +665,26 @@ export default class CandidateSearchApp extends LightningElement {
     async explainFirstPage(seq) {
         const docIds = this.rows.slice(0, PAGE_SIZE).map((r) => r.docId);
         this.setExplanations(docIds, { state: 'pending' });
-        for (let i = 0; i < docIds.length; i += EXPLAIN_BATCH) {
-            if (seq !== this._seq) return;
-            // eslint-disable-next-line no-await-in-loop
-            await this.explainBatch(docIds.slice(i, i + EXPLAIN_BATCH), seq, this.auditId, 0);
-        }
+        const batches = [];
+        for (let i = 0; i < docIds.length; i += EXPLAIN_BATCH) batches.push(docIds.slice(i, i + EXPLAIN_BATCH));
+        await this.runExplainBatches(batches, seq, this.auditId);
+    }
+
+    /**
+     * Up to EXPLAIN_CONCURRENCY calls at once, top rows first. Workers after the first start in their own task, so
+     * Lightning sends them as separate requests instead of queueing them in one.
+     */
+    async runExplainBatches(batches, seq, auditId) {
+        const queue = [...batches];
+        const worker = async (i) => {
+            if (i) await sleep(150 * i);
+            while (queue.length && seq === this._seq) {
+                // eslint-disable-next-line no-await-in-loop
+                await this.explainBatch(queue.shift(), seq, auditId, 0);
+            }
+        };
+        const n = Math.min(EXPLAIN_CONCURRENCY, queue.length);
+        await Promise.all(Array.from({ length: n }, (_, i) => worker(i)));
     }
 
     /** The audit rows are written by a Queueable, so the first call can arrive before they exist: retry with backoff. */
@@ -693,6 +722,12 @@ export default class CandidateSearchApp extends LightningElement {
                 await this.explainBatch(docIds, seq, auditId, attempt + 1);
                 return;
             }
+            // A batch that ran out of time (or tokens) is retried in halves, down to one candidate
+            if (docIds.length > 1 && /time|exceeded|limit|token|could not be used/i.test(msg)) {
+                const mid = Math.ceil(docIds.length / 2);
+                await Promise.all([this.explainBatch(docIds.slice(0, mid), seq, auditId, 0), this.explainBatch(docIds.slice(mid), seq, auditId, 0)]);
+                return;
+            }
             this.setExplanations(docIds, { state: 'error', error: msg });
         }
     }
@@ -713,13 +748,10 @@ export default class CandidateSearchApp extends LightningElement {
     }
 
     async flushExplainQueue() {
-        const seq = this._seq;
-        const auditId = this.auditId;
-        while (this._explainQueue.length && seq === this._seq) {
-            const batch = this._explainQueue.splice(0, EXPLAIN_BATCH);
-            // eslint-disable-next-line no-await-in-loop
-            await this.explainBatch(batch, seq, auditId, 0);
-        }
+        const ids = this._explainQueue.splice(0);
+        const batches = [];
+        for (let i = 0; i < ids.length; i += EXPLAIN_BATCH) batches.push(ids.slice(i, i + EXPLAIN_BATCH));
+        await this.runExplainBatches(batches, this._seq, this.auditId);
     }
 
     // ═════════════════════════════════════════════
@@ -1006,64 +1038,101 @@ export default class CandidateSearchApp extends LightningElement {
         }
     }
 
-    // ─── Send email (packaged AEF Send Email flow in a modal) ──
+    // ─── Packaged flows in a modal: Send email (AEF Send Email), Add task (AEF Create Power Note) ──
 
-    emailOpen = false;
-    /** Snapshot of the recipients when the modal opened, so the flow inputs stay fixed while it runs. */
-    emailRecipients = [];
+    /** null | 'email' | 'task' */
+    flowAction = null;
+    /** Snapshot of the selection when the modal opened, so the flow inputs stay fixed while it runs. */
+    flowPeople = [];
 
-    get emailTitle() {
-        const n = this.emailRecipients.length;
-        return `Email ${n} candidate${n === 1 ? '' : 's'}`;
+    get flowOpen() {
+        return !!this.flowAction;
+    }
+
+    get flowApiName() {
+        return this.flowAction === 'task' ? this.taskFlowApiName : this.emailFlowApiName;
+    }
+
+    get flowTitle() {
+        const n = this.flowPeople.length;
+        const who = `${n} candidate${n === 1 ? '' : 's'}`;
+        return this.flowAction === 'task' ? `Add a task for ${who}` : `Email ${who}`;
     }
 
     /**
-     * Inputs of AEF Send Email. recipientIds (Contact Ids) with isAsyncSelection false takes the flow's
-     * "UI/Bulk with Ids" path: the package's email editor (eML_EmailFlowWrapper) lets the user pick a template
-     * or write from scratch, and sends. recordId (the job, when there is one) gives the editor its context.
+     * AEF Send Email: recipientIds (Contact Ids) with isAsyncSelection false takes the "UI/Bulk with Ids" path, where
+     * the package's email editor lets the user pick a template or write from scratch, and sends. recordId (the job,
+     * when there is one) gives the editor its context.
+     *
+     * AEF Create Power Note: recordIds with isAsyncSelection false shows the package's Power Note editor (task or note)
+     * for the selection; 50 or more go through the bulk framework. contextualRecordId is the job, when there is one.
      */
-    get emailFlowInputs() {
-        const inputs = [
-            { name: 'recipientIds', type: 'String', value: this.emailRecipients.map((p) => p.contactId) },
-            { name: 'isAsyncSelection', type: 'Boolean', value: false }
-        ];
-        if (this.jobId) inputs.push({ name: 'recordId', type: 'String', value: this.jobId });
+    get flowInputs() {
+        const ids = this.flowPeople.map((p) => p.contactId);
+        const inputs =
+            this.flowAction === 'task'
+                ? [
+                      { name: 'recordIds', type: 'String', value: ids },
+                      { name: 'isAsyncSelection', type: 'Boolean', value: false }
+                  ]
+                : [
+                      { name: 'recipientIds', type: 'String', value: ids },
+                      { name: 'isAsyncSelection', type: 'Boolean', value: false }
+                  ];
+        if (this.jobId) inputs.push({ name: this.flowAction === 'task' ? 'contextualRecordId' : 'recordId', type: 'String', value: this.jobId });
         return inputs;
     }
 
     openEmail() {
+        this.openFlow('email');
+    }
+
+    openTask() {
+        this.openFlow('task');
+    }
+
+    openFlow(action) {
         const people = this.selectedList.filter((p) => p.contactId);
         if (!people.length) return;
-        this.emailRecipients = people;
-        this.emailOpen = true;
+        this.flowPeople = people;
+        this.flowAction = action;
 
         Promise.resolve().then(() => {
-            const btn = this.template.querySelector('.email-close');
+            const btn = this.template.querySelector('.flow-close');
             if (btn) btn.focus();
         });
     }
 
-    /** Closes only on the button or Escape, so a half-written email is not lost to a stray click. */
-    closeEmail() {
-        this.emailOpen = false;
-        this.emailRecipients = [];
+    /** Closes only on the button or Escape, so a half-written email or task is not lost to a stray click. */
+    closeFlow() {
+        this.flowAction = null;
+        this.flowPeople = [];
     }
 
-    emailKeydown(event) {
+    flowKeydown(event) {
         if (event.key === 'Escape') {
             event.stopPropagation();
-            this.closeEmail();
+            this.closeFlow();
         }
     }
 
-    handleEmailStatus(event) {
+    /**
+     * The email flow ends only after sending, so it gets a toast. The Power Note flow also ends when the user cancels
+     * in its editor, so it just closes (the package confirms a save itself).
+     */
+    handleFlowStatus(event) {
         const status = event.detail && event.detail.status;
+        const action = this.flowAction;
         if (status === 'FINISHED' || status === 'FINISHED_SCREEN') {
-            const n = this.emailRecipients.length;
-            this.closeEmail();
-            this.toast('Email sent', `Sent to ${n} candidate${n === 1 ? '' : 's'}.`, 'success');
+            const n = this.flowPeople.length;
+            this.closeFlow();
+            if (action === 'email') this.toast('Email sent', `Sent to ${n} candidate${n === 1 ? '' : 's'}.`, 'success');
         } else if (status === 'ERROR') {
-            this.toast('Email not sent', 'The email flow stopped with an error. Check the flow in Setup, then try again.', 'error');
+            this.toast(
+                action === 'task' ? 'Task not added' : 'Email not sent',
+                'The flow stopped with an error. Check the flow in Setup, then try again.',
+                'error'
+            );
         }
     }
 
