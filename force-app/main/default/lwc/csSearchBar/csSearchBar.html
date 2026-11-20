@@ -91,7 +91,7 @@
 
         <template lwc:if={hasCriteria}>
             <div class="chips" role="list" aria-label={L.searchCriteria}>
-                <template for:each={chips} for:item="chip">
+                <template for:each={visibleChips} for:item="chip">
                     <span key={chip.id} class={chip.cls} role="listitem">
                         <button class="chip-body" data-id={chip.id} onclick={openChip} title={chip.title} aria-label={chip.title}>
                             <span class={chip.dotCls}></span>
@@ -126,6 +126,9 @@
                             <c-cs-icon name="x" size="12" stroke-width="2.5"></c-cs-icon>
                         </button>
                     </span>
+                </template>
+                <template lwc:if={chipsCollapsible}>
+                    <button class="chip-more" data-action="toggle-chips" onclick={toggleChips} aria-expanded={chipsExpanded}>{chipsToggleText}</button>
                 </template>
                 <button class="chip-add" onclick={openAdd} aria-label={L.addACriterion}>
                     <c-cs-icon name="plus" size="13" stroke-width="2.5"></c-cs-icon>

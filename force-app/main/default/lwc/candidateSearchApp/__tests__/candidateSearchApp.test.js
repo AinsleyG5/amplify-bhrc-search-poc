@@ -736,6 +736,45 @@ describe('c-candidate-search-app', () => {
         expect(weights.join(' ')).toContain('Requis');
     });
 
+    it('long criteria lists collapse in the banner and in each row, and expand on demand', async () => {
+        const many = {
+            ...CRITERIA,
+            items: Array.from({ length: 12 }, (_, i) => ({
+                id: `c${i + 1}`,
+                kind: 'keyword',
+                label: `Term ${i + 1}`,
+                value: `Term ${i + 1}`,
+                weight: 'preferred',
+                origin: 'nl'
+            }))
+        };
+        const ids = many.items.map((it) => it.id);
+        parseQuery.mockResolvedValue(JSON.stringify({ ...many, trace: { searchType: 'Natural language' } }));
+        runSearch.mockResolvedValue(
+            response([row(0, { criteriaIds: ids, queryPartFlags: ids.map((_, i) => (i % 2 ? 0 : 1)), queryCriteriaIds: [] })], { criteria: many })
+        );
+        await searchFromUrl();
+
+        const bar = shadow(element, 'c-cs-search-bar').shadowRoot;
+        expect(bar.querySelectorAll('.chip-body').length).toBe(8);
+        const toggle = bar.querySelector('[data-action="toggle-chips"]');
+        expect(toggle.textContent).toBe('+4 more');
+        toggle.click();
+        await flush();
+        expect(bar.querySelectorAll('.chip-body').length).toBe(12);
+        expect(bar.querySelector('[data-action="toggle-chips"]').textContent).toBe('Show less');
+
+        const rowRoot = shadow(element, 'c-cs-result-list').shadowRoot.querySelector('c-cs-result-row').shadowRoot;
+        expect(rowRoot.querySelectorAll('.crit-item').length).toBe(4);
+        const more = rowRoot.querySelector('[data-action="toggle-criteria"]');
+        expect(more.textContent.trim()).toBe('+8 more');
+        expect(more.title).toBe('4 of 8 more criteria met');
+        more.click();
+        await flush();
+        expect(rowRoot.querySelectorAll('.crit-item').length).toBe(12);
+        expect(shadow(element, 'c-cs-candidate-panel')).toBeNull();
+    });
+
     it('Refine with AI bounces after the first search only', async () => {
         await searchFromUrl();
         const btn = shadow(element, '[data-action="open-chat"]');
