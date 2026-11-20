@@ -4,7 +4,8 @@
  * Textkernel Search SOAP client for Candidate Search: search (structured query parts, paging, explicit result
  * fields), searchWithUrl (TK builds the query from the indexed job document) and getMetadata.
  *
- * Wraps AmplifyTKMatchService for the shared pieces (quoteTerm, normaliseScore, request masking) and adds what
+ * Has its own copies of the shared pieces (quoteTerm, normaliseScore, request masking; same rules as AmplifyTKMatchService,
+ * so Candidate Search deploys without it) and adds what
  * that class does not parse: per-query-part scores, requested fields, highlights, facets and the query parts TK
  * echoes back (for searchWithUrl, the generated query).
  *
@@ -290,7 +291,7 @@ public with sharing class TkSearchClient {
         HttpResponse res = callout(body);
         Result r = parseResponse(res.getBody());
         r.method = method;
-        r.requestXml = AmplifyTKMatchService.maskRequest(body.replaceAll('<password><!\\[CDATA\\[.*?\\]\\]></password>', '<password></password>'));
+        r.requestXml = maskRequest(body.replaceAll('<password><!\\[CDATA\\[.*?\\]\\]></password>', '<password></password>'));
         r.durationMs = System.currentTimeMillis() - started;
         return r;
     }
@@ -414,7 +415,7 @@ public with sharing class TkSearchClient {
                 h.score = null;
             }
         }
-        h.scorePct = AmplifyTKMatchService.normaliseScore(h.score);
+        h.scorePct = normaliseScore(h.score);
 
         for (Dom.XmlNode c : n.getChildElements()) {
             String name = c.getName();
@@ -679,5 +680,28 @@ public with sharing class TkSearchClient {
             innerXml += serialize(c, c.getName(), skip);
         }
         return '<' + asName + attrs + '>' + innerXml + '</' + asName + '>';
+    }
+
+    // Shared helpers, same rules as AmplifyTKMatchService (copied so Candidate Search does not depend on it)
+
+    /** Multi-word terms go as phrases. */
+    public static String quoteTerm(String term) {
+        String t = term.replace('"', '').trim();
+        return t.contains(' ') ? '"' + t + '"' : t;
+    }
+
+    /** Hides the environment, password and index name in the request shown to users. */
+    public static String maskRequest(String body) {
+        return body
+            .replaceAll('<environment>[^<]*</environment>', '<environment>(hidden)</environment>')
+            .replaceAll('<password>[^<]*</password>', '<password>(hidden)</password>')
+            .replaceAll('<url>doc://[^/<]*/', '<url>doc://(index)/');
+    }
+
+    /** Search scores come back as a ratio: anything up to 2 is a ratio, and never more than 100. */
+    public static Decimal normaliseScore(Decimal raw) {
+        if (raw == null) return null;
+        Decimal pct = raw <= 2 ? raw * 100 : raw;
+        return (pct > 100 ? 100 : pct).setScale(0);
     }
 }

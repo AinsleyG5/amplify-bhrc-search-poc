@@ -494,9 +494,9 @@ public with sharing class CriteriaService {
         return field == 'FULLTEXT' ? quote(value) : value;
     }
 
-    /** Same rule as AmplifyTKMatchService.quoteTerm: multi-word terms go as phrases. */
+    /** Same rule as TkSearchClient.quoteTerm: multi-word terms go as phrases. */
     public static String quote(String term) {
-        return AmplifyTKMatchService.quoteTerm(term);
+        return TkSearchClient.quoteTerm(term);
     }
 
     private static Boolean isUnchangedTkPart(Map<String, Object> item) {
