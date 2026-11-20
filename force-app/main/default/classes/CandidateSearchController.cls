@@ -1481,12 +1481,12 @@ public with sharing class CandidateSearchController {
         }
         if (members.isEmpty()) return System.JSON.serialize(out);
 
-        List<String> select = new List<String>{ 'Id' };
-        for (String path : members.keySet()) if (path.toLowerCase() != 'id') select.add(path);
+        List<String> selectFields = new List<String>{ 'Id' };
+        for (String path : members.keySet()) if (path.toLowerCase() != 'id') selectFields.add(path);
         List<SObject> recs;
         try {
             recs = Database.queryWithBinds(
-                'SELECT ' + String.join(select, ', ') + ' FROM Contact WHERE Id IN :ids',
+                'SELECT ' + String.join(selectFields, ', ') + ' FROM Contact WHERE Id IN :ids',
                 new Map<String, Object>{ 'ids' => ids },
                 AccessLevel.USER_MODE
             );
