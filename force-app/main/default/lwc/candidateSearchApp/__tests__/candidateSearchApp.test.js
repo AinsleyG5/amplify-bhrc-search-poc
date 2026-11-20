@@ -646,6 +646,18 @@ describe('c-candidate-search-app', () => {
         ]);
     });
 
+    it('puts the chosen columns in a header with resizable edges, and keeps the widths', async () => {
+        await searchFromUrl();
+        const list = shadow(element, 'c-cs-result-list').shadowRoot;
+        const labels = [...list.querySelectorAll('.col-head .col-label')].map((n) => n.textContent.trim());
+        expect(labels).toEqual(['Candidate', 'Criteria', 'Experience', 'Education level', 'Date available', 'Summary', 'Match']);
+        const handle = list.querySelector('.col-resize[data-key="tk:experience"]');
+        handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true }));
+        await flush();
+        expect(JSON.parse(window.localStorage.getItem('amp.candidateSearch.columnWidths'))).toEqual({ 'tk:experience': 180 });
+        expect(list.querySelector('.rows').getAttribute('style')).toContain('180px');
+    });
+
     it('hovering the score lists what matched and what did not', async () => {
         await searchFromUrl();
         const rows = shadow(element, 'c-cs-result-list').shadowRoot.querySelectorAll('c-cs-result-row');

@@ -47,12 +47,23 @@
             </template>
         </div>
 
+        <template lwc:if={item.facts}>
+            <div class={item.factsCls}>
+                <template for:each={item.facts} for:item="f">
+                    <div key={f.key} class="fact" title={f.title}>
+                        <div class="fact-label">{f.label}</div>
+                        <div class={f.cls}>{f.text}</div>
+                    </div>
+                </template>
+            </div>
+        </template>
+
         <div class="why">
             <template lwc:if={explainPending}>
                 <div class="shimmer" aria-label="Explanation loading"><span></span><span></span></div>
             </template>
             <template lwc:if={explainDone}>
-                <p class="summary">{summary}</p>
+                <p class="summary" title={summary}>{summary}</p>
             </template>
             <template lwc:if={explainError}>
                 <p class="why-muted" title={errorText}>Couldn't explain. <button class="link" onclick={handleExplain}>Retry</button></p>
@@ -126,16 +137,5 @@
                 </template>
             </div>
         </div>
-
-        <template lwc:if={item.facts}>
-            <div class="facts" style={item.factsStyle}>
-                <template for:each={item.facts} for:item="f">
-                    <div key={f.key} class="fact" title={f.title}>
-                        <div class="fact-label">{f.label}</div>
-                        <div class={f.cls}>{f.text}</div>
-                    </div>
-                </template>
-            </div>
-        </template>
     </div>
 </template>

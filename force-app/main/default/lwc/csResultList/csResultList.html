@@ -95,7 +95,36 @@
             </div>
         </template>
         <template lwc:else>
-            <div class="rows" role="list">
+            <template lwc:if={showColumnHeader}>
+                <div class="col-head" style={gridStyle}>
+                    <span></span>
+                    <span class="col-label">Candidate</span>
+                    <span class="col-label">Criteria</span>
+                    <template for:each={headerCols} for:item="c">
+                        <span key={c.key} class="col-label col-chosen">
+                            <span class="col-text" title={c.label}>{c.label}</span>
+                            <span
+                                class="col-resize"
+                                data-key={c.key}
+                                role="separator"
+                                aria-orientation="vertical"
+                                aria-label={c.resizeLabel}
+                                title="Drag to resize. Double-click for the default width."
+                                tabindex="0"
+                                onpointerdown={startResize}
+                                onpointermove={moveResize}
+                                onpointerup={endResize}
+                                onpointercancel={endResize}
+                                ondblclick={resetWidth}
+                                onkeydown={resizeKeydown}
+                            ></span>
+                        </span>
+                    </template>
+                    <span class="col-label">Summary</span>
+                    <span class="col-label col-score">Match</span>
+                </div>
+            </template>
+            <div class="rows" role="list" style={gridStyle}>
                 <template for:each={items} for:item="it">
                     <c-cs-result-row
                         key={it.key}

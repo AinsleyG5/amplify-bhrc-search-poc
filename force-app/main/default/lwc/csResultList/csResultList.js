@@ -21,7 +21,24 @@ import {
 
 /** Per-browser choice of columns (a convenience: the defaults apply when storage is unavailable). */
 const COLUMNS_STORAGE_KEY = 'amp.candidateSearch.columns';
+const WIDTHS_STORAGE_KEY = 'amp.candidateSearch.columnWidths';
 const SF_BATCH = 200;
+
+/**
+ * Row grid. Chosen columns sit between the criteria and the summary at their own widths (dragged in the header);
+ * candidate, criteria and summary share what is left. When the columns do not fit even squeezed, they drop to a
+ * line of cells under each row.
+ */
+const COL_DEFAULT = 140;
+const COL_MIN = 80;
+const COL_MAX = 420;
+const COL_SQUEEZE_MIN = 96;
+const GRID_GAP = 18;
+/** Checkbox 22 + score 48 + row padding 40 + row margin 16. */
+const GRID_FIXED = 22 + 48 + 40 + 16;
+const FLEX_MIN = { who: 200, crit: 150, why: 200 };
+const BASE_GRID = `22px minmax(${FLEX_MIN.who}px,1.2fr) minmax(${FLEX_MIN.crit}px,1fr)`;
+const TAIL_GRID = `minmax(${FLEX_MIN.why}px,1.3fr) 48px`;
 
 /**
  * csResultList: result rows, infinite scroll, facet filters, selection, request viewer (screen 2A).
@@ -80,15 +97,115 @@ export default class CsResultList extends LightningElement {
     /** contactIds already read for the current set of Salesforce columns. */
     _sfRead = new Set();
     _sfPathsKey = '';
+    /** key to width in px, set by dragging a column edge. */
+    colWidths = {};
+    /** Measured width of the list (0 until measured: columns then show inline). */
+    listWidth = 0;
+    _resizeObserver;
+    _drag = null;
 
     connectedCallback() {
         try {
             const saved = JSON.parse(window.localStorage.getItem(COLUMNS_STORAGE_KEY));
             if (Array.isArray(saved)) this.columnKeys = saved.filter((k) => typeof k === 'string').slice(0, MAX_COLUMNS);
+            const widths = JSON.parse(window.localStorage.getItem(WIDTHS_STORAGE_KEY));
+            if (widths && typeof widths === 'object') this.colWidths = widths;
         } catch {
             // No storage (private window, preview): the defaults apply
         }
         this.loadSfOptions();
+    }
+
+    observeWidth() {
+        if (this._resizeObserver || typeof ResizeObserver === 'undefined') return;
+        const el = this.template.querySelector('.list');
+        if (!el) return;
+        this._resizeObserver = new ResizeObserver((entries) => {
+            const w = Math.round(entries[0].contentRect.width);
+            if (Math.abs(w - this.listWidth) > 4) this.listWidth = w;
+        });
+        this._resizeObserver.observe(el);
+    }
+
+    colWidth(key) {
+        const w = Number(this.colWidths[key]);
+        return w ? Math.max(COL_MIN, Math.min(COL_MAX, w)) : COL_DEFAULT;
+    }
+
+    /** { mode: 'none' | 'inline' | 'strip', widths: { key: px }, grid } */
+    get layout() {
+        const defs = this.columnDefs;
+        if (!defs.length) return { mode: 'none', widths: {}, grid: `${BASE_GRID} ${TAIL_GRID}` };
+        const wanted = defs.map((c) => this.colWidth(c.key));
+        const total = wanted.reduce((a, b) => a + b, 0);
+        const room = this.listWidth ? this.listWidth - GRID_FIXED - GRID_GAP * (defs.length + 4) - FLEX_MIN.who - FLEX_MIN.crit - FLEX_MIN.why : Infinity;
+        if (room < defs.length * COL_SQUEEZE_MIN) return { mode: 'strip', widths: {}, grid: `${BASE_GRID} ${TAIL_GRID}` };
+        const scale = total > room ? room / total : 1;
+        const widths = {};
+        defs.forEach((c, i) => {
+            widths[c.key] = Math.floor(wanted[i] * scale);
+        });
+        return { mode: 'inline', widths, grid: `${BASE_GRID} ${defs.map((c) => `${widths[c.key]}px`).join(' ')} ${TAIL_GRID}` };
+    }
+
+    get gridStyle() {
+        return `--cs-row-grid:${this.layout.grid}`;
+    }
+
+    get showColumnHeader() {
+        return this.layout.mode === 'inline' && this.hasRows && !this.loading;
+    }
+
+    get headerCols() {
+        const { widths } = this.layout;
+        return this.columnDefs.map((c) => ({ key: c.key, label: c.label, width: widths[c.key], resizeLabel: `Resize the ${c.label} column` }));
+    }
+
+    // Column resizing: drag the edge in the header; double-click puts the default width back
+
+    startResize(event) {
+        const key = event.currentTarget.dataset.key;
+        this._drag = { key, startX: event.clientX, startWidth: this.layout.widths[key] || this.colWidth(key) };
+        if (event.currentTarget.setPointerCapture) event.currentTarget.setPointerCapture(event.pointerId);
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    moveResize(event) {
+        if (!this._drag) return;
+        const width = Math.max(COL_MIN, Math.min(COL_MAX, Math.round(this._drag.startWidth + event.clientX - this._drag.startX)));
+        this.colWidths = { ...this.colWidths, [this._drag.key]: width };
+    }
+
+    endResize() {
+        if (!this._drag) return;
+        this._drag = null;
+        this.saveWidths();
+    }
+
+    resetWidth(event) {
+        const next = { ...this.colWidths };
+        delete next[event.currentTarget.dataset.key];
+        this.colWidths = next;
+        this.saveWidths();
+    }
+
+    resizeKeydown(event) {
+        const key = event.currentTarget.dataset.key;
+        const step = event.shiftKey ? 40 : 10;
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        const current = this.colWidth(key);
+        this.colWidths = { ...this.colWidths, [key]: Math.max(COL_MIN, Math.min(COL_MAX, current + (event.key === 'ArrowRight' ? step : -step))) };
+        this.saveWidths();
+    }
+
+    saveWidths() {
+        try {
+            window.localStorage.setItem(WIDTHS_STORAGE_KEY, JSON.stringify(this.colWidths));
+        } catch {
+            // No storage: widths last until the page reloads
+        }
     }
 
     async loadSfOptions() {
@@ -228,6 +345,7 @@ export default class CsResultList extends LightningElement {
     // ─── Infinite scroll ────────────────────────────
 
     renderedCallback() {
+        this.observeWidth();
         const sentinel = this.template.querySelector('.sentinel');
         // A page finished loading while the sentinel stayed in view: observe again so it fires once more
         if (sentinel && this._observed === sentinel && this._wasLoadingMore && !this.loadingMore && this._observer) {
@@ -251,6 +369,8 @@ export default class CsResultList extends LightningElement {
     }
 
     disconnectedCallback() {
+        if (this._resizeObserver) this._resizeObserver.disconnect();
+        this._resizeObserver = null;
         if (this._observer) this._observer.disconnect();
         this._observed = null;
     }
@@ -270,7 +390,8 @@ export default class CsResultList extends LightningElement {
         const chips = this.chipList;
         const ex = this.explanations || {};
         const defs = this.columnDefs;
-        const factsStyle = `grid-template-columns:repeat(${Math.max(1, defs.length)},minmax(0,200px))`;
+        const mode = this.layout.mode;
+        const factsCls = `facts facts-${mode}`;
         return (this.rows || []).map((r) => {
             const { met, notMet } = metAndNotMet(r);
             const criteria = chips.map((c) => {
@@ -316,7 +437,7 @@ export default class CsResultList extends LightningElement {
                     summary: `${match.met.length} of ${criteria.length} criteria met`
                 },
                 facts: defs.length ? this.factsFor(r, defs) : null,
-                factsStyle,
+                factsCls,
                 pipelineLabel: p.label || null,
                 placedRecently: p.placedRecently === true,
                 changeTag: changeTag(this.prevRanks, r.docId, r.rank),
