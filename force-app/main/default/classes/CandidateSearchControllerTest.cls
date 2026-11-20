@@ -224,6 +224,22 @@ private class CandidateSearchControllerTest {
     }
 
     @isTest
+    static void candidatesTheUserCannotReadAreHidden() {
+        List<Contact> cs = CandidateSearchTestMocks.contacts(1);
+        // Same org, but no Contact the user can read (deleted, or outside their sharing)
+        CandidateSearchTestMocks.docIds.add(CandidateSearchTestMocks.docIdFor('003000000000001AAA'));
+        CandidateSearchTestMocks.install();
+        Test.startTest();
+        Map<String, Object> res = obj(CandidateSearchController.runSearch(CandidateSearchTestMocks.criteriaJson(), 0, null, null));
+        Test.stopTest();
+        List<Object> rows = (List<Object>) res.get('rows');
+        System.assertEquals(1, rows.size());
+        System.assertEquals(String.valueOf(cs[0].Id), String.valueOf(((Map<String, Object>) rows[0]).get('contactId')));
+        System.assert(String.valueOf(res.get('notices')).contains('do not have access'), String.valueOf(res.get('notices')));
+        System.assertEquals(2, res.get('nextOffset'), 'paging counts what Textkernel returned');
+    }
+
+    @isTest
     static void resultsFromAnotherOrgAreHiddenAndNeverLinked() {
         List<Contact> cs = CandidateSearchTestMocks.contacts(1);
         CandidateSearchTestMocks.docIds.add('00Dfo000004ft2e_003fo000005QaEkAAK');
@@ -380,8 +396,10 @@ private class CandidateSearchControllerTest {
     static void cvComesFromTextkernelViewDocument() {
         CandidateSearchTestMocks.install();
         CandidateSearchTestMocks.viewDocumentHtml = '<div><p><b>Jane Doe</b></p><p>Certified Forklift Operator</p></div>';
+        Contact c = new Contact(LastName = 'Doe');
+        insert c;
         Test.startTest();
-        Map<String, Object> res = (Map<String, Object>) System.JSON.deserializeUntyped(CandidateSearchController.getCandidateCv('00D000000000001_003000000000001AAA'));
+        Map<String, Object> res = (Map<String, Object>) System.JSON.deserializeUntyped(CandidateSearchController.getCandidateCv(CandidateSearchTestMocks.docIdFor(c.Id)));
         Test.stopTest();
         System.assert(String.valueOf(res.get('html')).contains('Certified Forklift Operator'));
         try {
@@ -425,8 +443,10 @@ private class CandidateSearchControllerTest {
     @isTest
     static void matchCandidateToJobsSearchesTheJobEnvironment() {
         CandidateSearchTestMocks.install();
+        Contact c = new Contact(LastName = 'Doe');
+        insert c;
         Test.startTest();
-        Map<String, Object> res = (Map<String, Object>) System.JSON.deserializeUntyped(CandidateSearchController.matchCandidateToJobs('00D000000000001_003000000000001AAA'));
+        Map<String, Object> res = (Map<String, Object>) System.JSON.deserializeUntyped(CandidateSearchController.matchCandidateToJobs(CandidateSearchTestMocks.docIdFor(c.Id)));
         Test.stopTest();
         String sent = CandidateSearchTestMocks.requests[0].getBody();
         System.assert(sent.contains('<sear:searchWithUrl>'), sent);
@@ -460,5 +480,20 @@ private class CandidateSearchControllerTest {
         System.assertEquals('{}', CandidateSearchController.getColumnValues('[]', '["MobilePhone"]'));
         System.assertEquals('Yes', CandidateSearchController.columnText(true, Schema.DisplayType.BOOLEAN));
         System.assertEquals('2026-11-20', CandidateSearchController.columnText(Date.newInstance(2026, 11, 20), Schema.DisplayType.DATE));
+    }
+
+    @isTest
+    static void docsOutsideTheUsersAccessAreRefused() {
+        Contact c = new Contact(LastName = 'Visible');
+        insert c;
+        CandidateSearchController.requireReadableDoc(CandidateSearchTestMocks.docIdFor(c.Id));
+        for (String bad : new List<String>{ '00D000000000001_' + c.Id, CandidateSearchTestMocks.docIdFor('003000000000001AAA'), 'x' }) {
+            try {
+                CandidateSearchController.requireReadableDoc(bad);
+                System.assert(false, 'expected a refusal for ' + bad);
+            } catch (AuraHandledException e) {
+                System.assert(e.getMessage().contains('do not have access'), e.getMessage());
+            }
+        }
     }
 }

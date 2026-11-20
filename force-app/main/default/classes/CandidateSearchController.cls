@@ -588,6 +588,7 @@ public with sharing class CandidateSearchController {
     @AuraEnabled
     public static String matchCandidateToJobs(String docId) {
         if (String.isBlank(docId)) throw fail('This result has no Textkernel document.');
+        requireReadableDoc(docId);
         TkSearchClient.Result r;
         try {
             r = TkSearchClient.matchCandidateToJobs(docId, 25);
@@ -647,6 +648,7 @@ public with sharing class CandidateSearchController {
     @AuraEnabled
     public static String getCandidateCv(String docId) {
         if (String.isBlank(docId)) throw fail('This result has no Textkernel document.');
+        requireReadableDoc(docId);
         String html;
         try {
             html = TkSearchClient.viewDocument(docId);
@@ -1147,11 +1149,28 @@ public with sharing class CandidateSearchController {
             if (h.contactId != null) contactIds.add(h.contactId);
         }
         Map<Id, Contact> contacts = contactsFor(contactIds);
-        for (TkSearchClient.Hit h : r.hits) {
-            if (h.contactId != null && !contacts.containsKey(h.contactId)) h.contactId = null;
-        }
         if (!foreign.isEmpty()) {
             s.notices.add(CsI18n.plural('foreignHidden', foreign.size(), new List<Object>{ foreign.size() }));
+        }
+
+        // Textkernel returns every candidate in the index (accessRoles: all). Keep only those this user can read in
+        // Salesforce (contactsFor runs with sharing): the others never reach the page or the audit. Documents with
+        // no Contact are dropped too, since their access cannot be checked.
+        // How many Textkernel returned, before any are dropped: paging (nextOffset) counts from it
+        Integer returned = r.hits.size();
+        List<TkSearchClient.Hit> readable = new List<TkSearchClient.Hit>();
+        Integer restricted = 0;
+        for (TkSearchClient.Hit h : r.hits) {
+            if (foreign.contains(h.docId)) continue;
+            if (h.contactId == null || !contacts.containsKey(h.contactId)) {
+                restricted++;
+                continue;
+            }
+            readable.add(h);
+        }
+        r.hits = readable;
+        if (restricted > 0) {
+            s.notices.add(CsI18n.plural('restrictedHidden', restricted, new List<Object>{ restricted }));
         }
 
         Map<Id, PipelineStatusService.Flags> flags = PipelineStatusService.flagsFor(jobId, contacts.keySet());
@@ -1216,7 +1235,7 @@ public with sharing class CandidateSearchController {
             facets.add(new Map<String, Object>{ 'field' => f.field, 'values' => values });
         }
 
-        Integer pageSize = r.pageSize == null ? r.hits.size() : r.pageSize;
+        Integer pageSize = r.pageSize == null ? returned : r.pageSize;
         return System.JSON.serialize(new Map<String, Object>{
             'auditId' => s.auditId,
             'criteria' => s.criteria,
@@ -1224,11 +1243,11 @@ public with sharing class CandidateSearchController {
             'total' => r.total,
             'hasMore' => r.hasMore,
             'offset' => r.offset,
-            'nextOffset' => r.offset + r.hits.size(),
+            'nextOffset' => r.offset + returned,
             'pageSize' => pageSize,
             'hiddenCount' => hidden.size(),
             // More than half a page hidden by the pipeline exclusion: the LWC loads the next page straight away (section 8)
-            'autoLoadMore' => r.hasMore && hidden.size() * 2 > pageSize,
+            'autoLoadMore' => r.hasMore && (hidden.size() + restricted) * 2 > pageSize,
             'facets' => facets,
             'rows' => rows,
             'notices' => s.notices,
@@ -1416,6 +1435,18 @@ public with sharing class CandidateSearchController {
 
     private static String firstValue(Map<String, List<String>> m, String key) {
         return m.containsKey(key) && !m.get(key).isEmpty() ? m.get(key)[0] : null;
+    }
+
+    /**
+     * Textkernel shows any document to the service account, so calls that take a docId check that it belongs to this
+     * org and that the user can read its Contact (with sharing) before asking Textkernel for it.
+     */
+    @TestVisible
+    private static void requireReadableDoc(String docId) {
+        String org15 = UserInfo.getOrganizationId().left(15);
+        Id cid = docId != null && docId.startsWith(org15 + '_') ? idOrNull(docId.substringAfter('_')) : null;
+        Boolean readable = cid != null && cid.getSObjectType() == Contact.SObjectType && [SELECT COUNT() FROM Contact WHERE Id = :cid] > 0;
+        if (!readable) throw fail(CsI18n.t('noAccessCandidate'));
     }
 
     private static Id idOrNull(String s) {

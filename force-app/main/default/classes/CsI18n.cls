@@ -57,6 +57,18 @@ public with sharing class CsI18n {
             '{0} results from another Salesforce org were hidden.',
             '{0} résultats provenant d\'une autre organisation Salesforce ont été masqués.'
         },
+        'restrictedHidden_one' => new List<String>{
+            '{0} result was hidden: you do not have access to that candidate in Salesforce.',
+            '{0} résultat a été masqué : vous n\'avez pas accès à ce candidat dans Salesforce.'
+        },
+        'restrictedHidden_other' => new List<String>{
+            '{0} results were hidden: you do not have access to those candidates in Salesforce.',
+            '{0} résultats ont été masqués : vous n\'avez pas accès à ces candidats dans Salesforce.'
+        },
+        'noAccessCandidate' => new List<String>{
+            'You do not have access to this candidate in Salesforce.',
+            'Vous n\'avez pas accès à ce candidat dans Salesforce.'
+        },
         'notAudited' => new List<String>{ 'This search could not be audited: {0}', 'Cette recherche n\'a pas pu être auditée : {0}' },
         'aiParseFailed' => new List<String>{
             'The AI could not read that search, so it runs as plain keywords. {0}',
