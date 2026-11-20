@@ -1,6 +1,10 @@
 import { LightningElement, api } from 'lwc';
 import { labels, tr } from 'c/csI18n';
 
+/** Above CRIT_COLLAPSE_AT criteria, a row shows the first CRIT_VISIBLE until opened (the score hover lists them all). */
+const CRIT_COLLAPSE_AT = 5;
+const CRIT_VISIBLE = 4;
+
 /**
  * csResultRow: one candidate row (screen 2A). Below 900px it renders as a card (screen 2B layout).
  * The view model is built by csResultList; the row only renders it and raises events.
@@ -18,6 +22,36 @@ export default class CsResultRow extends LightningElement {
     }
 
     matchOpen = false;
+    /** Criteria shown in full for this row. */
+    critOpen = false;
+
+    get allCriteria() {
+        return (this.item && this.item.criteria) || [];
+    }
+
+    get critCollapsible() {
+        return this.allCriteria.length > CRIT_COLLAPSE_AT;
+    }
+
+    get visibleCriteria() {
+        return this.critCollapsible && !this.critOpen ? this.allCriteria.slice(0, CRIT_VISIBLE) : this.allCriteria;
+    }
+
+    get critMoreText() {
+        return this.critOpen ? this.L.showLess : tr('nMore', { n: this.allCriteria.length - CRIT_VISIBLE }, this.lang);
+    }
+
+    /** Collapsed: how the hidden ones scored, so the count is useful without opening. */
+    get critMoreTitle() {
+        if (this.critOpen) return this.L.showLess;
+        const hidden = this.allCriteria.slice(CRIT_VISIBLE);
+        return tr('critHiddenSummary', { met: hidden.filter((c) => c.status === 'met').length, total: hidden.length }, this.lang);
+    }
+
+    toggleCriteria(event) {
+        event.stopPropagation();
+        this.critOpen = !this.critOpen;
+    }
     /** Opens the breakdown upwards when there is no room below the score. */
     matchUp = false;
 
@@ -29,7 +63,7 @@ export default class CsResultRow extends LightningElement {
 
     get rowCls() {
         const i = this.item || {};
-        return `row${i.active ? ' row-active' : ''}${i.selected ? ' row-selected' : ''}`;
+        return `row${i.active ? ' row-active' : ''}${i.selected ? ' row-selected' : ''}${this.critOpen && this.critCollapsible ? ' row-open' : ''}`;
     }
 
     get scoreStyle() {

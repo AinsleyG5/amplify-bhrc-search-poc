@@ -7,6 +7,9 @@ import { addableKinds, weights, READ_ONLY_KINDS, clone, kindLabel, weightShort, 
 import { labels, tr } from 'c/csI18n';
 
 const AUTOCOMPLETE_DEBOUNCE_MS = 250;
+/** A job match can bring 30+ criteria: above CHIP_COLLAPSE_AT, only the first CHIP_VISIBLE show until expanded. */
+const CHIP_COLLAPSE_AT = 10;
+const CHIP_VISIBLE = 8;
 const TYPEAHEAD_DEBOUNCE_MS = 300;
 /** Longer text reads as a sentence for the AI, so only the "Search with AI" row is offered. */
 const TYPEAHEAD_MAX_WORDS = 4;
@@ -469,6 +472,28 @@ export default class CsSearchBar extends LightningElement {
                 removeLabel: tr('removeLabel', { label: it.label || it.value }, this.lang)
             };
         });
+    }
+
+    chipsExpanded = false;
+
+    get chipsCollapsible() {
+        return this.chips.length > CHIP_COLLAPSE_AT;
+    }
+
+    /** The first CHIP_VISIBLE in order (a job match lists title, Textkernel parts and location first); the chip being edited always shows. */
+    get visibleChips() {
+        const all = this.chips;
+        if (!this.chipsCollapsible || this.chipsExpanded) return all;
+        const editing = this.editor && this.editor.id;
+        return all.filter((c, i) => i < CHIP_VISIBLE || c.id === editing);
+    }
+
+    get chipsToggleText() {
+        return this.chipsExpanded ? this.L.showLess : tr('nMore', { n: this.chips.length - this.visibleChips.length }, this.lang);
+    }
+
+    toggleChips() {
+        this.chipsExpanded = !this.chipsExpanded;
     }
 
     get filterChips() {

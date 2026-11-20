@@ -620,3 +620,28 @@
         display: none;
     }
 }
+
+/* "+N more" / "Show less" for long criteria lists (job match) */
+.chip-more {
+    display: inline-flex;
+    align-items: center;
+    height: 32px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--amp-r-pill);
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.chip-more:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.chip-more:focus-visible {
+    outline: 0;
+    box-shadow: 0 0 0 2px #fff;
+}

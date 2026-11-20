@@ -38,12 +38,17 @@
         </div>
 
         <div class="crit" aria-label={L.criteriaMet}>
-            <template for:each={item.criteria} for:item="c">
+            <template for:each={visibleCriteria} for:item="c">
                 <span key={c.id} class={c.cls} title={c.title}>
                     <c-cs-icon name={c.icon} size="11" stroke-width="3"></c-cs-icon>
                     <span class="crit-label">{c.label}</span>
                     <span class="sr-only">{c.statusText}</span>
                 </span>
+            </template>
+            <template lwc:if={critCollapsible}>
+                <button class="crit-more" data-action="toggle-criteria" onclick={toggleCriteria} aria-expanded={critOpen} title={critMoreTitle}>
+                    {critMoreText}
+                </button>
             </template>
         </div>
 
